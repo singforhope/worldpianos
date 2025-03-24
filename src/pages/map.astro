@@ -1,0 +1,461 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+import mockData from "../data/mockData.json";
+
+const pianoId = Astro.url.searchParams.get("pianoId");
+---
+
+<MainLayout>
+    <div class="w-full h-screen">
+        <div
+            id="map"
+            class="w-full h-full relative"
+            data-pianos={JSON.stringify(mockData.pianos)}
+        >
+            <div
+                class="absolute top-[10px] left-4 bg-base-100 rounded-lg shadow-lg p-2 z-50"
+            >
+                <h3 class="font-bold text-sm mb-2">Map Legend</h3>
+                <div class="flex items-center gap-2 mb-2">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 62 62"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <g clip-path="url(#clip0_1_2)">
+                            <circle
+                                cx="31"
+                                cy="31"
+                                r="28"
+                                fill="#F8F8F8"
+                                stroke="#F8F8F8"
+                                stroke-width="6"></circle>
+                            <path
+                                d="M11.8322 30.7951L20.2283 25.7239C21.6372 24.8742 22.3417 24.4494 22.828 23.8667C24.9326 21.345 23.0792 17.6204 23.3931 14.6879C23.7179 11.6525 26.635 7.50088 29.5755 6.21377C30.4806 5.81764 31.5187 5.81764 32.4238 6.21377C35.3643 7.50088 38.2814 11.6525 38.6062 14.6879C38.92 17.6204 37.0667 21.345 39.1713 23.8667C39.6576 24.4494 40.3623 24.8742 41.7711 25.7239L50.1679 30.7949C52.7378 32.3468 53.75 34.0032 53.75 37.1189C53.75 38.8148 52.9938 39.2696 51.4687 38.9233L36.7447 35.5806L36.0836 41.3215C35.8438 43.4033 35.7241 44.444 36.0706 45.3974C36.8823 47.6304 39.6387 49.459 41.322 51.0832C42.2523 51.9809 43.2675 54.5618 42.2068 55.7354C41.5518 56.4602 40.488 55.8719 39.7558 55.5894L32.7066 52.8687C31.8638 52.5434 31.4422 52.3808 30.9998 52.3808C30.5571 52.3808 30.1357 52.5434 29.2927 52.8687L22.2436 55.5894C21.5114 55.8719 20.4475 56.4602 19.7926 55.7354C18.7318 54.5618 19.7471 51.9809 20.6774 51.0832C22.3607 49.459 25.117 47.6304 25.9288 45.3974C26.2754 44.444 26.1555 43.4033 25.9158 41.3215L25.2547 35.5806L10.5316 38.9231C9.00588 39.2693 8.24956 38.8146 8.25002 37.118C8.25086 34.0028 9.2629 32.347 11.8322 30.7951Z"
+                                fill="#6B7280"></path>
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_1_2">
+                                <rect width="62" height="62" fill="white"
+                                ></rect>
+                            </clipPath>
+                        </defs>
+                    </svg>
+                    <span class="text-xs">Airport Piano</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <svg
+                        width="16"
+                        height="16"
+                        viewBox="0 0 62 62"
+                        fill="none"
+                        xmlns="http://www.w3.org/2000/svg"
+                    >
+                        <g clip-path="url(#clip0_3_27)">
+                            <circle
+                                cx="31"
+                                cy="31"
+                                r="28"
+                                fill="#F8F8F8"
+                                stroke="#F8F8F8"
+                                stroke-width="6"></circle>
+                            <path
+                                fill-rule="evenodd"
+                                clip-rule="evenodd"
+                                d="M9.91787 48.1686C9.9172 47.11 10.7748 46.2513 11.8333 46.2506L50.1667 46.2262C51.2252 46.2257 52.0839 47.0832 52.0845 48.1417C52.0853 49.2003 51.2277 50.059 50.1692 50.0596L11.8358 50.0839C10.7772 50.0847 9.91856 49.2272 9.91787 48.1686Z"
+                                fill="#800000"></path>
+                            <path
+                                fill-rule="evenodd"
+                                clip-rule="evenodd"
+                                d="M31.2001 18.5637C31.6712 17.6158 32.8216 17.2291 33.7696 17.7002L47.1862 24.3669C47.8379 24.6907 48.25 25.3557 48.25 26.0834V48.1667C48.25 49.2252 47.3919 50.0833 46.3333 50.0833C45.2748 50.0833 44.4167 49.2252 44.4167 48.1667V27.2712L32.0637 21.1331C31.1158 20.662 30.7292 19.5117 31.2001 18.5637Z"
+                                fill="#800000"></path>
+                            <path
+                                fill-rule="evenodd"
+                                clip-rule="evenodd"
+                                d="M34.3542 9.83334C34.3542 9.35081 34.1121 8.90047 33.7096 8.63431C33.3071 8.36814 32.7978 8.32168 32.3539 8.51057L15.1039 15.8494C14.5735 16.0751 14.2292 16.5958 14.2292 17.1722V48.1667C14.2292 48.9606 14.8728 49.6042 15.6667 49.6042H32.9167C33.7105 49.6042 34.3542 48.9606 34.3542 48.1667V9.83334ZM26.2156 26.5967C27.0095 26.5927 27.6499 25.9458 27.6458 25.1519C27.6418 24.358 26.995 23.7177 26.201 23.7217L22.3677 23.7411C21.5738 23.7452 20.9335 24.392 20.9375 25.1858C20.9415 25.9797 21.5884 26.6201 22.3823 26.6161L26.2156 26.5967ZM26.2156 34.258C27.0095 34.254 27.6499 33.6071 27.6458 32.8132C27.6418 32.0193 26.995 31.379 26.201 31.383L22.3677 31.4024C21.5738 31.4064 20.9335 32.0533 20.9375 32.8471C20.9415 33.641 21.5884 34.2814 22.3823 34.2774L26.2156 34.258ZM26.2156 41.9193C27.0095 41.9153 27.6499 41.2684 27.6458 40.4745C27.6418 39.6806 26.995 39.0403 26.201 39.0443L22.3677 39.0638C21.5738 39.0679 20.9335 39.7146 20.9375 40.5084C20.9415 41.3025 21.5884 41.9427 22.3823 41.9387L26.2156 41.9193Z"
+                                fill="#800000"></path>
+                        </g>
+                        <defs>
+                            <clipPath id="clip0_3_27">
+                                <rect width="62" height="62" fill="white"
+                                ></rect>
+                            </clipPath>
+                        </defs>
+                    </svg>
+                    <span class="text-xs">City Piano</span>
+                </div>
+                <div class="flex items-center gap-2 mt-2">
+                    <div
+                        class="w-4 h-[2px] bg-[#800000] opacity-60"
+                        style="background-image: linear-gradient(to right, #800000 50%, transparent 50%); background-size: 4px 1px;"
+                    >
+                    </div>
+                    <span class="text-xs">Nearest Pianos</span>
+                </div>
+            </div>
+        </div>
+    </div>
+</MainLayout>
+
+<script>
+    import mapboxgl from "mapbox-gl";
+    mapboxgl.accessToken =
+        "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ";
+
+    // Create airplane SVG icon
+    const airplaneIcon = document.createElement("div");
+    airplaneIcon.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 62 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g clip-path="url(#clip0_1_2)">
+                <circle cx="31" cy="31" r="28" fill="#F8F8F8" stroke="#F8F8F8" stroke-width="6"/>
+                <path d="M11.8322 30.7951L20.2283 25.7239C21.6372 24.8742 22.3417 24.4494 22.828 23.8667C24.9326 21.345 23.0792 17.6204 23.3931 14.6879C23.7179 11.6525 26.635 7.50088 29.5755 6.21377C30.4806 5.81764 31.5187 5.81764 32.4238 6.21377C35.3643 7.50088 38.2814 11.6525 38.6062 14.6879C38.92 17.6204 37.0667 21.345 39.1713 23.8667C39.6576 24.4494 40.3623 24.8742 41.7711 25.7239L50.1679 30.7949C52.7378 32.3468 53.75 34.0032 53.75 37.1189C53.75 38.8148 52.9938 39.2696 51.4687 38.9233L36.7447 35.5806L36.0836 41.3215C35.8438 43.4033 35.7241 44.444 36.0706 45.3974C36.8823 47.6304 39.6387 49.459 41.322 51.0832C42.2523 51.9809 43.2675 54.5618 42.2068 55.7354C41.5518 56.4602 40.488 55.8719 39.7558 55.5894L32.7066 52.8687C31.8638 52.5434 31.4422 52.3808 30.9998 52.3808C30.5571 52.3808 30.1357 52.5434 29.2927 52.8687L22.2436 55.5894C21.5114 55.8719 20.4475 56.4602 19.7926 55.7354C18.7318 54.5618 19.7471 51.9809 20.6774 51.0832C22.3607 49.459 25.117 47.6304 25.9288 45.3974C26.2754 44.444 26.1555 43.4033 25.9158 41.3215L25.2547 35.5806L10.5316 38.9231C9.00588 39.2693 8.24956 38.8146 8.25002 37.118C8.25086 34.0028 9.2629 32.347 11.8322 30.7951Z" fill="#6B7280"/>
+            </g>
+            <defs>
+                <clipPath id="clip0_1_2">
+                    <rect width="62" height="62" fill="white"/>
+                </clipPath>
+            </defs>
+        </svg>
+    `;
+
+    // Create city piano marker element (piano icon)
+    const cityPianoMarker = document.createElement("div");
+    cityPianoMarker.innerHTML = `
+        <svg width="24" height="24" viewBox="0 0 62 62" fill="none" xmlns="http://www.w3.org/2000/svg">
+            <g clip-path="url(#clip0_3_27)">
+                <circle cx="31" cy="31" r="28" fill="#F8F8F8" stroke="#F8F8F8" stroke-width="6"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M9.91787 48.1686C9.9172 47.11 10.7748 46.2513 11.8333 46.2506L50.1667 46.2262C51.2252 46.2257 52.0839 47.0832 52.0845 48.1417C52.0853 49.2003 51.2277 50.059 50.1692 50.0596L11.8358 50.0839C10.7772 50.0847 9.91856 49.2272 9.91787 48.1686Z" fill="#800000"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M31.2001 18.5637C31.6712 17.6158 32.8216 17.2291 33.7696 17.7002L47.1862 24.3669C47.8379 24.6907 48.25 25.3557 48.25 26.0834V48.1667C48.25 49.2252 47.3919 50.0833 46.3333 50.0833C45.2748 50.0833 44.4167 49.2252 44.4167 48.1667V27.2712L32.0637 21.1331C31.1158 20.662 30.7292 19.5117 31.2001 18.5637Z" fill="#800000"/>
+                <path fill-rule="evenodd" clip-rule="evenodd" d="M34.3542 9.83334C34.3542 9.35081 34.1121 8.90047 33.7096 8.63431C33.3071 8.36814 32.7978 8.32168 32.3539 8.51057L15.1039 15.8494C14.5735 16.0751 14.2292 16.5958 14.2292 17.1722V48.1667C14.2292 48.9606 14.8728 49.6042 15.6667 49.6042H32.9167C33.7105 49.6042 34.3542 48.9606 34.3542 48.1667V9.83334ZM26.2156 26.5967C27.0095 26.5927 27.6499 25.9458 27.6458 25.1519C27.6418 24.358 26.995 23.7177 26.201 23.7217L22.3677 23.7411C21.5738 23.7452 20.9335 24.392 20.9375 25.1858C20.9415 25.9797 21.5884 26.6201 22.3823 26.6161L26.2156 26.5967ZM26.2156 34.258C27.0095 34.254 27.6499 33.6071 27.6458 32.8132C27.6418 32.0193 26.995 31.379 26.201 31.383L22.3677 31.4024C21.5738 31.4064 20.9335 32.0533 20.9375 32.8471C20.9415 33.641 21.5884 34.2814 22.3823 34.2774L26.2156 34.258ZM26.2156 41.9193C27.0095 41.9153 27.6499 41.2684 27.6458 40.4745C27.6418 39.6806 26.995 39.0403 26.201 39.0443L22.3677 39.0638C21.5738 39.0679 20.9335 39.7146 20.9375 40.5084C20.9415 41.3025 21.5884 41.9427 22.3823 41.9387L26.2156 41.9193Z" fill="#800000"/>
+            </g>
+            <defs>
+                <clipPath id="clip0_3_27">
+                    <rect width="62" height="62" fill="white"/>
+                </clipPath>
+            </defs>
+        </svg>
+    `;
+
+    // Get piano data from the data attribute
+    const mapElement = document.getElementById("map");
+    const pianoData = JSON.parse(mapElement?.dataset.pianos || "[]");
+
+    console.log("Loaded piano data:", pianoData);
+    console.log("Number of pianos:", pianoData.length);
+    console.log(
+        "Piano categories:",
+        pianoData.map((p) => ({ name: p.name, category: p.category })),
+    );
+
+    // Get saved coordinates from localStorage
+    const savedCoordinates = localStorage.getItem("userCoordinates");
+    let defaultCenter = [0, 0]; // Center of the world
+    let defaultZoom = 1.5; // Zoom level for world view
+
+    if (savedCoordinates) {
+        try {
+            const { lat, lng } = JSON.parse(savedCoordinates);
+            defaultCenter = [lng, lat];
+            defaultZoom = 12; // Zoom in more when using user's location
+        } catch (error) {
+            console.error("Error parsing saved coordinates:", error);
+        }
+    }
+
+    // Get pianoId from URL if it exists
+    const urlParams = new URLSearchParams(window.location.search);
+    const pianoId = urlParams.get("pianoId");
+    let targetPiano = null;
+
+    if (pianoId) {
+        targetPiano = pianoData.find((p) => p.id === pianoId);
+        if (targetPiano) {
+            defaultCenter = targetPiano.coordinates;
+            defaultZoom = 15;
+        }
+    }
+
+    console.log(
+        "Initializing map with center:",
+        defaultCenter,
+        "zoom:",
+        defaultZoom,
+    );
+
+    const map = new mapboxgl.Map({
+        container: "map",
+        style: "mapbox://styles/mapbox/navigation-day-v1",
+        center: defaultCenter,
+        zoom: defaultZoom,
+        minZoom: 1.5,
+        maxZoom: 22,
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    // Wait for map to load before adding markers
+    map.on("load", () => {
+        console.log("Map loaded, adding markers...");
+        console.log("Pianos data:", pianoData);
+
+        // Add piano markers
+        pianoData.forEach((piano) => {
+            console.log(
+                "Adding marker for piano:",
+                piano.name,
+                "at coordinates:",
+                piano.coordinates,
+                "category:",
+                piano.category,
+                "type:",
+                piano.type,
+            );
+
+            // Create a custom popup
+            const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(`
+                <div class="p-2">
+                    <h3 class="font-bold text-lg">${piano.name}</h3>
+                    <p class="text-sm text-base-content/70">${piano.location}</p>
+                    <p class="text-sm mt-2">${piano.description}</p>
+                    <div class="mt-2 flex gap-2">
+                        <span class="badge badge-sm">${piano.type}</span>
+                        <span class="badge badge-sm badge-success">${piano.condition}</span>
+                        <span class="badge badge-sm badge-info">${piano.category}</span>
+                    </div>
+                    <div class="mt-2 text-xs text-base-content/70">
+                        <p>City: ${piano.city}</p>
+                        <p>Country: ${piano.country}</p>
+                    </div>
+                    <a href="/pianos/${piano.id}" target="_blank" class="btn btn-primary btn-sm mt-2 w-full">
+                        View Details
+                    </a>
+                </div>
+            `);
+
+            // Create and add the marker with appropriate icon based on category
+            const markerElement =
+                piano.category === "airport"
+                    ? airplaneIcon.cloneNode(true)
+                    : cityPianoMarker.cloneNode(true);
+
+            console.log(
+                "Created marker element for:",
+                piano.name,
+                "category:",
+                piano.category,
+                "element:",
+                markerElement,
+            );
+
+            const marker = new mapboxgl.Marker({
+                element: markerElement,
+                anchor: "center",
+                scale: 0.5, // Use the same scale for both types
+            })
+                .setLngLat(piano.coordinates)
+                .setPopup(popup)
+                .addTo(map);
+
+            // If this is the target piano, open its popup
+            if (targetPiano && piano.id === targetPiano.id) {
+                marker.togglePopup();
+            }
+
+            console.log("Marker added successfully for:", piano.name);
+        });
+
+        // Function to calculate distance between two points
+        function calculateDistance(
+            lat1: number,
+            lon1: number,
+            lat2: number,
+            lon2: number,
+        ): number {
+            const R = 6371; // Earth's radius in km
+            const dLat = ((lat2 - lat1) * Math.PI) / 180;
+            const dLon = ((lon2 - lon1) * Math.PI) / 180;
+            const a =
+                Math.sin(dLat / 2) * Math.sin(dLat / 2) +
+                Math.cos((lat1 * Math.PI) / 180) *
+                    Math.cos((lat2 * Math.PI) / 180) *
+                    Math.sin(dLon / 2) *
+                    Math.sin(dLon / 2);
+            const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+            return R * c;
+        }
+
+        // Function to draw lines to nearest pianos
+        function drawNearestPianoLines(userLat: number, userLng: number) {
+            // Calculate distances to all pianos
+            const pianosWithDistances = pianoData.map(
+                (piano: { coordinates: [number, number] }) => ({
+                    ...piano,
+                    distance: calculateDistance(
+                        userLat,
+                        userLng,
+                        piano.coordinates[1],
+                        piano.coordinates[0],
+                    ),
+                }),
+            );
+
+            // Sort by distance and get top 3
+            const nearestPianos = pianosWithDistances
+                .sort(
+                    (a: { distance: number }, b: { distance: number }) =>
+                        a.distance - b.distance,
+                )
+                .slice(0, 3);
+
+            // Remove existing lines if any
+            if (map.getSource("nearest-pianos")) {
+                map.removeLayer("nearest-pianos");
+                map.removeSource("nearest-pianos");
+            }
+
+            // Add new lines
+            map.addSource("nearest-pianos", {
+                type: "geojson",
+                data: {
+                    type: "FeatureCollection",
+                    features: nearestPianos.map(
+                        (piano: { coordinates: [number, number] }) => ({
+                            type: "Feature",
+                            properties: {},
+                            geometry: {
+                                type: "LineString",
+                                coordinates: [
+                                    [userLng, userLat],
+                                    piano.coordinates,
+                                ],
+                            },
+                        }),
+                    ),
+                },
+            });
+
+            map.addLayer({
+                id: "nearest-pianos",
+                type: "line",
+                source: "nearest-pianos",
+                layout: {
+                    "line-join": "round",
+                    "line-cap": "round",
+                },
+                paint: {
+                    "line-color": "#800000",
+                    "line-width": 2,
+                    "line-dasharray": [2, 2],
+                    "line-opacity": 0.6,
+                },
+            });
+        }
+
+        // Check for saved coordinates and draw lines if they exist
+        if (savedCoordinates) {
+            try {
+                const { lat, lng } = JSON.parse(savedCoordinates);
+                drawNearestPianoLines(lat, lng);
+            } catch (error) {
+                console.error("Error parsing saved coordinates:", error);
+            }
+        }
+
+        // Listen for storage events to update lines when location changes
+        window.addEventListener("storage", (e) => {
+            if (e.key === "userCoordinates" && e.newValue) {
+                try {
+                    const { lat, lng } = JSON.parse(e.newValue);
+                    drawNearestPianoLines(lat, lng);
+                } catch (error) {
+                    console.error("Error parsing new coordinates:", error);
+                }
+            }
+        });
+
+        // Listen for location change events
+        window.addEventListener("locationChanged", (e: CustomEvent) => {
+            const { lat, lng } = e.detail;
+
+            // Fly to the new location
+            map.flyTo({
+                center: [lng, lat],
+                zoom: 12,
+                duration: 2000,
+                essential: true,
+            });
+
+            // Update the nearest piano lines
+            drawNearestPianoLines(lat, lng);
+        });
+    });
+
+    // Add error handling for map load
+    map.on("error", (e: Error) => {
+        console.error("Map error:", e);
+    });
+</script>
+
+<style>
+    @import "https://unpkg.com/mapbox-gl@2.15.0/dist/mapbox-gl.css";
+
+    /* Custom styles for popups */
+    .mapboxgl-popup-content {
+        padding: 0;
+        border-radius: 0.5rem;
+        background: hsl(var(--b1));
+        color: hsl(var(--bc));
+    }
+
+    /* Remove focus outline from popup close button */
+    .mapboxgl-popup-close-button,
+    .mapboxgl-popup-close-button:focus,
+    .mapboxgl-popup-close-button:focus-visible,
+    .mapboxgl-popup-close-button:active,
+    .mapboxgl-popup-close-button:hover {
+        outline: none !important;
+        box-shadow: none !important;
+        -webkit-tap-highlight-color: transparent !important;
+        -webkit-touch-callout: none !important;
+        -webkit-user-select: none !important;
+        user-select: none !important;
+        background: transparent !important;
+        border: none !important;
+        padding: 0.5rem !important;
+        color: hsl(var(--bc)) !important;
+    }
+
+    /* Ensure map container has a minimum height */
+    #map {
+        min-height: 500px;
+    }
+
+    /* Custom marker styles */
+    .mapboxgl-marker {
+        cursor: pointer;
+        transition: transform 0.2s ease;
+    }
+
+    .mapboxgl-marker:hover {
+        transform: scale(1.1);
+    }
+
+    /* City piano marker styles */
+    .bg-maroon {
+        background-color: #800000 !important;
+        border: 2px solid white !important;
+        box-shadow: 0 0 4px rgba(0, 0, 0, 0.3) !important;
+        position: relative !important;
+        z-index: 1 !important;
+    }
+
+    /* Ensure city piano markers are visible */
+    .mapboxgl-marker .bg-maroon {
+        display: block !important;
+        visibility: visible !important;
+        opacity: 1 !important;
+    }
+</style>

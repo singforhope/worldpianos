@@ -1,0 +1,116 @@
+---
+import mockData from "../../data/mockData.json";
+
+interface Props {
+    isVisible: boolean;
+    searchQuery?: string;
+}
+
+const { isVisible, searchQuery = "" } = Astro.props;
+
+// Filter pianos based on search query
+const filteredPianos = mockData.pianos.filter(
+    (piano) =>
+        piano.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        piano.location.toLowerCase().includes(searchQuery.toLowerCase()),
+);
+
+// Filter events based on search query
+const filteredEvents = mockData.events.filter(
+    (event) =>
+        event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+        event.location.toLowerCase().includes(searchQuery.toLowerCase()),
+);
+---
+
+<div
+    class={`search-results absolute top-full left-0 right-0 bg-base-100 shadow-lg rounded-b-lg border-t border-base-300 z-50 transition-all duration-200 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}
+>
+    <!-- Pianos Section -->
+    {
+        filteredPianos.length > 0 && (
+            <div class="p-4">
+                <h3 class="text-lg font-semibold mb-3">Pianos</h3>
+                <div class="space-y-2">
+                    {filteredPianos.map((piano) => (
+                        <a
+                            href={`/pianos/${piano.id}`}
+                            class="flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                        >
+                            <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-6 w-6 text-primary"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                                    />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-medium">{piano.name}</div>
+                                <div class="text-sm text-base-content/70">
+                                    {piano.location}
+                                </div>
+                            </div>
+                        </a>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    <!-- Events Section -->
+    {
+        filteredEvents.length > 0 && (
+            <div class="p-4 border-t border-base-300">
+                <h3 class="text-lg font-semibold mb-3">Events</h3>
+                <div class="space-y-2">
+                    {filteredEvents.map((event) => (
+                        <a
+                            href={`/events/${event.id}`}
+                            class="flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                        >
+                            <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
+                                <svg
+                                    xmlns="http://www.w3.org/2000/svg"
+                                    class="h-6 w-6 text-primary"
+                                    fill="none"
+                                    viewBox="0 0 24 24"
+                                    stroke="currentColor"
+                                >
+                                    <path
+                                        stroke-linecap="round"
+                                        stroke-linejoin="round"
+                                        stroke-width="2"
+                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                    />
+                                </svg>
+                            </div>
+                            <div>
+                                <div class="font-medium">{event.name}</div>
+                                <div class="text-sm text-base-content/70">
+                                    {event.location} • {event.date} {event.time}
+                                </div>
+                            </div>
+                        </a>
+                    ))}
+                </div>
+            </div>
+        )
+    }
+
+    {
+        filteredPianos.length === 0 && filteredEvents.length === 0 && (
+            <div class="p-4 text-center text-base-content/70">
+                No results found
+            </div>
+        )
+    }
+</div>

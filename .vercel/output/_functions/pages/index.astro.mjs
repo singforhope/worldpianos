@@ -1,0 +1,41 @@
+import { c as createComponent, e as renderComponent, d as renderTemplate, m as maybeRenderHead } from '../chunks/astro/server_B7wYPocL.mjs';
+import 'kleur/colors';
+import { $ as $$MainLayout } from '../chunks/MainLayout_BkvJNTX7.mjs';
+export { renderers } from '../renderers.mjs';
+
+const $$Index = createComponent(($$result, $$props, $$slots) => {
+  return renderTemplate`${renderComponent($$result, "MainLayout", $$MainLayout, {}, { "default": ($$result2) => renderTemplate` ${maybeRenderHead()}<div class="w-full"> <!-- Hero Section --> <div class="hero min-h-[60vh] bg-base-200 w-full"> <div class="hero-content text-center"> <div class="max-w-3xl"> <h1 class="text-6xl font-bold mb-6">
+Discover Pianos Around the World
+</h1> <p class="text-xl mb-8">
+Join our global community of piano enthusiasts. Map,
+                        discover, and connect with pianos worldwide.
+</p> <div class="flex gap-4 justify-center"> <a href="/map" class="btn btn-primary">Explore Map</a> <a href="/events" class="btn btn-secondary">Find Events</a> </div> </div> </div> </div> <!-- Featured Sections --> <div class="w-full py-16"> <!-- Map Section --> <div class="card lg:card-side bg-base-100 shadow-xl mb-16 max-w-[1400px] mx-auto"> <figure class="lg:w-1/2"> <div class="w-full h-[400px] bg-base-200"> <!-- Map preview or placeholder --> <div class="w-full h-full flex items-center justify-center"> <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"></path> </svg> </div> </div> </figure> <div class="card-body lg:w-1/2"> <h2 class="card-title text-3xl">Interactive Piano Map</h2> <p class="text-lg">
+Explore our global collection of pianos. Find public
+                        pianos in your area, add new locations, and share your
+                        discoveries with the community.
+</p> <div class="card-actions justify-end"> <a href="/map" class="btn btn-primary">View Map</a> </div> </div> </div> <!-- Events Section --> <div class="card lg:card-side bg-base-100 shadow-xl mb-16 max-w-[1400px] mx-auto"> <div class="card-body lg:w-1/2"> <h2 class="card-title text-3xl">Piano Events</h2> <p class="text-lg">
+Discover piano-related events in your area. From
+                        recitals to meetups, find opportunities to connect with
+                        fellow piano enthusiasts.
+</p> <div class="card-actions justify-end"> <a href="/events" class="btn btn-primary">Browse Events</a> </div> </div> <figure class="lg:w-1/2"> <div class="w-full h-[400px] bg-base-200"> <!-- Events preview or placeholder --> <div class="w-full h-full flex items-center justify-center"> <svg xmlns="http://www.w3.org/2000/svg" class="h-24 w-24 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor"> <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"></path> </svg> </div> </div> </figure> </div> </div> <!-- Stats Section --> <div class="bg-base-200 py-16 w-full"> <div class="max-w-[1400px] mx-auto"> <div class="grid grid-cols-1 md:grid-cols-3 gap-8 text-center"> <div> <div class="text-4xl font-bold text-primary mb-2">
+1000+
+</div> <div class="text-lg">Pianos Mapped</div> </div> <div> <div class="text-4xl font-bold text-primary mb-2">
+50+
+</div> <div class="text-lg">Countries</div> </div> <div> <div class="text-4xl font-bold text-primary mb-2">
+5000+
+</div> <div class="text-lg">Community Members</div> </div> </div> </div> </div> </div> ` })}`;
+}, "/Users/jhs/Projects/sfh/worldpianos-final-prod/src/pages/index.astro", void 0);
+
+const $$file = "/Users/jhs/Projects/sfh/worldpianos-final-prod/src/pages/index.astro";
+const $$url = "";
+
+const _page = /*#__PURE__*/Object.freeze(/*#__PURE__*/Object.defineProperty({
+    __proto__: null,
+    default: $$Index,
+    file: $$file,
+    url: $$url
+}, Symbol.toStringTag, { value: 'Module' }));
+
+const page = () => _page;
+
+export { page };

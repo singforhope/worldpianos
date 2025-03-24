@@ -1,0 +1,56 @@
+---
+import "../styles/global.css";
+import Header from "../components/layout/Header.astro";
+import Footer from "../components/layout/Footer.astro";
+
+// Check if this is a full-screen page
+const isFullScreen = Astro.url.pathname === "/map";
+---
+
+<html>
+    <head>
+        <title>Worldpianos</title>
+        <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    </head>
+    <body data-theme="light">
+        <div class="flex flex-col min-h-screen">
+            <Header />
+            <main class={`flex-1 ${isFullScreen ? "" : "w-full"}`}>
+                <slot />
+            </main>
+            <Footer />
+        </div>
+    </body>
+</html>
+<script is:inline>
+    // Initialize theme
+    const html = document.documentElement;
+
+    // Check for saved theme preference
+    const savedTheme = localStorage.getItem("theme");
+
+    // If no saved theme, check system preference
+    if (!savedTheme) {
+        const prefersDark = window.matchMedia(
+            "(prefers-color-scheme: dark)",
+        ).matches;
+        html.setAttribute("data-theme", prefersDark ? "dark" : "light");
+    } else {
+        html.setAttribute("data-theme", savedTheme);
+    }
+
+    // Listen for system theme changes
+    window
+        .matchMedia("(prefers-color-scheme: dark)")
+        .addEventListener("change", (e) => {
+            if (!localStorage.getItem("theme")) {
+                html.setAttribute("data-theme", e.matches ? "dark" : "light");
+            }
+        });
+</script>
+
+<style is:global>
+    :root {
+        color-scheme: light dark;
+    }
+</style>
