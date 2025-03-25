@@ -1,0 +1,370 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+---
+
+<MainLayout>
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Introduction Section -->
+        <div class="prose max-w-none mb-12">
+            <h1 class="text-center text-3xl font-bold mb-8 border-b pb-4">
+                Media Favorites
+            </h1>
+            <p class="mb-4">
+                Piano pilgrims spend a fair amount of time traveling, always
+                looking for new pianos, audiences and fellow pilgrims. Many of
+                those we've met or watched playing in real life, some are found
+                online.
+            </p>
+            <p class="mb-4">
+                We do realize footage below isn't exclusively about Public
+                Pianos and some of these players aren't exactly amateurs, but
+                all these moments have a simple thing in common: They bring a
+                smile to our faces, a tear of joy sometimes…
+            </p>
+            <p class="italic">
+                Kindly make sure to drop us a line when there's an obvious
+                moment of beauty missing!
+            </p>
+        </div>
+
+        <!-- Instant Happiness Section -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold mb-6 text-[#24478f]">
+                Instant Happiness & Lasting Smiles
+            </h2>
+
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <span>Show</span>
+                    <select class="select select-bordered select-sm w-20">
+                        <option>10</option>
+                        <option selected>16</option>
+                        <option>25</option>
+                    </select>
+                    <span>entries per page</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>Search:</span>
+                    <input
+                        type="text"
+                        class="input input-bordered input-sm w-64"
+                    />
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border rounded-lg">
+                <table class="table table-zebra w-full">
+                    <thead class="bg-base-200">
+                        <tr>
+                            <th class="w-8">ID</th>
+                            <th class="w-20">Duration</th>
+                            <th>Title</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>A</td>
+                            <td>03:13</td>
+                            <td
+                                >Bad/Smooth Criminal mash-up by Michael Jackson
+                                - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Covered by Peter Bence</a
+                                ></td
+                            >
+                        </tr>
+                        <tr>
+                            <td>B</td>
+                            <td>02:39</td>
+                            <td
+                                >Get Lucky by Daft Punk - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Covered by Daft Pianists (10-handedly :-D)</a
+                                ></td
+                            >
+                        </tr>
+                        <tr>
+                            <td>C</td>
+                            <td>03:27</td>
+                            <td
+                                >Green Onions Tune by Booker T. Jones & The MG's
+                                - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Covered by Terrence Shider</a
+                                ></td
+                            >
+                        </tr>
+                        <tr>
+                            <td>D</td>
+                            <td>08:10</td>
+                            <td
+                                >Frederic Chopin's Nocturne (mash-up) - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >"Frederic's Dream of the Blues" by Luca
+                                    Sestak</a
+                                ></td
+                            >
+                        </tr>
+                        <tr>
+                            <td>E</td>
+                            <td>04:34</td>
+                            <td
+                                >Trouble in Mind by Richard M. Jones - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Covered by AJ Croce & Michael Bizar</a
+                                ></td
+                            >
+                        </tr>
+                        <tr>
+                            <td>F</td>
+                            <td>06:01</td>
+                            <td
+                                >Nothing Else Matters by Metallica - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Covered by Richard Blumenfeld</a
+                                ></td
+                            >
+                        </tr>
+                        <tr>
+                            <td>G</td>
+                            <td>06:32</td>
+                            <td
+                                >New York State of Mind by Billy Joel - <a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Covered by Michael Pollack... and Billy
+                                    Joel 😀</a
+                                ></td
+                            >
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center mt-4">
+                <div>Showing 1 to 7 of 7 entries</div>
+                <div class="join">
+                    <button class="join-item btn btn-sm">‹</button>
+                    <button class="join-item btn btn-sm btn-active">1</button>
+                    <button class="join-item btn btn-sm">›</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Top 10 Favorite Footage Section -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold mb-6 text-[#24478f]">
+                Top 10 – Favorite Footage
+            </h2>
+            <div class="overflow-x-auto border rounded-lg">
+                <table class="table table-zebra w-full">
+                    <thead class="bg-base-200">
+                        <tr>
+                            <th class="w-16">Nr.</th>
+                            <th class="w-20">Lasts</th>
+                            <th>Title</th>
+                            <th>Comments</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>A</td>
+                            <td>04:14</td>
+                            <td
+                                ><a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Terry Miles' Brawl at a Birmingham Mall</a
+                                ></td
+                            >
+                            <td
+                                >Watch the twist at 02:41 and the handshake!...</td
+                            >
+                        </tr>
+                        <tr>
+                            <td>B</td>
+                            <td>04:10</td>
+                            <td
+                                ><a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Street Performer brings Audience to Tears</a
+                                ></td
+                            >
+                            <td
+                                >Hope to meet Mr. Colin Huggins and play
+                                together one day.</td
+                            >
+                        </tr>
+                        <tr>
+                            <td>C</td>
+                            <td>02:31</td>
+                            <td
+                                ><a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Piano for Thai Mother and Baby Elephant</a
+                                ></td
+                            >
+                            <td
+                                >Mr. Paul Burton deserves our biggest respect,
+                                check other recitals.</td
+                            >
+                        </tr>
+                        <tr>
+                            <td>D</td>
+                            <td>03:52</td>
+                            <td
+                                ><a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Chicago's Union Station Magical Piano</a
+                                ></td
+                            >
+                            <td>If only we'd been around that Christmas....</td>
+                        </tr>
+                        <tr>
+                            <td>E</td>
+                            <td>03:37</td>
+                            <td
+                                ><a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Random 3-way encounter went viral!</a
+                                ></td
+                            >
+                            <td
+                                >We know it was random, since we were live
+                                witnessing them 🙂</td
+                            >
+                        </tr>
+                        <tr>
+                            <td>F</td>
+                            <td>42:28</td>
+                            <td>
+                                Instrument of Change: Street Pianos,
+                                <a href="#" class="text-red-600 hover:underline"
+                                    >Documentary (YouTube)</a
+                                > and
+                                <a href="#" class="text-red-600 hover:underline"
+                                    >Facebook</a
+                                >
+                            </td>
+                            <td
+                                >Multi award-winning documentary, in and around
+                                London (GB)</td
+                            >
+                        </tr>
+                        <tr>
+                            <td>G</td>
+                            <td>13:42</td>
+                            <td
+                                ><a
+                                    href="#"
+                                    class="text-red-600 hover:underline"
+                                    >Instruments in the Architecture</a
+                                ></td
+                            >
+                            <td
+                                >Building the Pianodrome in Edinburgh, Scotland,
+                                United Kingdom.</td
+                            >
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Meet the Organizers Section -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold mb-6 text-[#24478f]">
+                Meet the Organizers – Favorite footage
+            </h2>
+            <p class="mb-4">
+                Here's a few short movies where some of the heroes introduce
+                themselves (in pretty random order 😉):
+            </p>
+            <ul class="list-disc list-inside space-y-2">
+                <li>
+                    <a href="#" class="text-red-600 hover:underline"
+                        >Santa Barbara (US_CA) – Pianos on State</a
+                    >
+                </li>
+                <li>
+                    <a href="#" class="text-red-600 hover:underline"
+                        >Liverpool ONE (GB) – Tickle the Ivories</a
+                    > – Award winning documentary (15:01)
+                </li>
+                <li>Work in Progress…</li>
+            </ul>
+        </div>
+
+        <!-- Top 10 Articles Section -->
+        <div class="mb-12">
+            <h2 class="text-2xl font-bold mb-6 text-[#24478f]">
+                Top 10 – Articles
+            </h2>
+            <ul class="list-disc list-inside space-y-2">
+                <li>
+                    <a href="#" class="text-red-600 hover:underline"
+                        >10 weirdest pianos ever built</a
+                    >
+                </li>
+                <li>Work in Progress…</li>
+            </ul>
+        </div>
+
+        <!-- Social Share Section -->
+        <div class="text-center mt-8">
+            <p class="mb-4">Share this page</p>
+            <div class="flex justify-center gap-4">
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#3b5998] hover:bg-[#3b5998]/80 text-white"
+                >
+                    <i class="fab fa-facebook-f"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#25d366] hover:bg-[#25d366]/80 text-white"
+                >
+                    <i class="fab fa-whatsapp"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#0077b5] hover:bg-[#0077b5]/80 text-white"
+                >
+                    <i class="fab fa-linkedin-in"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#1da1f2] hover:bg-[#1da1f2]/80 text-white"
+                >
+                    <i class="fab fa-twitter"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#0f9d58] hover:bg-[#0f9d58]/80 text-white"
+                >
+                    <i class="fas fa-envelope"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</MainLayout>
+
+<style>
+    .table th:first-child {
+        position: static;
+    }
+    .table td {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+</style>

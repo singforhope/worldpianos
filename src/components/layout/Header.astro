@@ -2,6 +2,8 @@
 // Header.astro
 import Results from "../search/Results.astro";
 import Location from "../search/Location.astro";
+import { Image } from "astro:assets";
+import logo from "../../assets/logo.png";
 
 const isLoggedIn = true; // This would come from your auth system
 const currentPath = Astro.url.pathname;
@@ -59,8 +61,18 @@ const isActive = (path: string) => currentPath.startsWith(path);
             </ul>
         </div>
         <!-- Logo -->
-        <a href="/" class="btn btn-ghost normal-case text-xl">
-            <span class="text-primary">World</span>Pianos
+        <a
+            href="/"
+            class="btn btn-ghost normal-case text-2xl flex items-center gap-1"
+        >
+            <div class="w-9 h-9">
+                <Image
+                    src={logo}
+                    alt="Worldpianos Logo"
+                   
+                />
+            </div>
+            <span class="text-primary -mr-1">World</span>Pianos
         </a>
         <!-- Desktop Menu -->
         <ul class="menu menu-horizontal px-1 hidden lg:flex">
