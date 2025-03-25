@@ -7,19 +7,17 @@ import Footer from "../components/layout/Footer.astro";
 const isFullScreen = Astro.url.pathname === "/map";
 ---
 
-<html>
+<html data-theme="light">
     <head>
         <title>Worldpianos</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </head>
-    <body data-theme="light">
-        <div class="flex flex-col min-h-screen">
-            <Header />
-            <main class={`flex-1 ${isFullScreen ? "" : "w-full"}`}>
-                <slot />
-            </main>
-            <Footer />
-        </div>
+    <body class="flex flex-col h-screen overflow-hidden">
+        <Header />
+        <main class={`flex-grow overflow-auto ${isFullScreen ? "" : "w-full"}`}>
+            <slot />
+        </main>
+        <Footer />
     </body>
 </html>
 <script is:inline>
@@ -29,24 +27,17 @@ const isFullScreen = Astro.url.pathname === "/map";
     // Check for saved theme preference
     const savedTheme = localStorage.getItem("theme");
 
-    // If no saved theme, check system preference
+    // If no saved theme, use light theme (don't check system preference)
     if (!savedTheme) {
-        const prefersDark = window.matchMedia(
-            "(prefers-color-scheme: dark)",
-        ).matches;
-        html.setAttribute("data-theme", prefersDark ? "dark" : "light");
+        // Set to light theme by default
+        localStorage.setItem("theme", "light");
     } else {
+        // Apply saved theme
         html.setAttribute("data-theme", savedTheme);
     }
 
-    // Listen for system theme changes
-    window
-        .matchMedia("(prefers-color-scheme: dark)")
-        .addEventListener("change", (e) => {
-            if (!localStorage.getItem("theme")) {
-                html.setAttribute("data-theme", e.matches ? "dark" : "light");
-            }
-        });
+    // Listen for system theme changes but don't automatically apply them
+    // User must explicitly choose theme via the toggle
 </script>
 
 <style is:global>

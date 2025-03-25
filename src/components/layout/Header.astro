@@ -279,7 +279,10 @@ const isActive = (path: string) => currentPath.startsWith(path);
         });
 
         // Update text based on current theme
-        const currentTheme = html.getAttribute("data-theme") || "light";
+        // Make sure we get the theme from localStorage to be consistent
+        const currentTheme = localStorage.getItem("theme") || "light";
+        // Also ensure the HTML attribute is set correctly
+        html.setAttribute("data-theme", currentTheme);
         themeText.textContent =
             currentTheme === "light" ? "Dark Mode" : "Light Mode";
     }
@@ -303,7 +306,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
         // Handle form submission
         searchForm.addEventListener("submit", (e) => {
             e.preventDefault();
-            const searchQuery = searchInput.value.trim();
+            const searchQuery = (searchInput as HTMLInputElement).value.trim();
             if (searchQuery) {
                 window.location.href = `/?q=${encodeURIComponent(searchQuery)}`;
             }
