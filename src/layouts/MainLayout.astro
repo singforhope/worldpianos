@@ -2,6 +2,8 @@
 import "../styles/global.css";
 import Header from "../components/layout/Header.astro";
 import Footer from "../components/layout/Footer.astro";
+import PianoForm from "../components/piano/PianoForm.astro";
+import EventForm from "../components/community/EventForm.astro";
 
 // Check if this is a full-screen page
 const isFullScreen = Astro.url.pathname === "/map";
@@ -18,6 +20,44 @@ const isFullScreen = Astro.url.pathname === "/map";
             <slot />
         </main>
         <Footer />
+
+        <!-- Piano Modal -->
+        <dialog id="piano-modal" class="modal">
+            <div class="modal-box max-w-3xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Add a New Piano</h3>
+                    <form method="dialog" class="flex">
+                        <button class="btn btn-sm btn-outline">
+                            Close <span class="text-xs opacity-60 ml-1">(Esc)</span>
+                        </button>
+                    </form>
+                </div>
+                <div class="divider mt-0 mb-4"></div>
+                <PianoForm formTitle="" />
+            </div>
+            <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+            </form>
+        </dialog>
+
+        <!-- Event Modal -->
+        <dialog id="event-modal" class="modal">
+            <div class="modal-box max-w-3xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Add a New Event</h3>
+                    <form method="dialog" class="flex">
+                        <button class="btn btn-sm btn-outline">
+                            Close <span class="text-xs opacity-60 ml-1">(Esc)</span>
+                        </button>
+                    </form>
+                </div>
+                <div class="divider mt-0 mb-4"></div>
+                <EventForm formTitle="" />
+            </div>
+            <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+            </form>
+        </dialog>
     </body>
 </html>
 <script is:inline>
@@ -38,6 +78,42 @@ const isFullScreen = Astro.url.pathname === "/map";
 
     // Listen for system theme changes but don't automatically apply them
     // User must explicitly choose theme via the toggle
+</script>
+
+<script is:inline>
+    // Modal functionality
+    document.addEventListener('DOMContentLoaded', () => {
+        // Piano Modal
+        const pianoModal = document.getElementById('piano-modal');
+        const openPianoModalBtn = document.getElementById('open-piano-modal');
+        const openPianoModalBtns = document.querySelectorAll('.open-piano-modal');
+        
+        if (openPianoModalBtn && pianoModal) {
+            openPianoModalBtn.addEventListener('click', () => {
+                pianoModal.showModal();
+            });
+        }
+        
+        openPianoModalBtns.forEach(btn => {
+            if (btn && pianoModal) {
+                btn.addEventListener('click', () => {
+                    pianoModal.showModal();
+                });
+            }
+        });
+        
+        // Event Modal
+        const eventModal = document.getElementById('event-modal');
+        const openEventModalBtns = document.querySelectorAll('.open-event-modal');
+        
+        openEventModalBtns.forEach(btn => {
+            if (btn && eventModal) {
+                btn.addEventListener('click', () => {
+                    eventModal.showModal();
+                });
+            }
+        });
+    });
 </script>
 
 <style is:global>

@@ -21,14 +21,7 @@ const { formTitle = "Add a New Piano" } = Astro.props;
           <span class="label-text">Name of Piano</span>
           <span class="label-text-alt text-error">*</span>
         </label>
-        <input 
-          type="text" 
-          id="piano-name" 
-          name="pianoName" 
-          placeholder="Enter piano name" 
-          class="input input-bordered w-full" 
-          required
-        />
+        <input type="text" id="piano-name" name="pianoName" placeholder="Enter piano name" class="input input-bordered w-full" required />
       </div>
       
       <!-- Location -->
@@ -37,14 +30,7 @@ const { formTitle = "Add a New Piano" } = Astro.props;
           <span class="label-text">Location</span>
           <span class="label-text-alt text-error">*</span>
         </label>
-        <input 
-          type="text" 
-          id="location" 
-          name="location" 
-          placeholder="Enter location" 
-          class="input input-bordered w-full" 
-          required
-        />
+        <input type="text" id="location" name="location" placeholder="Enter location" class="input input-bordered w-full" required />
       </div>
       
       <!-- Last Maintained Date -->
@@ -52,12 +38,7 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         <label for="maintained-date" class="label">
           <span class="label-text">Last Maintained Date</span>
         </label>
-        <input 
-          type="date" 
-          id="maintained-date" 
-          name="maintainedDate" 
-          class="input input-bordered w-full" 
-        />
+        <input type="date" id="maintained-date" name="maintainedDate" class="input input-bordered w-full" />
       </div>
       
       <!-- Picture Upload -->
@@ -65,13 +46,7 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         <label for="piano-picture" class="label">
           <span class="label-text">Piano Picture</span>
         </label>
-        <input 
-          type="file" 
-          id="piano-picture" 
-          name="pianoPicture" 
-          accept="image/*"
-          class="file-input file-input-bordered w-full" 
-        />
+        <input type="file" id="piano-picture" name="pianoPicture" accept="image/*" class="file-input file-input-bordered w-full" />
         <div class="mt-2">
           <div id="image-preview" class="hidden mt-2">
             <img id="preview-img" src="" alt="Preview" class="max-h-48 rounded-lg" />
@@ -85,12 +60,7 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         <label for="notes" class="label">
           <span class="label-text">Additional Notes</span>
         </label>
-        <textarea 
-          id="notes" 
-          name="notes" 
-          placeholder="Any additional information about this piano" 
-          class="textarea textarea-bordered w-full h-24"
-        ></textarea>
+        <textarea id="notes" name="notes" placeholder="Any additional information about this piano" class="textarea textarea-bordered w-full h-24"></textarea>
       </div>
       
       <!-- Form Status Messages -->
@@ -108,27 +78,27 @@ const { formTitle = "Add a New Piano" } = Astro.props;
 </div>
 
 <script define:vars={{ contactEmail }}>
-  document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('piano-form');
-    const fileInput = document.getElementById('piano-picture');
-    const imagePreview = document.getElementById('image-preview');
-    const previewImg = document.getElementById('preview-img');
-    const removeImageBtn = document.getElementById('remove-image');
-    const formStatus = document.getElementById('form-status');
-    const submitBtn = document.getElementById('submit-btn');
-    const submitText = document.getElementById('submit-text');
-    const loadingSpinner = document.getElementById('loading-spinner');
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("piano-form");
+    const fileInput = document.getElementById("piano-picture");
+    const imagePreview = document.getElementById("image-preview");
+    const previewImg = document.getElementById("preview-img");
+    const removeImageBtn = document.getElementById("remove-image");
+    const formStatus = document.getElementById("form-status");
+    const submitBtn = document.getElementById("submit-btn");
+    const submitText = document.getElementById("submit-text");
+    const loadingSpinner = document.getElementById("loading-spinner");
     
     // Handle image preview
     if (fileInput) {
-      fileInput.addEventListener('change', (e) => {
+      fileInput.addEventListener("change", (e) => {
         const file = e.target.files[0];
         if (file) {
           const reader = new FileReader();
           reader.onload = (e) => {
             if (previewImg && imagePreview) {
               previewImg.src = e.target.result;
-              imagePreview.classList.remove('hidden');
+              imagePreview.classList.remove("hidden");
             }
           };
           reader.readAsDataURL(file);
@@ -138,24 +108,24 @@ const { formTitle = "Add a New Piano" } = Astro.props;
     
     // Handle remove image button
     if (removeImageBtn) {
-      removeImageBtn.addEventListener('click', () => {
+      removeImageBtn.addEventListener("click", () => {
         if (fileInput && imagePreview) {
-          fileInput.value = '';
-          imagePreview.classList.add('hidden');
+          fileInput.value = "";
+          imagePreview.classList.add("hidden");
         }
       });
     }
     
     // Form submission
     if (form) {
-      form.addEventListener('submit', async (e) => {
+      form.addEventListener("submit", async (e) => {
         e.preventDefault();
         
         // Show loading state
         if (submitBtn && submitText && loadingSpinner) {
           submitBtn.disabled = true;
-          submitText.textContent = 'Sending...';
-          loadingSpinner.classList.remove('hidden');
+          submitText.textContent = "Sending...";
+          loadingSpinner.classList.remove("hidden");
         }
         
         // Get form data
@@ -167,23 +137,23 @@ const { formTitle = "Add a New Piano" } = Astro.props;
           await simulateSendEmail(formData, contactEmail);
           
           // Show success message
-          showStatus('success', 'Piano information submitted successfully! We will review your submission.');
+          showStatus("success", "Piano information submitted successfully! We will review your submission.");
           
           // Reset form
           form.reset();
           if (imagePreview) {
-            imagePreview.classList.add('hidden');
+            imagePreview.classList.add("hidden");
           }
         } catch (error) {
           // Show error message
-          showStatus('error', 'There was an error submitting the form. Please try again.');
-          console.error('Form submission error:', error);
+          showStatus("error", "There was an error submitting the form. Please try again.");
+          console.error("Form submission error:", error);
         } finally {
           // Reset button state
           if (submitBtn && submitText && loadingSpinner) {
             submitBtn.disabled = false;
-            submitText.textContent = 'Submit';
-            loadingSpinner.classList.add('hidden');
+            submitText.textContent = "Submit";
+            loadingSpinner.classList.add("hidden");
           }
         }
       });
@@ -193,16 +163,16 @@ const { formTitle = "Add a New Piano" } = Astro.props;
     function showStatus(type, message) {
       if (formStatus) {
         formStatus.textContent = message;
-        formStatus.classList.remove('hidden', 'alert-success', 'alert-error');
-        formStatus.classList.add(type === 'success' ? 'alert-success' : 'alert-error');
+        formStatus.classList.remove("hidden", "alert-success", "alert-error");
+        formStatus.classList.add(type === "success" ? "alert-success" : "alert-error");
         
         // Scroll to status message
-        formStatus.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+        formStatus.scrollIntoView({ behavior: "smooth", block: "nearest" });
         
         // Hide message after 5 seconds if it's a success message
-        if (type === 'success') {
+        if (type === "success") {
           setTimeout(() => {
-            formStatus.classList.add('hidden');
+            formStatus.classList.add("hidden");
           }, 5000);
         }
       }
@@ -211,14 +181,14 @@ const { formTitle = "Add a New Piano" } = Astro.props;
     // Simulate sending an email (in a real app, this would be a server endpoint)
     async function simulateSendEmail(formData, email) {
       // This is a simulation - in a real app, you would send this to your backend
-      console.log('Sending form data to:', email);
+      console.log("Sending form data to:", email);
       
       // Extract form data for logging
       const formDataObj = {};
       formData.forEach((value, key) => {
         formDataObj[key] = value instanceof File ? `File: ${value.name}` : value;
       });
-      console.log('Form data:', formDataObj);
+      console.log("Form data:", formDataObj);
       
       // Simulate network delay
       return new Promise((resolve) => {

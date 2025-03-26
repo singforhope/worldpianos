@@ -1,0 +1,110 @@
+---
+// EventForm.astro - Simplified version
+// Import mock data to get pianos for the dropdown
+import mockData from "../../data/mockData.json";
+
+interface Props {
+  formTitle?: string;
+}
+
+const { formTitle = "Add a New Event" } = Astro.props;
+
+// Get pianos for the dropdown
+const pianos = mockData.pianos || [];
+---
+
+<div class="card bg-base-100 shadow-xl">
+  <div class="card-body">
+    <h2 class="card-title text-2xl mb-6">{formTitle}</h2>
+    
+    <form action="#" method="POST" class="space-y-6" enctype="multipart/form-data">
+      <!-- Event Name -->
+      <div class="form-control w-full">
+        <label for="event-name" class="label">
+          <span class="label-text">Name of Event</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <input type="text" id="event-name" name="eventName" placeholder="Enter event name" class="input input-bordered w-full" required />
+      </div>
+      
+      <!-- Location -->
+      <div class="form-control w-full">
+        <label for="location" class="label">
+          <span class="label-text">Location</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <input type="text" id="location" name="location" placeholder="Enter location" class="input input-bordered w-full" required />
+      </div>
+      
+      <!-- Event Date and Time -->
+      <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+        <div class="form-control w-full">
+          <label for="event-date" class="label">
+            <span class="label-text">Event Date</span>
+            <span class="label-text-alt text-error">*</span>
+          </label>
+          <input type="date" id="event-date" name="eventDate" class="input input-bordered w-full" required />
+        </div>
+        
+        <div class="form-control w-full">
+          <label for="event-time" class="label">
+            <span class="label-text">Event Time</span>
+            <span class="label-text-alt text-error">*</span>
+          </label>
+          <input type="time" id="event-time" name="eventTime" class="input input-bordered w-full" required />
+        </div>
+      </div>
+      
+      <!-- Related Piano -->
+      <div class="form-control w-full">
+        <label for="related-piano" class="label">
+          <span class="label-text">Related Piano</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <select id="related-piano" name="relatedPiano" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select a piano</option>
+          {pianos.map((piano) => (
+            <option value={piano.id}>{piano.name} - {piano.location}</option>
+          ))}
+        </select>
+      </div>
+      
+      <!-- Description -->
+      <div class="form-control w-full">
+        <label for="description" class="label">
+          <span class="label-text">Description</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <textarea id="description" name="description" placeholder="Describe the event" class="textarea textarea-bordered w-full h-32" required></textarea>
+      </div>
+      
+      <!-- Picture Upload -->
+      <div class="form-control w-full">
+        <label for="event-picture" class="label">
+          <span class="label-text">Event Picture</span>
+        </label>
+        <input type="file" id="event-picture" name="eventPicture" accept="image/*" class="file-input file-input-bordered w-full" />
+      </div>
+      
+      <!-- Event Type -->
+      <div class="form-control w-full">
+        <label for="event-type" class="label">
+          <span class="label-text">Event Type</span>
+        </label>
+        <select id="event-type" name="eventType" class="select select-bordered w-full">
+          <option value="Concert">Concert</option>
+          <option value="Recital">Recital</option>
+          <option value="Festival">Festival</option>
+          <option value="Workshop">Workshop</option>
+          <option value="Competition">Competition</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      
+      <!-- Submit Button -->
+      <div class="form-control mt-6">
+        <button type="submit" class="btn btn-primary">Submit</button>
+      </div>
+    </form>
+  </div>
+</div>

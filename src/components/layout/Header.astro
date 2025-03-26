@@ -56,6 +56,28 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         >About</a
                     >
                 </li>
+                <li class="menu-title pt-2">
+                    <span>Actions</span>
+                </li>
+                <li>
+                    <button class="open-piano-modal">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M12 4v16m8-8H4"></path>
+                        </svg>
+                        Add Piano
+                    </button>
+                </li>
+                <!-- Add Event option removed -->
             </ul>
         </div>
         <!-- Logo -->
@@ -145,8 +167,8 @@ const isActive = (path: string) => currentPath.startsWith(path);
         <!-- Location Button -->
         <Location className="mr-2" />
 
-        <!-- Add Piano Button -->
-        <a href="/pianos/add" class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
+        <!-- Add Piano Button (Modal Trigger) -->
+        <button id="open-piano-modal" class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
             <svg
                 xmlns="http://www.w3.org/2000/svg"
                 class="h-5 w-5"
@@ -161,7 +183,9 @@ const isActive = (path: string) => currentPath.startsWith(path);
                     d="M12 4v16m8-8H4"></path>
             </svg>
             Add Piano
-        </a>
+        </button>
+        
+        <!-- Add Event Button removed -->
 
         {
             !isLoggedIn ? (
