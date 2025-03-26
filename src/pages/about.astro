@@ -5,89 +5,133 @@ import MainLayout from "../layouts/MainLayout.astro";
 <MainLayout>
     <div class="w-full">
         <!-- Hero Section -->
-        <div class="hero min-h-[40vh] bg-base-200 rounded-box mb-12">
-            <div class="hero-content text-center">
-                <div class="max-w-2xl">
+        <div class="hero min-h-[50vh] bg-base-200 rounded-box mb-12 relative overflow-hidden">
+            <div class="absolute inset-0 opacity-20 bg-cover bg-center" style="background-image: url('https://www.worldpianos.org/wp-content/uploads/2019/08/SFH-NYC-2020.jpg');"></div>
+            <div class="hero-content text-center z-10">
+                <div class="max-w-3xl">
                     <h1 class="text-5xl font-bold mb-6">About WorldPianos</h1>
                     <p class="text-xl mb-8">
-                        Connecting piano enthusiasts worldwide through our
-                        global piano mapping community
+                        We love playing Public Pianos, wherever, whenever. We cherish musical interaction with new communities, 
+                        using carefully art-worked pianos as an opening line. Doing so, we tempt hidden musicians from 2 to 92 
+                        world-wide to come out of the woodwork and experience the joy of making music in public space.
+                    </p>
+                    <p class="text-lg mb-8">
+                        To play those pianos, we need to find them first. Our website helps us keeping track of numerous 
+                        single-piano initiatives, multi-piano Events and the organizations behind them.
                     </p>
                     <button class="btn btn-primary">Join Our Community</button>
                 </div>
             </div>
         </div>
 
-        <!-- Mission Section -->
-        <div class="grid md:grid-cols-2 gap-8 mb-16 container mx-auto">
-            <div class="card bg-base-100 shadow-xl">
+        <!-- Three Pillars Section -->
+        <div class="container mx-auto mb-16">
+            <div class="flex justify-center mb-12">
+                <img src="/invite-inspire-connect.png" alt="Invite, Inspire, Connect" class="max-w-full h-auto rounded-lg shadow-lg" />
+            </div>
+            
+            <!-- Invite Section -->
+            <div class="card bg-base-100 shadow-xl mb-12">
                 <div class="card-body">
-                    <h2 class="card-title text-3xl mb-4">Our Mission</h2>
-                    <p class="text-lg">
-                        WorldPianos aims to create a global community of piano
-                        enthusiasts by mapping and documenting pianos around the
-                        world. We believe in making music accessible to everyone
-                        and connecting people through their shared love of
-                        piano.
-                    </p>
+                    <h2 class="card-title text-3xl text-primary mb-6">Invite</h2>
+                    <div class="grid md:grid-cols-2 gap-8">
+                        <div>
+                            <ul class="space-y-6 text-lg">
+                                <li class="flex items-start gap-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>Invite you to join any of the Public Pianos & -Events we've carefully listed. All of them are free and open to the public, either as a player, a listener, a singer, a photographer, an arts-lover or just an occasional visitor to some interesting outskirts of our globe.</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>Invite you to experience the adhesive effect of locally art-worked pianos on their surrounding communities.</span>
+                                </li>
+                                <li class="flex items-start gap-3">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                                    </svg>
+                                    <span>Invite you to contribute to our collection of Public Pianos (past / present / future). No need saying we'd be very grateful to anyone helping us keep a clean database with accurate info.</span>
+                                </li>
+                            </ul>
+                        </div>
+                        <div class="flex items-center justify-center">
+                            <div class="relative w-full h-64 md:h-full rounded-lg overflow-hidden shadow-lg">
+                                <img src="https://www.worldpianos.org/wp-content/uploads/2019/08/SFH-NYC-2020.jpg" alt="Piano in NYC" class="absolute inset-0 w-full h-full object-cover" />
+                                <div class="absolute inset-0 bg-gradient-to-t from-base-300/70 to-transparent"></div>
+                                <div class="absolute bottom-4 left-4 right-4 text-white">
+                                    <p class="font-semibold">Join us in making music accessible to everyone</p>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-            <div class="card bg-base-100 shadow-xl">
+            
+            <!-- Inspire Section -->
+            <div class="card bg-base-100 shadow-xl mb-12">
                 <div class="card-body">
-                    <h2 class="card-title text-3xl mb-4">What We Do</h2>
-                    <ul class="space-y-3 text-lg">
-                        <li class="flex items-center gap-2">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-6 w-6 text-primary"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7"
-                                ></path>
+                    <h2 class="card-title text-3xl text-secondary mb-6">Inspire</h2>
+                    <div class="space-y-6 text-lg">
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-secondary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
-                            Map pianos worldwide
-                        </li>
-                        <li class="flex items-center gap-2">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-6 w-6 text-primary"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z"
-                                ></path>
+                            <span>We'll happily share some reflections on Public Piano Events we've attended over the years. We've been privileged to inspire many out there – and so many others inspired us! – while playing on the streets. This site aims to show the beauty of those community promotions in different ways.</span>
+                        </p>
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-secondary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
-                            Build a community of piano lovers
-                        </li>
-                        <li class="flex items-center gap-2">
-                            <svg
-                                xmlns="http://www.w3.org/2000/svg"
-                                class="h-6 w-6 text-primary"
-                                fill="none"
-                                viewBox="0 0 24 24"
-                                stroke="currentColor"
-                            >
-                                <path
-                                    stroke-linecap="round"
-                                    stroke-linejoin="round"
-                                    stroke-width="2"
-                                    d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"
-                                ></path>
+                            <span>In a different blog category, we'll give you our thoughts on songs that inspired us and at least one other. Let's see what works for you!</span>
+                        </p>
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-secondary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
                             </svg>
-                            Verify and maintain piano information
-                        </li>
-                    </ul>
+                            <span>In the process of creating this website we dug-up some interesting articles & videos, learned some interesting things ourselves, so time permitting we'll share some of that too.</span>
+                        </p>
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-secondary mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path>
+                            </svg>
+                            <span>Any single one of you that would get inspired someday, somewhere – as a player, a volunteer, any kind of contributor – would make this site a success.</span>
+                        </p>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Connect Section -->
+            <div class="card bg-base-100 shadow-xl mb-12">
+                <div class="card-body">
+                    <h2 class="card-title text-3xl text-accent mb-6">Connect</h2>
+                    <div class="space-y-6 text-lg">
+                        <div class="bg-base-200 p-6 rounded-lg mb-6">
+                            <blockquote class="text-2xl italic font-semibold text-center">
+                                "Our pianos give people an opportunity to connect"
+                            </blockquote>
+                        </div>
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <span>We never heard a more compact and on-target statement on Public Pianos than this one. We aim to share a few of our own-experienced manifestations of that one word: connect.</span>
+                        </p>
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <span>Many of the organizing labels behind our beloved pianos have warm-welcoming mission statements and compelling stories on the results of their efforts. This site is a humble salute to all those organizations and we look forward to connect to them too!</span>
+                        </p>
+                        <p class="flex items-start gap-3">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-accent mt-1 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 10V3L4 14h7v7l9-11h-7z"></path>
+                            </svg>
+                            <span>Last but not least: Be welcome to leave your comments, suggestions, your contributions to an up-to-date collection of playable pianos out there. We look forward to connect to you if you reach out.</span>
+                        </p>
+                    </div>
                 </div>
             </div>
         </div>
@@ -96,7 +140,7 @@ import MainLayout from "../layouts/MainLayout.astro";
         <div class="mb-16 container mx-auto">
             <h2 class="text-3xl font-bold text-center mb-8">Key Features</h2>
             <div class="grid md:grid-cols-3 gap-6">
-                <div class="card bg-base-100 shadow-xl">
+                <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
                     <div class="card-body">
                         <h3 class="card-title">Interactive Map</h3>
                         <p>
@@ -105,13 +149,13 @@ import MainLayout from "../layouts/MainLayout.astro";
                         </p>
                     </div>
                 </div>
-                <div class="card bg-base-100 shadow-xl">
+                <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
                     <div class="card-body">
                         <h3 class="card-title">Piano Passport</h3>
                         <p>Track your piano visits and build your collection</p>
                     </div>
                 </div>
-                <div class="card bg-base-100 shadow-xl">
+                <div class="card bg-base-100 shadow-xl hover:shadow-2xl transition-shadow">
                     <div class="card-body">
                         <h3 class="card-title">Community Events</h3>
                         <p>
@@ -130,7 +174,7 @@ import MainLayout from "../layouts/MainLayout.astro";
                     Start mapping pianos and connecting with fellow enthusiasts
                     today!
                 </p>
-                <div class="card-actions justify-end mt-4">
+                <div class="card-actions justify-center mt-6">
                     <button class="btn btn-secondary">Sign Up</button>
                     <button class="btn btn-ghost">Learn More</button>
                 </div>
@@ -138,3 +182,36 @@ import MainLayout from "../layouts/MainLayout.astro";
         </div>
     </div>
 </MainLayout>
+
+<style>
+    /* Add some animations and transitions */
+    .card {
+        transition: transform 0.3s ease, box-shadow 0.3s ease;
+    }
+    
+    .card:hover {
+        transform: translateY(-5px);
+    }
+    
+    /* Ensure images are responsive */
+    img {
+        max-width: 100%;
+        height: auto;
+    }
+    
+    /* Add some depth to the hero section */
+    .hero {
+        position: relative;
+    }
+    
+    .hero::after {
+        content: '';
+        position: absolute;
+        bottom: 0;
+        left: 0;
+        right: 0;
+        height: 100px;
+        background: linear-gradient(to top, var(--color-base-100), transparent);
+        pointer-events: none;
+    }
+</style>
