@@ -4,6 +4,8 @@ import Header from "../components/layout/Header.astro";
 import Footer from "../components/layout/Footer.astro";
 import PianoForm from "../components/piano/PianoForm.astro";
 import EventForm from "../components/community/EventForm.astro";
+import ReportForm from "../components/piano/ReportForm.astro";
+import ReportEventForm from "../components/community/ReportEventForm.astro";
 
 // Check if this is a full-screen page
 const isFullScreen = Astro.url.pathname === "/map";
@@ -53,6 +55,44 @@ const isFullScreen = Astro.url.pathname === "/map";
                 </div>
                 <div class="divider mt-0 mb-4"></div>
                 <EventForm formTitle="" />
+            </div>
+            <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+            </form>
+        </dialog>
+
+        <!-- Report Piano Modal -->
+        <dialog id="report-modal" class="modal">
+            <div class="modal-box max-w-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Report Piano Issue</h3>
+                    <form method="dialog" class="flex">
+                        <button class="btn btn-sm btn-outline">
+                            Close <span class="text-xs opacity-60 ml-1">(Esc)</span>
+                        </button>
+                    </form>
+                </div>
+                <div class="divider mt-0 mb-4"></div>
+                <ReportForm pianoName="" pianoId="" />
+            </div>
+            <form method="dialog" class="modal-backdrop">
+                <button>close</button>
+            </form>
+        </dialog>
+
+        <!-- Report Event Modal -->
+        <dialog id="report-event-modal" class="modal">
+            <div class="modal-box max-w-2xl">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="font-bold text-lg">Report Event Issue</h3>
+                    <form method="dialog" class="flex">
+                        <button class="btn btn-sm btn-outline">
+                            Close <span class="text-xs opacity-60 ml-1">(Esc)</span>
+                        </button>
+                    </form>
+                </div>
+                <div class="divider mt-0 mb-4"></div>
+                <ReportEventForm eventName="" eventId="" />
             </div>
             <form method="dialog" class="modal-backdrop">
                 <button>close</button>
@@ -113,6 +153,45 @@ const isFullScreen = Astro.url.pathname === "/map";
                 });
             }
         });
+        
+        // Report Modal
+        const reportModal = document.getElementById('report-modal');
+        
+        // Function to open report modal with piano details
+        window.openReportModal = function(pianoName, pianoId) {
+            if (reportModal) {
+                // Find the form inside the modal
+                const reportForm = reportModal.querySelector('form');
+                const pianoNameInput = reportModal.querySelector('#piano-name');
+                const pianoIdInput = reportModal.querySelector('#piano-id');
+                
+                // Set the piano name and ID in the form
+                if (pianoNameInput) pianoNameInput.value = pianoName || '';
+                if (pianoIdInput) pianoIdInput.value = pianoId || '';
+                
+                // Open the modal
+                reportModal.showModal();
+            }
+        };
+        
+        // Report Event Modal
+        const reportEventModal = document.getElementById('report-event-modal');
+        
+        // Function to open event report modal with event details
+        window.openReportEventModal = function(eventName, eventId) {
+            if (reportEventModal) {
+                // Find the form inside the modal
+                const eventNameInput = reportEventModal.querySelector('#event-name');
+                const eventIdInput = reportEventModal.querySelector('#event-id');
+                
+                // Set the event name and ID in the form
+                if (eventNameInput) eventNameInput.value = eventName || '';
+                if (eventIdInput) eventIdInput.value = eventId || '';
+                
+                // Open the modal
+                reportEventModal.showModal();
+            }
+        };
     });
 </script>
 
