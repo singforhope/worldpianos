@@ -146,7 +146,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
         <Location className="mr-2" />
 
         <!-- Add Piano Button -->
-        <button class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
+        <a href="/pianos/add" class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
             <svg
                 xmlns="http://www.w3.org/2000/svg"
                 class="h-5 w-5"
@@ -161,7 +161,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                     d="M12 4v16m8-8H4"></path>
             </svg>
             Add Piano
-        </button>
+        </a>
 
         {
             !isLoggedIn ? (
