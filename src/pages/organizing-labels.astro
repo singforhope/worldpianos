@@ -1,0 +1,386 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+---
+
+<MainLayout>
+    <div class="container mx-auto px-4 py-8 max-w-4xl">
+        <!-- Introduction Section -->
+        <div class="prose max-w-none mb-12">
+            <h1 class="text-center text-3xl font-bold mb-8 border-b pb-4">
+                Organizing Labels
+            </h1>
+            <p class="mb-4">
+                These non-profit organizations (amongst others) deserve a great
+                deal of respect for making all these Public Pianos available to
+                the world! We'll happily provide you with more info on them in
+                the near future!
+            </p>
+        </div>
+
+        <!-- Organizers Table Section -->
+        <div class="mb-12">
+            <div class="flex justify-between items-center mb-4">
+                <div class="flex items-center gap-2">
+                    <span>Show</span>
+                    <select class="select select-bordered select-sm w-20">
+                        <option>10</option>
+                        <option selected>20</option>
+                        <option>50</option>
+                    </select>
+                    <span>entries per page</span>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span>Search:</span>
+                    <input
+                        type="text"
+                        class="input input-bordered input-sm w-64"
+                    />
+                </div>
+            </div>
+
+            <div class="overflow-x-auto border rounded-lg">
+                <table class="table table-zebra w-full">
+                    <thead class="bg-base-200">
+                        <tr>
+                            <th>Organizer</th>
+                            <th>Based</th>
+                            <th># Festivals</th>
+                            <th># Pianos</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://www.streetpianos.com"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >StreetPianos - Play Me I'm Yours</a
+                                ></td
+                            >
+                            <td>United Kingdom</td>
+                            <td>86</td>
+                            <td>2017</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://www.singforhope.org/pianos/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Sing For Hope Pianos - NYC (US-NY)</a
+                                ></td
+                            >
+                            <td>USA</td>
+                            <td>8</td>
+                            <td>465</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://keystothestreets.com/#about"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Keys to the Streets - Vancouver (CA-BC)</a
+                                ></td
+                            >
+                            <td>USA</td>
+                            <td>11</td>
+                            <td>110</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://ressources.data.sncf.com/explore/dataset/gares-pianos/table/?sort=gare"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >SNCF (FR) - French Railway</a
+                                ></td
+                            >
+                            <td>France</td>
+                            <td></td>
+                            <td>77</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://www.facebook.com/spielmichkarlsruhe/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Spiel Mich - Karlsruhe (DE)<br />German
+                                    for: "Play Me"</a
+                                ></td
+                            >
+                            <td>Germany</td>
+                            <td>4</td>
+                            <td>71</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://sunsetpiano.com/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Sunset Piano/Flower Piano<br />San
+                                    Francisco (US-CA)</a
+                                ></td
+                            >
+                            <td>USA</td>
+                            <td>5</td>
+                            <td>60</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://buitenspelenpianos.org/index.html"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Stichting Buiten Spelen - Nijmegen (NL)<br
+                                    />Dutch for: Playing Outside Foundation</a
+                                ></td
+                            >
+                            <td>Netherlands</td>
+                            <td>4</td>
+                            <td>39</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://www.123-piano.be/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >123 Piano - Ghent (BE)</a
+                                ></td
+                            >
+                            <td>Belgium</td>
+                            <td>6</td>
+                            <td>37</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://www.spiel-mich.com/cms/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Spiel Mich - Dortmund (DE)<br />German for:
+                                    "Play Me"</a
+                                ></td
+                            >
+                            <td>Germany</td>
+                            <td>2</td>
+                            <td>31</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://playitforwardsg.org/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Play it Forward - Singapore (SG)</a
+                                ></td
+                            >
+                            <td>Singapore</td>
+                            <td>4</td>
+                            <td>24</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://www.playmeagainpianos.org/piano-gallery/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Play Me Again Pianos - Atalanta (US-GA)</a
+                                ></td
+                            >
+                            <td>USA</td>
+                            <td>0</td>
+                            <td>22</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://de-de.facebook.com/Spiel-mich-D%C3%BClmen-1559712104326183/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Spiel Mich - Dülmen (DE)<br />German for:
+                                    "Play Me"</a
+                                ></td
+                            >
+                            <td>Germany</td>
+                            <td>3</td>
+                            <td>21</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://www.spiel-mich-hn.de/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Spiel Mich - Heilbronn (DE)<br />German
+                                    for: "Play Me"</a
+                                ></td
+                            >
+                            <td>Germany</td>
+                            <td>2</td>
+                            <td>18</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://nieuws.ns.nl/download/758035/nsspoorkaart2019piano039s-799782.pdf"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >NS (NL) - Dutch Railway</a
+                                ></td
+                            >
+                            <td>Netherlands</td>
+                            <td></td>
+                            <td>18</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://www.isarlust.org/projekte-2/spiel-mich-an-der-isar-2014/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Spiel Mich and der Isar - München (DE)<br
+                                    />German for: "Play Me at the Isar river"</a
+                                ></td
+                            >
+                            <td>Germany</td>
+                            <td>1</td>
+                            <td>17</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://www.pianopushplay.com/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Piano Push Play - Portland (US-OR)</a
+                                ></td
+                            >
+                            <td>USA</td>
+                            <td></td>
+                            <td>16</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://canarywharf.com/arts-events/events/play-im-canary-wharf-2019/?instance_id="
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Canary Wharf Arts & Events - London (GB)</a
+                                ></td
+                            >
+                            <td>United Kingdom</td>
+                            <td></td>
+                            <td>8</td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="http://www.pianosonthestreet.com/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Pianos on the Street- Vancouver (CA-BC)</a
+                                ></td
+                            >
+                            <td>Canada</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                        <tr>
+                            <td
+                                ><a
+                                    href="https://keys2streets.wordpress.com/"
+                                    rel="noopener"
+                                    target="_blank"
+                                    class="text-red-600 hover:underline"
+                                    >Keys to the Streets - Vancouver (CA-BC)</a
+                                ></td
+                            >
+                            <td>Canada</td>
+                            <td></td>
+                            <td></td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+
+            <div class="flex justify-between items-center mt-4">
+                <div>Showing 1 to 20 of 20 entries</div>
+                <div class="join">
+                    <button class="join-item btn btn-sm">‹</button>
+                    <button class="join-item btn btn-sm btn-active">1</button>
+                    <button class="join-item btn btn-sm">›</button>
+                </div>
+            </div>
+        </div>
+
+        <!-- Social Share Section -->
+        <div class="text-center mt-8">
+            <p class="mb-4">Share this page</p>
+            <div class="flex justify-center gap-4">
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#3b5998] hover:bg-[#3b5998]/80 text-white"
+                >
+                    <i class="fab fa-facebook-f"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#25d366] hover:bg-[#25d366]/80 text-white"
+                >
+                    <i class="fab fa-whatsapp"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#0077b5] hover:bg-[#0077b5]/80 text-white"
+                >
+                    <i class="fab fa-linkedin-in"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#1da1f2] hover:bg-[#1da1f2]/80 text-white"
+                >
+                    <i class="fab fa-twitter"></i>
+                </a>
+                <a
+                    href="#"
+                    class="btn btn-circle btn-sm bg-[#0f9d58] hover:bg-[#0f9d58]/80 text-white"
+                >
+                    <i class="fas fa-envelope"></i>
+                </a>
+            </div>
+        </div>
+    </div>
+</MainLayout>
+
+<style>
+    .table th:first-child {
+        position: static;
+    }
+    .table td {
+        padding-top: 0.75rem;
+        padding-bottom: 0.75rem;
+    }
+</style>
