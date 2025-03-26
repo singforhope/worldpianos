@@ -1,0 +1,33 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import PianoForm from "../../components/piano/PianoForm.astro";
+---
+
+<MainLayout>
+  <div class="container mx-auto px-4 py-8">
+    <div class="mb-6">
+      <h1 class="text-3xl font-bold">Add a New Piano</h1>
+      <p class="text-base-content/70 mt-2">
+        Submit information about a public piano to add it to our database.
+      </p>
+    </div>
+    
+    <div class="max-w-2xl mx-auto">
+      <PianoForm />
+      
+      <div class="mt-8 text-sm text-base-content/70">
+        <p>
+          * Required fields
+        </p>
+        <p class="mt-2">
+          By submitting this form, you're helping to grow our community of public pianos.
+          Our team will review your submission and may contact you for additional information.
+        </p>
+      </div>
+    </div>
+  </div>
+</MainLayout>
+
+<style>
+  /* Add any page-specific styles here */
+</style>

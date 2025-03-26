@@ -1,0 +1,145 @@
+---
+// ReportEventForm.astro
+// Access environment variables via import.meta.env
+const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "it@singforhope.org";
+
+interface Props {
+  eventName?: string;
+  eventId?: string;
+}
+
+const { eventName = "", eventId = "" } = Astro.props;
+---
+
+<div class="card bg-base-100">
+  <div class="card-body p-0">
+    <form id="report-event-form" class="space-y-4">
+      <!-- Hidden Event Info -->
+      <input type="hidden" id="event-id" name="eventId" value={eventId} />
+      
+      <!-- Event Name (Read-only) -->
+      <div class="form-control w-full">
+        <label for="event-name" class="label">
+          <span class="label-text">Event Name</span>
+        </label>
+        <input 
+          type="text" 
+          id="event-name" 
+          name="eventName" 
+          value={eventName}
+          class="input input-bordered w-full" 
+          readonly 
+        />
+      </div>
+      
+      <!-- Report Type -->
+      <div class="form-control w-full">
+        <label for="report-type" class="label">
+          <span class="label-text">Report Type</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <select id="report-type" name="reportType" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select a reason</option>
+          <option value="Incorrect Information">Incorrect Information</option>
+          <option value="Event Cancelled">Event Cancelled</option>
+          <option value="Event Rescheduled">Event Rescheduled</option>
+          <option value="Inappropriate Content">Inappropriate Content</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      
+      <!-- Report Details -->
+      <div class="form-control w-full">
+        <label for="report-details" class="label">
+          <span class="label-text">Details</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <textarea 
+          id="report-details" 
+          name="reportDetails" 
+          placeholder="Please provide details about the issue..." 
+          class="textarea textarea-bordered w-full h-32" 
+          required
+        ></textarea>
+      </div>
+      
+      <!-- Contact Email (Optional) -->
+      <div class="form-control w-full">
+        <label for="contact-email" class="label">
+          <span class="label-text">Your Email (Optional)</span>
+          <span class="label-text-alt">If you'd like to be contacted about this report</span>
+        </label>
+        <input 
+          type="email" 
+          id="contact-email" 
+          name="contactEmail" 
+          placeholder="your.email@example.com" 
+          class="input input-bordered w-full" 
+        />
+      </div>
+      
+      <!-- Submit Button -->
+      <div class="form-control mt-6">
+        <button type="submit" id="submit-event-report-btn" class="btn btn-primary">
+          Submit Report
+        </button>
+      </div>
+    </form>
+  </div>
+</div>
+
+<script define:vars={{ contactEmail }}>
+  document.addEventListener('DOMContentLoaded', () => {
+    const form = document.getElementById('report-event-form');
+    const submitBtn = document.getElementById('submit-event-report-btn');
+    
+    if (form) {
+      form.addEventListener('submit', async (e) => {
+        e.preventDefault();
+        
+        // Show loading state
+        if (submitBtn) {
+          submitBtn.disabled = true;
+          submitBtn.innerHTML = '<span class="loading loading-spinner"></span> Sending...';
+        }
+        
+        // Get form data
+        const formData = new FormData(form);
+        const formDataObj = {};
+        formData.forEach((value, key) => {
+          formDataObj[key] = value;
+        });
+        
+        try {
+          // In a real implementation, you would send this to your backend
+          // For this example, we'll simulate sending an email
+          console.log('Sending event report to:', contactEmail);
+          console.log('Report data:', formDataObj);
+          
+          // Simulate network delay
+          await new Promise(resolve => setTimeout(resolve, 1500));
+          
+          // Show success message and close modal
+          alert('Event report submitted successfully!');
+          const reportEventModal = document.getElementById('report-event-modal');
+          if (reportEventModal) {
+            reportEventModal.close();
+          }
+          
+          // Reset form
+          form.reset();
+        } catch (error) {
+          // Show error message
+          alert('There was an error submitting the report. Please try again.');
+          console.error('Form submission error:', error);
+        } finally {
+          // Reset button state
+          if (submitBtn) {
+            submitBtn.disabled = false;
+            submitBtn.textContent = 'Submit Report';
+          }
+        }
+      });
+    }
+  });
+</script>

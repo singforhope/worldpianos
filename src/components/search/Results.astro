@@ -4,23 +4,32 @@ import mockData from "../../data/mockData.json";
 interface Props {
     isVisible: boolean;
     searchQuery?: string;
+    searchType?: string;
 }
 
-const { isVisible, searchQuery = "" } = Astro.props;
+const { isVisible, searchQuery = "", searchType = "pianos" } = Astro.props;
+
+// Get the current search type from URL or props
+const urlParams = new URLSearchParams(Astro.url.search);
+const currentType = urlParams.get("type") || searchType;
 
 // Filter pianos based on search query
-const filteredPianos = mockData.pianos.filter(
+const filteredPianos = currentType === "pianos" ? mockData.pianos.filter(
     (piano) =>
         piano.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         piano.location.toLowerCase().includes(searchQuery.toLowerCase()),
-);
+) : [];
 
 // Filter events based on search query
-const filteredEvents = mockData.events.filter(
+const filteredEvents = currentType === "events" ? mockData.events.filter(
     (event) =>
         event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
         event.location.toLowerCase().includes(searchQuery.toLowerCase()),
-);
+) : [];
+
+// Check if there are more results
+const hasMorePianos = filteredPianos.length > 3;
+const hasMoreEvents = filteredEvents.length > 3;
 ---
 
 <div
@@ -28,14 +37,15 @@ const filteredEvents = mockData.events.filter(
 >
     <!-- Pianos Section -->
     {
-        filteredPianos.length > 0 && (
+        currentType === "pianos" && filteredPianos.length > 0 && (
             <div class="p-4">
                 <h3 class="text-lg font-semibold mb-3">Pianos</h3>
-                <div class="space-y-2">
-                    {filteredPianos.map((piano) => (
+                <div id="pianos-container" class="space-y-2">
+                    {filteredPianos.map((piano, index) => (
                         <a
                             href={`/pianos/${piano.id}`}
-                            class="flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                            class={`piano-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors ${index >= 3 ? 'hidden' : ''}`}
+                            data-index={index}
                         >
                             <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
                                 <svg
@@ -62,20 +72,30 @@ const filteredEvents = mockData.events.filter(
                         </a>
                     ))}
                 </div>
+                
+                <!-- Load More Button for Pianos -->
+                {hasMorePianos && (
+                    <div class="mt-3 text-center">
+                        <button id="load-more-pianos" class="btn btn-sm btn-outline">
+                            Load More ({filteredPianos.length - 3} more)
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
 
     <!-- Events Section -->
     {
-        filteredEvents.length > 0 && (
-            <div class="p-4 border-t border-base-300">
+        currentType === "events" && filteredEvents.length > 0 && (
+            <div class="p-4">
                 <h3 class="text-lg font-semibold mb-3">Events</h3>
-                <div class="space-y-2">
-                    {filteredEvents.map((event) => (
+                <div id="events-container" class="space-y-2">
+                    {filteredEvents.map((event, index) => (
                         <a
                             href={`/events/${event.id}`}
-                            class="flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                            class={`event-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors ${index >= 3 ? 'hidden' : ''}`}
+                            data-index={index}
                         >
                             <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
                                 <svg
@@ -102,15 +122,89 @@ const filteredEvents = mockData.events.filter(
                         </a>
                     ))}
                 </div>
+                
+                <!-- Load More Button for Events -->
+                {hasMoreEvents && (
+                    <div class="mt-3 text-center">
+                        <button id="load-more-events" class="btn btn-sm btn-outline">
+                            Load More ({filteredEvents.length - 3} more)
+                        </button>
+                    </div>
+                )}
             </div>
         )
     }
 
     {
-        filteredPianos.length === 0 && filteredEvents.length === 0 && (
+        (currentType === "pianos" && filteredPianos.length === 0) ||
+        (currentType === "events" && filteredEvents.length === 0) ? (
             <div class="p-4 text-center text-base-content/70">
                 No results found
             </div>
-        )
+        ) : null
     }
 </div>
+
+<script is:inline>
+    document.addEventListener('DOMContentLoaded', () => {
+        console.log('Search results script loaded');
+        
+        // Load more pianos
+        const loadMorePianosBtn = document.getElementById('load-more-pianos');
+        
+        if (loadMorePianosBtn) {
+            loadMorePianosBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log('Load more pianos clicked');
+                
+                // Show all hidden piano items
+                const hiddenItems = document.querySelectorAll('.piano-item.hidden');
+                hiddenItems.forEach(item => {
+                    item.classList.remove('hidden');
+                });
+                
+                // Hide the button
+                loadMorePianosBtn.style.display = 'none';
+                
+                // Make container scrollable if needed
+                const container = document.getElementById('pianos-container');
+                if (container && container.scrollHeight > 300) {
+                    container.style.maxHeight = '300px';
+                    container.style.overflowY = 'auto';
+                    container.style.paddingRight = '10px';
+                }
+            });
+        }
+        
+        // Load more events
+        const loadMoreEventsBtn = document.getElementById('load-more-events');
+        
+        if (loadMoreEventsBtn) {
+            loadMoreEventsBtn.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                
+                console.log('Load more events clicked');
+                
+                // Show all hidden event items
+                const hiddenItems = document.querySelectorAll('.event-item.hidden');
+                hiddenItems.forEach(item => {
+                    item.classList.remove('hidden');
+                });
+                
+                // Hide the button
+                loadMoreEventsBtn.style.display = 'none';
+                
+                // Make container scrollable if needed
+                const container = document.getElementById('events-container');
+                if (container && container.scrollHeight > 300) {
+                    container.style.maxHeight = '300px';
+                    container.style.overflowY = 'auto';
+                    container.style.paddingRight = '10px';
+                }
+            });
+        }
+    });
+</script>
