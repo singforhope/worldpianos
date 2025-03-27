@@ -10,6 +10,12 @@ interface Props {
 const { formTitle = "Add a New Piano" } = Astro.props;
 ---
 
+<!-- Load Mapbox GL JS and Geocoder from CDN -->
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css">
+
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
     <h2 class="card-title text-2xl mb-6">{formTitle}</h2>
@@ -26,11 +32,13 @@ const { formTitle = "Add a New Piano" } = Astro.props;
       
       <!-- Location -->
       <div class="form-control w-full">
-        <label for="location" class="label">
+        <label for="location-container" class="label">
           <span class="label-text">Location</span>
           <span class="label-text-alt text-error">*</span>
         </label>
-        <input type="text" id="location" name="location" placeholder="Enter location" class="input input-bordered w-full" required />
+        <div id="location-geocoder-container"></div>
+        <input type="hidden" id="location-lat" name="latitude" />
+        <input type="hidden" id="location-lng" name="longitude" />
       </div>
       
       <!-- Last Maintained Date -->
@@ -77,7 +85,7 @@ const { formTitle = "Add a New Piano" } = Astro.props;
   </div>
 </div>
 
-<script define:vars={{ contactEmail }}>
+<script is:inline define:vars={{ contactEmail }}>
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("piano-form");
     const fileInput = document.getElementById("piano-picture");
@@ -88,6 +96,40 @@ const { formTitle = "Add a New Piano" } = Astro.props;
     const submitBtn = document.getElementById("submit-btn");
     const submitText = document.getElementById("submit-text");
     const loadingSpinner = document.getElementById("loading-spinner");
+    const geocoderContainer = document.getElementById("location-geocoder-container");
+    const locationLat = document.getElementById("location-lat");
+    const locationLng = document.getElementById("location-lng");
+    
+    // Initialize Mapbox Geocoder for location
+    if (geocoderContainer && window.mapboxgl && window.MapboxGeocoder) {
+      const geocoder = new MapboxGeocoder({
+        accessToken: "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ",
+        countries: "us,ca,gb,fr,de,it,es,pt,au,nz,jp,kr,cn",
+        language: "en",
+        placeholder: "Search for a location...",
+        types: "place,locality,neighborhood,address",
+        bbox: [-180, -90, 180, 90],
+        limit: 5,
+        minLength: 2,
+        flyTo: false,
+        marker: false,
+        mapboxgl: window.mapboxgl,
+      });
+      
+      geocoderContainer.appendChild(geocoder.onAdd());
+      
+      // Handle geocoder result
+      geocoder.on("result", (event) => {
+        const result = event.result;
+        const coordinates = result.center;
+        
+        // Set hidden input values for coordinates
+        if (locationLat && locationLng) {
+          locationLat.setAttribute('value', coordinates[1]); // latitude
+          locationLng.setAttribute('value', coordinates[0]); // longitude
+        }
+      });
+    }
     
     // Handle image preview
     if (fileInput) {
@@ -197,3 +239,41 @@ const { formTitle = "Add a New Piano" } = Astro.props;
     }
   });
 </script>
+
+<style>
+  /* Mapbox Geocoder styles */
+  .mapboxgl-ctrl-geocoder {
+    box-shadow: none !important;
+    border: 1px solid hsl(var(--bc) / 0.2) !important;
+    border-radius: 0.5rem !important;
+    background-color: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+    font-family: inherit !important;
+    width: 100% !important;
+    min-height: 2.5rem !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions {
+    background-color: hsl(var(--b1)) !important;
+    border: 1px solid hsl(var(--bc) / 0.2) !important;
+    border-radius: 0.5rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion {
+    padding: 0.5rem 1rem !important;
+    color: hsl(var(--bc)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion.active {
+    background-color: hsl(var(--b2)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion:hover {
+    background-color: hsl(var(--b2)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion .address {
+    color: hsl(var(--bc) / 0.7) !important;
+  }
+</style>

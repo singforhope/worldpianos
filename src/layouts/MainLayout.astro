@@ -16,12 +16,12 @@ const isFullScreen = Astro.url.pathname === "/map";
         <title>Worldpianos</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </head>
-    <body class="flex flex-col h-screen overflow-hidden">
-        <Header />
-        <main class={`flex-grow overflow-auto ${isFullScreen ? "" : "w-full"}`}>
-            <slot />
-        </main>
-        <Footer />
+    <body>
+            <Header />
+            <main class={`${isFullScreen ? "" : "w-full"}`}>
+                <slot />
+            </main>
+            <Footer />
 
         <!-- Piano Modal -->
         <dialog id="piano-modal" class="modal">
