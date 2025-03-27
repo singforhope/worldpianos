@@ -124,7 +124,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
 
     <!-- Middle Section: Search -->
     <div class="navbar-center flex-1 justify-center relative">
-        <form class="form-control w-full max-w-xl" id="search-form">
+        <form class="form-control w-full max-w-xl" id="search-form" autocomplete="off">
             <div class="flex flex-col sm:flex-row w-full max-w-xl">
                 <div class="join w-full">
                     <div class="dropdown join-item">
@@ -146,6 +146,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         value={searchQuery}
                         placeholder="Search pianos..."
                         class="input input-bordered join-item flex-grow"
+                        autocomplete="off"
                     />
                     <input type="hidden" id="search-type-input" name="type" value="pianos" />
                     <button type="submit" class="btn btn-primary join-item">
