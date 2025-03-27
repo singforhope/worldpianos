@@ -169,7 +169,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
             </div>
         </form>
         <Results
-            isVisible={searchQuery.length > 0}
+            isVisible={false}
             searchQuery={searchQuery}
             searchType={Astro.url.searchParams.get("type") || "pianos"}
         />
@@ -393,12 +393,29 @@ const isActive = (path: string) => currentPath.startsWith(path);
     });
 
     if (searchInput && searchResults && searchForm) {
+        // Initially hide the results
+        searchResults.classList.add(
+            "opacity-0",
+            "-translate-y-2",
+            "pointer-events-none"
+        );
+
         // Show results on focus
         searchInput.addEventListener("focus", () => {
             searchResults.classList.remove(
                 "opacity-0",
                 "-translate-y-2",
-                "pointer-events-none",
+                "pointer-events-none"
+            );
+            searchResults.classList.add("opacity-100", "translate-y-0");
+        });
+
+        // Show results on input
+        searchInput.addEventListener("input", () => {
+            searchResults.classList.remove(
+                "opacity-0",
+                "-translate-y-2",
+                "pointer-events-none"
             );
             searchResults.classList.add("opacity-100", "translate-y-0");
         });
@@ -425,7 +442,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                 searchResults.classList.add(
                     "opacity-0",
                     "-translate-y-2",
-                    "pointer-events-none",
+                    "pointer-events-none"
                 );
             }
         });
@@ -437,7 +454,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                 searchResults.classList.add(
                     "opacity-0",
                     "-translate-y-2",
-                    "pointer-events-none",
+                    "pointer-events-none"
                 );
             }
         });

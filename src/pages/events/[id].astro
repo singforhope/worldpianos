@@ -1,13 +1,53 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
-import mockData from "../../data/mockData.json";
+import { getEventById } from "../../utils/dataService";
+import type { Event } from "../../utils/dataService";
 
 const { id } = Astro.params;
-const event = mockData.events.find((e) => e.id === id);
+let event: Event | null = null;
+let error: string | null = null;
+
+try {
+  if (!id) {
+    throw new Error("Event ID is required");
+  }
+  event = await getEventById(id);
+} catch (err) {
+  console.error(`Error fetching event with id ${id}:`, err);
+  error = err instanceof Error ? err.message : "Failed to load event data";
+}
 ---
 
 <MainLayout>
     <div class="container mx-auto px-4 py-8">
+        {
+            error && (
+                <div class="alert alert-error">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                    <span>{error}</span>
+                </div>
+            )
+        }
+        {
+            !error && !event && (
+                <div class="flex justify-center items-center h-64">
+                    <div class="loading loading-spinner loading-lg"></div>
+                </div>
+            )
+        }
+
         {
             event ? (
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -23,6 +63,11 @@ const event = mockData.events.find((e) => e.id === id);
                                     {event.date}
                                 </div>
                                 <div class="badge badge-info">{event.time}</div>
+                                {event.status && (
+                                    <div class="badge badge-outline">
+                                        {event.status}
+                                    </div>
+                                )}
                             </div>
                             <div class="mt-6 space-y-4">
                                 <div>
@@ -46,7 +91,7 @@ const event = mockData.events.find((e) => e.id === id);
                                         Related Piano
                                     </h2>
                                     <p class="text-base-content/70">
-                                        {event.pianoId}
+                                        {event.pianos?.name || event.piano_id || "Not specified"}
                                     </p>
                                 </div>
                             </div>
@@ -60,12 +105,14 @@ const event = mockData.events.find((e) => e.id === id);
                                     </svg>
                                     Report Issue
                                 </button>
-                                <a
-                                    href={`/map?pianoId=${event.pianoId}`}
-                                    class="btn btn-primary"
-                                >
-                                    View Piano on Map
-                                </a>
+                                {event.piano_id && (
+                                    <a
+                                        href={`/map?pianoId=${event.piano_id}`}
+                                        class="btn btn-primary"
+                                    >
+                                        View Piano on Map
+                                    </a>
+                                )}
                             </div>
                         </div>
                     </div>
@@ -126,40 +173,58 @@ const event = mockData.events.find((e) => e.id === id);
             ?.getAttribute("data-event-location"),
     };
 
-    const map = new mapboxgl.Map({
-        container: "event-map",
-        style: "mapbox://styles/mapbox/navigation-day-v1",
-        center: eventData.coordinates,
-        zoom: 15,
-        pitch: 60,
-        bearing: 0,
-    });
+    if (eventData.id && eventData.coordinates) {
+        try {
+            const map = new mapboxgl.Map({
+                container: "event-map",
+                style: "mapbox://styles/mapbox/navigation-day-v1",
+                center: eventData.coordinates,
+                zoom: 15,
+                pitch: 60,
+                bearing: 0,
+            });
 
-    map.on("load", () => {
-        // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl(), "top-right");
+            map.on("load", () => {
+                // Add navigation controls
+                map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-        // Add marker
-        new mapboxgl.Marker({
-            color: "#FF0000",
-            scale: 0.8,
-        })
-            .setLngLat(eventData.coordinates)
-            .addTo(map);
+                // Add marker
+                new mapboxgl.Marker({
+                    color: "#FF0000",
+                    scale: 0.8,
+                })
+                    .setLngLat(eventData.coordinates)
+                    .addTo(map);
 
-        // Add popup
-        new mapboxgl.Popup({ offset: 25 })
-            .setLngLat(eventData.coordinates)
-            .setHTML(
-                `
-                <div class="p-2">
-                    <h3 class="font-bold text-lg">${eventData.name}</h3>
-                    <p class="text-sm text-base-content/70">${eventData.location}</p>
-                </div>
-            `,
-            )
-            .addTo(map);
-    });
+                // Add popup
+                new mapboxgl.Popup({ offset: 25 })
+                    .setLngLat(eventData.coordinates)
+                    .setHTML(
+                        `
+                        <div class="p-2">
+                            <h3 class="font-bold text-lg">${eventData.name}</h3>
+                            <p class="text-sm text-base-content/70">${eventData.location}</p>
+                        </div>
+                    `,
+                    )
+                    .addTo(map);
+            });
+        } catch (error: any) {
+            console.error("Error initializing map:", error);
+            const mapElement = document.getElementById("event-map");
+            if (mapElement) {
+                mapElement.innerHTML = 
+                    `<div class="alert alert-error">Error loading map: ${error.message || 'Unknown error'}</div>`;
+            }
+        }
+    } else {
+        console.error("Missing event data for map:", eventData);
+        const mapElement = document.getElementById("event-map");
+        if (mapElement) {
+            mapElement.innerHTML = 
+                `<div class="alert alert-warning">Missing event location data</div>`;
+        }
+    }
 </script>
 
 <style>

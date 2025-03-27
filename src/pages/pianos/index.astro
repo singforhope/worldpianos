@@ -1,8 +1,140 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
+import { getAllPianos } from "../../utils/dataService";
+import type { Piano } from "../../utils/dataService";
 
+let pianos: Piano[] = [];
+let error: string | null = null;
+
+try {
+  pianos = await getAllPianos();
+} catch (err) {
+  console.error("Error fetching pianos:", err);
+  error = err instanceof Error ? err.message : "Failed to load piano data";
+}
+
+// Group pianos by category
+const airportPianos = pianos.filter(piano => piano.category === "airport");
+const cityPianos = pianos.filter(piano => piano.category === "city");
+const otherPianos = pianos.filter(piano => piano.category !== "airport" && piano.category !== "city");
 ---
 
 <MainLayout>
-    <h1>Pianos</h1>
+    <div class="container mx-auto p-4">
+        <div class="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-4">
+            <h1 class="text-3xl font-bold mb-4">Pianos Directory</h1>
+            <a href="/pianos/add" class="btn btn-primary">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-5 w-5 mr-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Piano
+            </a>
+        </div>
+
+        {
+            error && (
+                <div class="alert alert-error mb-4">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                    <span>{error}</span>
+                </div>
+            )
+        }
+
+        {
+            !error && pianos.length === 0 && (
+                <div class="flex justify-center items-center h-64">
+                    <div class="loading loading-spinner loading-lg"></div>
+                </div>
+            )
+        }
+
+        <div class="tabs tabs-boxed mb-4">
+            <a class="tab tab-active" data-tab="all">All Pianos ({pianos.length})</a>
+            <a class="tab" data-tab="airport">Airport Pianos ({airportPianos.length})</a>
+            <a class="tab" data-tab="city">City Pianos ({cityPianos.length})</a>
+            {otherPianos.length > 0 && <a class="tab" data-tab="other">Other ({otherPianos.length})</a>}
+        </div>
+
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4" id="pianos-container">
+            {pianos.map(piano => (
+                <div class="card bg-base-100 shadow-xl piano-card" data-category={piano.category}>
+                    <div class="card-body">
+                        <h2 class="card-title">{piano.name}</h2>
+                        <p class="text-sm text-base-content/70">{piano.location}</p>
+                        <div class="flex flex-wrap gap-2 mt-2">
+                            <div class="badge badge-primary">
+                                {piano.type}
+                            </div>
+                            <div class="badge badge-success">
+                                {piano.condition}
+                            </div>
+                            <div class="badge badge-info">
+                                {piano.category}
+                            </div>
+                            {piano.verified && (
+                                <div class="badge badge-secondary">
+                                    Verified
+                                </div>
+                            )}
+                        </div>
+                        <div class="card-actions justify-end mt-4">
+                            <a href={`/pianos/${piano.id}`} class="btn btn-primary btn-sm">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
 </MainLayout>
+
+<script>
+    // Tab switching functionality
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabs = document.querySelectorAll('.tab');
+        const pianoCards = document.querySelectorAll('.piano-card');
+
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                tabs.forEach(t => t.classList.remove('tab-active'));
+                tab.classList.add('tab-active');
+
+                // Filter pianos
+                const category = tab.getAttribute('data-tab');
+                
+                pianoCards.forEach(card => {
+                    if (category === 'all') {
+                        (card as HTMLElement).style.display = 'block';
+                    } else if (category === 'other') {
+                        const cardCategory = card.getAttribute('data-category');
+                        (card as HTMLElement).style.display = (cardCategory !== 'airport' && cardCategory !== 'city') ? 'block' : 'none';
+                    } else {
+                        (card as HTMLElement).style.display = card.getAttribute('data-category') === category ? 'block' : 'none';
+                    }
+                });
+            });
+        });
+    });
+</script>

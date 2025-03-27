@@ -1,5 +1,6 @@
 ---
-import mockData from "../../data/mockData.json";
+import { getAllPianos, getAllEvents } from "../../utils/dataService";
+import type { Piano, Event } from "../../utils/dataService";
 
 interface Props {
     isVisible: boolean;
@@ -13,73 +14,146 @@ const { isVisible, searchQuery = "", searchType = "pianos" } = Astro.props;
 const urlParams = new URLSearchParams(Astro.url.search);
 const currentType = urlParams.get("type") || searchType;
 
+// Fetch data from Supabase
+let pianos: Piano[] = [];
+let events: Event[] = [];
+
+try {
+    // Always fetch data so it's ready when the user focuses on the search input
+    if (currentType === "pianos") {
+        pianos = await getAllPianos();
+    } else if (currentType === "events") {
+        events = await getAllEvents();
+    }
+} catch (error) {
+    console.error(`Error fetching ${currentType}:`, error);
+}
+
 // Filter pianos based on search query
-const filteredPianos = currentType === "pianos" ? mockData.pianos.filter(
+const filteredPianos = currentType === "pianos" ? pianos.filter(
     (piano) =>
-        piano.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        piano.location.toLowerCase().includes(searchQuery.toLowerCase()),
+        searchQuery ? (
+            piano.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            piano.location.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            piano.city.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            piano.country.toLowerCase().includes(searchQuery.toLowerCase())
+        ) : true
 ) : [];
 
 // Filter events based on search query
-const filteredEvents = currentType === "events" ? mockData.events.filter(
+const filteredEvents = currentType === "events" ? events.filter(
     (event) =>
-        event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
-        event.location.toLowerCase().includes(searchQuery.toLowerCase()),
+        searchQuery ? (
+            event.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
+            event.location.toLowerCase().includes(searchQuery.toLowerCase())
+        ) : true
 ) : [];
 
-// Check if there are more results
-const hasMorePianos = filteredPianos.length > 3;
-const hasMoreEvents = filteredEvents.length > 3;
+// Check if there are more results than the initial display limit
+const displayLimit = 3;
+const hasMorePianos = filteredPianos.length > displayLimit;
+const hasMoreEvents = filteredEvents.length > displayLimit;
+
+// Get only the top 3 for initial display
+const topPianos = filteredPianos.slice(0, displayLimit);
+const topEvents = filteredEvents.slice(0, displayLimit);
+
+// Determine if we should show suggestions - this is now handled client-side
 ---
 
 <div
     class={`search-results absolute top-full left-0 right-0 bg-base-100 shadow-lg rounded-b-lg border-t border-base-300 z-50 transition-all duration-200 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}
+    id="search-results-container"
 >
     <!-- Pianos Section -->
     {
-        currentType === "pianos" && filteredPianos.length > 0 && (
+        currentType === "pianos" && (
             <div class="p-4">
                 <h3 class="text-lg font-semibold mb-3">Pianos</h3>
-                <div id="pianos-container" class="space-y-2">
-                    {filteredPianos.map((piano, index) => (
-                        <a
-                            href={`/pianos/${piano.id}`}
-                            class={`piano-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors ${index >= 3 ? 'hidden' : ''}`}
-                            data-index={index}
-                        >
-                            <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="h-6 w-6 text-primary"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
-                                    />
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="font-medium">{piano.name}</div>
-                                <div class="text-sm text-base-content/70">
-                                    {piano.location}
-                                </div>
-                            </div>
-                        </a>
-                    ))}
-                </div>
                 
-                <!-- Load More Button for Pianos -->
-                {hasMorePianos && (
-                    <div class="mt-3 text-center">
-                        <button id="load-more-pianos" class="btn btn-sm btn-outline">
-                            Load More ({filteredPianos.length - 3} more)
-                        </button>
+                {filteredPianos.length === 0 ? (
+                    <div class="p-4 text-center text-base-content/70">
+                        {searchQuery ? `No pianos found matching "${searchQuery}"` : "Start typing to search for pianos"}
                     </div>
+                ) : (
+                    <>
+                        <div id="pianos-container" class="space-y-2">
+                            {/* Display only top 3 initially */}
+                            {topPianos.map((piano) => (
+                                <a
+                                    href={`/pianos/${piano.id}`}
+                                    class="piano-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                                >
+                                    <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-6 w-6 text-primary"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                                            />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium">{piano.name}</div>
+                                        <div class="text-sm text-base-content/70">
+                                            {piano.location}
+                                        </div>
+                                    </div>
+                                </a>
+                            ))}
+                        </div>
+
+                        {/* Hidden container for remaining items */}
+                        {hasMorePianos && (
+                            <div id="hidden-pianos-container" class="hidden space-y-2">
+                                {filteredPianos.slice(displayLimit).map((piano) => (
+                                    <a
+                                        href={`/pianos/${piano.id}`}
+                                        class="piano-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                                    >
+                                        <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-6 w-6 text-primary"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"
+                                                />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium">{piano.name}</div>
+                                            <div class="text-sm text-base-content/70">
+                                                {piano.location}
+                                            </div>
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Load More Button for Pianos */}
+                        {hasMorePianos && (
+                            <div class="mt-3 text-center">
+                                <button id="load-more-pianos" class="btn btn-sm btn-outline">
+                                    Load More ({filteredPianos.length - displayLimit} more)
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         )
@@ -87,124 +161,200 @@ const hasMoreEvents = filteredEvents.length > 3;
 
     <!-- Events Section -->
     {
-        currentType === "events" && filteredEvents.length > 0 && (
+        currentType === "events" && (
             <div class="p-4">
                 <h3 class="text-lg font-semibold mb-3">Events</h3>
-                <div id="events-container" class="space-y-2">
-                    {filteredEvents.map((event, index) => (
-                        <a
-                            href={`/events/${event.id}`}
-                            class={`event-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors ${index >= 3 ? 'hidden' : ''}`}
-                            data-index={index}
-                        >
-                            <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
-                                <svg
-                                    xmlns="http://www.w3.org/2000/svg"
-                                    class="h-6 w-6 text-primary"
-                                    fill="none"
-                                    viewBox="0 0 24 24"
-                                    stroke="currentColor"
-                                >
-                                    <path
-                                        stroke-linecap="round"
-                                        stroke-linejoin="round"
-                                        stroke-width="2"
-                                        d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
-                                    />
-                                </svg>
-                            </div>
-                            <div>
-                                <div class="font-medium">{event.name}</div>
-                                <div class="text-sm text-base-content/70">
-                                    {event.location} • {event.date} {event.time}
-                                </div>
-                            </div>
-                        </a>
-                    ))}
-                </div>
                 
-                <!-- Load More Button for Events -->
-                {hasMoreEvents && (
-                    <div class="mt-3 text-center">
-                        <button id="load-more-events" class="btn btn-sm btn-outline">
-                            Load More ({filteredEvents.length - 3} more)
-                        </button>
+                {filteredEvents.length === 0 ? (
+                    <div class="p-4 text-center text-base-content/70">
+                        {searchQuery ? `No events found matching "${searchQuery}"` : "Start typing to search for events"}
                     </div>
+                ) : (
+                    <>
+                        <div id="events-container" class="space-y-2">
+                            {/* Display only top 3 initially */}
+                            {topEvents.map((event) => (
+                                <a
+                                    href={`/events/${event.id}`}
+                                    class="event-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                                >
+                                    <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
+                                        <svg
+                                            xmlns="http://www.w3.org/2000/svg"
+                                            class="h-6 w-6 text-primary"
+                                            fill="none"
+                                            viewBox="0 0 24 24"
+                                            stroke="currentColor"
+                                        >
+                                            <path
+                                                stroke-linecap="round"
+                                                stroke-linejoin="round"
+                                                stroke-width="2"
+                                                d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                            />
+                                        </svg>
+                                    </div>
+                                    <div>
+                                        <div class="font-medium">{event.name}</div>
+                                        <div class="text-sm text-base-content/70">
+                                            {event.location} • {event.date} {event.time}
+                                        </div>
+                                    </div>
+                                </a>
+                            ))}
+                        </div>
+
+                        {/* Hidden container for remaining items */}
+                        {hasMoreEvents && (
+                            <div id="hidden-events-container" class="hidden space-y-2">
+                                {filteredEvents.slice(displayLimit).map((event) => (
+                                    <a
+                                        href={`/events/${event.id}`}
+                                        class="event-item flex items-center gap-3 p-2 hover:bg-base-200 rounded-lg transition-colors"
+                                    >
+                                        <div class="w-12 h-12 bg-base-200 rounded-lg flex items-center justify-center">
+                                            <svg
+                                                xmlns="http://www.w3.org/2000/svg"
+                                                class="h-6 w-6 text-primary"
+                                                fill="none"
+                                                viewBox="0 0 24 24"
+                                                stroke="currentColor"
+                                            >
+                                                <path
+                                                    stroke-linecap="round"
+                                                    stroke-linejoin="round"
+                                                    stroke-width="2"
+                                                    d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z"
+                                                />
+                                            </svg>
+                                        </div>
+                                        <div>
+                                            <div class="font-medium">{event.name}</div>
+                                            <div class="text-sm text-base-content/70">
+                                                {event.location} • {event.date} {event.time}
+                                            </div>
+                                        </div>
+                                    </a>
+                                ))}
+                            </div>
+                        )}
+
+                        {/* Load More Button for Events */}
+                        {hasMoreEvents && (
+                            <div class="mt-3 text-center">
+                                <button id="load-more-events" class="btn btn-sm btn-outline">
+                                    Load More ({filteredEvents.length - displayLimit} more)
+                                </button>
+                            </div>
+                        )}
+                    </>
                 )}
             </div>
         )
-    }
-
-    {
-        (currentType === "pianos" && filteredPianos.length === 0) ||
-        (currentType === "events" && filteredEvents.length === 0) ? (
-            <div class="p-4 text-center text-base-content/70">
-                No results found
-            </div>
-        ) : null
     }
 </div>
 
 <script is:inline>
     document.addEventListener('DOMContentLoaded', () => {
         console.log('Search results script loaded');
-        
+
         // Load more pianos
         const loadMorePianosBtn = document.getElementById('load-more-pianos');
-        
-        if (loadMorePianosBtn) {
+        const hiddenPianosContainer = document.getElementById('hidden-pianos-container');
+        const pianosContainer = document.getElementById('pianos-container');
+
+        if (loadMorePianosBtn && hiddenPianosContainer && pianosContainer) {
             loadMorePianosBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 console.log('Load more pianos clicked');
+
+                // Show hidden items
+                hiddenPianosContainer.classList.remove('hidden');
                 
-                // Show all hidden piano items
-                const hiddenItems = document.querySelectorAll('.piano-item.hidden');
+                // Move all items from hidden container to main container
+                const hiddenItems = hiddenPianosContainer.querySelectorAll('.piano-item');
                 hiddenItems.forEach(item => {
-                    item.classList.remove('hidden');
+                    pianosContainer.appendChild(item);
                 });
-                
-                // Hide the button
+
+                // Hide the button and empty hidden container
                 loadMorePianosBtn.style.display = 'none';
-                
+                hiddenPianosContainer.innerHTML = '';
+
                 // Make container scrollable if needed
-                const container = document.getElementById('pianos-container');
-                if (container && container.scrollHeight > 300) {
-                    container.style.maxHeight = '300px';
-                    container.style.overflowY = 'auto';
-                    container.style.paddingRight = '10px';
+                if (pianosContainer.scrollHeight > 300) {
+                    pianosContainer.style.maxHeight = '300px';
+                    pianosContainer.style.overflowY = 'auto';
+                    pianosContainer.style.paddingRight = '10px';
                 }
             });
         }
-        
+
         // Load more events
         const loadMoreEventsBtn = document.getElementById('load-more-events');
-        
-        if (loadMoreEventsBtn) {
+        const hiddenEventsContainer = document.getElementById('hidden-events-container');
+        const eventsContainer = document.getElementById('events-container');
+
+        if (loadMoreEventsBtn && hiddenEventsContainer && eventsContainer) {
             loadMoreEventsBtn.addEventListener('click', (e) => {
                 e.preventDefault();
                 e.stopPropagation();
-                
+
                 console.log('Load more events clicked');
+
+                // Show hidden items
+                hiddenEventsContainer.classList.remove('hidden');
                 
-                // Show all hidden event items
-                const hiddenItems = document.querySelectorAll('.event-item.hidden');
+                // Move all items from hidden container to main container
+                const hiddenItems = hiddenEventsContainer.querySelectorAll('.event-item');
                 hiddenItems.forEach(item => {
-                    item.classList.remove('hidden');
+                    eventsContainer.appendChild(item);
                 });
-                
-                // Hide the button
+
+                // Hide the button and empty hidden container
                 loadMoreEventsBtn.style.display = 'none';
-                
+                hiddenEventsContainer.innerHTML = '';
+
                 // Make container scrollable if needed
-                const container = document.getElementById('events-container');
-                if (container && container.scrollHeight > 300) {
-                    container.style.maxHeight = '300px';
-                    container.style.overflowY = 'auto';
-                    container.style.paddingRight = '10px';
+                if (eventsContainer.scrollHeight > 300) {
+                    eventsContainer.style.maxHeight = '300px';
+                    eventsContainer.style.overflowY = 'auto';
+                    eventsContainer.style.paddingRight = '10px';
                 }
             });
         }
     });
 </script>
+
+<style>
+    /* Ensure the container has smooth scrolling */
+    #pianos-container, #events-container {
+        transition: max-height 0.3s ease;
+        scrollbar-width: thin;
+    }
+
+    /* Custom scrollbar for WebKit browsers */
+    #pianos-container::-webkit-scrollbar, 
+    #events-container::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    #pianos-container::-webkit-scrollbar-track, 
+    #events-container::-webkit-scrollbar-track {
+        background: hsl(var(--b2));
+        border-radius: 10px;
+    }
+
+    #pianos-container::-webkit-scrollbar-thumb, 
+    #events-container::-webkit-scrollbar-thumb {
+        background: hsl(var(--bc) / 0.3);
+        border-radius: 10px;
+    }
+
+    #pianos-container::-webkit-scrollbar-thumb:hover, 
+    #events-container::-webkit-scrollbar-thumb:hover {
+        background: hsl(var(--bc) / 0.5);
+    }
+</style>

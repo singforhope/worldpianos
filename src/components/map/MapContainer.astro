@@ -1,0 +1,57 @@
+---
+import MapLegend from "./MapLegend.astro";
+import type { Piano } from "../../utils/dataService";
+
+interface Props {
+  pianos: Piano[];
+  pianoId?: string | null;
+  error?: string | null;
+}
+
+const { pianos, pianoId = null, error = null } = Astro.props;
+---
+
+<div class="w-full h-screen">
+  {
+    error && (
+      <div class="alert alert-error m-4">
+        <svg
+          xmlns="http://www.w3.org/2000/svg"
+          class="stroke-current shrink-0 h-6 w-6"
+          fill="none"
+          viewBox="0 0 24 24"
+        >
+          <path
+            stroke-linecap="round"
+            stroke-linejoin="round"
+            stroke-width="2"
+            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+          />
+        </svg>
+        <span>{error}</span>
+      </div>
+    )
+  }
+  {
+    !error && pianos.length === 0 && (
+      <div class="flex justify-center items-center h-64">
+        <div class="loading loading-spinner loading-lg"></div>
+      </div>
+    )
+  }
+  <div
+    id="map"
+    class="w-full h-full relative"
+    data-pianos={JSON.stringify(pianos)}
+    data-piano-id={pianoId}
+  >
+    <MapLegend />
+  </div>
+</div>
+
+<style>
+  /* Ensure map container has a minimum height */
+  #map {
+    min-height: 500px;
+  }
+</style>

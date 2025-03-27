@@ -1,0 +1,259 @@
+---
+// MapControls.astro - Component for map controls and functionality
+---
+
+<script>
+  import mapboxgl from "mapbox-gl";
+  import { 
+    createAirportMarker, 
+    createCityMarker, 
+    createPianoPopup,
+    calculateDistance,
+    type MapPiano
+  } from "../../utils/mapUtils";
+
+  // Define custom event type
+  interface LocationChangeEvent extends CustomEvent {
+    detail: {
+      lat: number;
+      lng: number;
+    };
+  }
+
+  // Initialize map
+  const initializeMap = () => {
+    mapboxgl.accessToken =
+      "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ";
+
+    // Get piano data from the data attribute
+    const mapElement = document.getElementById("map");
+    const pianoData = JSON.parse(mapElement?.dataset.pianos || "[]") as MapPiano[];
+    const urlPianoId = mapElement?.dataset.pianoId || null;
+
+    console.log("Loaded piano data:", pianoData);
+    console.log("Number of pianos:", pianoData.length);
+
+    // Get saved coordinates from localStorage
+    const savedCoordinates = localStorage.getItem("userCoordinates");
+    let defaultCenter: [number, number] = [0, 0]; // Center of the world
+    let defaultZoom = 1.5; // Zoom level for world view
+
+    if (savedCoordinates) {
+      try {
+        const { lat, lng } = JSON.parse(savedCoordinates);
+        defaultCenter = [lng, lat];
+        defaultZoom = 12; // Zoom in more when using user's location
+      } catch (error) {
+        console.error("Error parsing saved coordinates:", error);
+      }
+    }
+
+    // Get pianoId from URL if it exists
+    let targetPiano: MapPiano | null = null;
+
+    if (urlPianoId) {
+      targetPiano = pianoData.find((p) => p.id === urlPianoId) || null;
+      if (targetPiano) {
+        defaultCenter = targetPiano.coordinates;
+        defaultZoom = 15;
+      }
+    }
+
+    console.log(
+      "Initializing map with center:",
+      defaultCenter,
+      "zoom:",
+      defaultZoom
+    );
+
+    const map = new mapboxgl.Map({
+      container: "map",
+      style: "mapbox://styles/mapbox/navigation-day-v1",
+      center: defaultCenter,
+      zoom: defaultZoom,
+      minZoom: 1.5,
+      maxZoom: 22,
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+
+    // Wait for map to load before adding markers
+    map.on("load", () => {
+      console.log("Map loaded, adding markers...");
+
+      // Add piano markers
+      pianoData.forEach((piano) => {
+        console.log(
+          "Adding marker for piano:",
+          piano.name,
+          "at coordinates:",
+          piano.coordinates,
+          "category:",
+          piano.category
+        );
+
+        // Create a custom popup
+        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+          createPianoPopup(piano)
+        );
+
+        // Create and add the marker with appropriate icon based on category
+        const markerElement = piano.category === "airport"
+          ? createAirportMarker().cloneNode(true) as HTMLElement
+          : createCityMarker().cloneNode(true) as HTMLElement;
+
+        const marker = new mapboxgl.Marker({
+          element: markerElement,
+          anchor: "center",
+          scale: 0.5, // Use the same scale for both types
+        })
+          .setLngLat(piano.coordinates)
+          .setPopup(popup)
+          .addTo(map);
+
+        // If this is the target piano, open its popup
+        if (targetPiano && piano.id === targetPiano.id) {
+          marker.togglePopup();
+        }
+      });
+
+      // Function to draw lines to nearest pianos
+      function drawNearestPianoLines(userLat: number, userLng: number): void {
+        // Calculate distances to all pianos
+        const pianosWithDistances = pianoData.map((piano) => ({
+          ...piano,
+          distance: calculateDistance(
+            userLat,
+            userLng,
+            piano.coordinates[1],
+            piano.coordinates[0]
+          ),
+        }));
+
+        // Sort by distance and get top 3
+        const nearestPianos = pianosWithDistances
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 3);
+
+        // Remove existing lines if any
+        if (map.getSource("nearest-pianos")) {
+          map.removeLayer("nearest-pianos");
+          map.removeSource("nearest-pianos");
+        }
+
+        // Add new lines
+        map.addSource("nearest-pianos", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: nearestPianos.map((piano) => ({
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [userLng, userLat],
+                  piano.coordinates,
+                ],
+              },
+            })),
+          },
+        });
+
+        map.addLayer({
+          id: "nearest-pianos",
+          type: "line",
+          source: "nearest-pianos",
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#800000",
+            "line-width": 2,
+            "line-dasharray": [2, 2],
+            "line-opacity": 0.6,
+          },
+        });
+      }
+
+      // Check for saved coordinates and draw lines if they exist
+      if (savedCoordinates) {
+        try {
+          const { lat, lng } = JSON.parse(savedCoordinates);
+          drawNearestPianoLines(lat, lng);
+        } catch (error) {
+          console.error("Error parsing saved coordinates:", error);
+        }
+      }
+
+      // Listen for storage events to update lines when location changes
+      window.addEventListener("storage", (e) => {
+        if (e.key === "userCoordinates" && e.newValue) {
+          try {
+            const { lat, lng } = JSON.parse(e.newValue);
+            drawNearestPianoLines(lat, lng);
+          } catch (error) {
+            console.error("Error parsing new coordinates:", error);
+          }
+        }
+      });
+
+      // Listen for location change events
+      window.addEventListener("locationChanged", ((e: Event) => {
+        const customEvent = e as LocationChangeEvent;
+        const { lat, lng } = customEvent.detail;
+
+        // Fly to the new location
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 12,
+          duration: 2000,
+          essential: true,
+        });
+
+        // Update the nearest piano lines
+        drawNearestPianoLines(lat, lng);
+      }) as EventListener);
+    });
+
+    // Add error handling for map load
+    map.on("error", (e) => {
+      console.error("Map error:", e);
+    });
+  };
+
+  // Initialize map when DOM is loaded
+  document.addEventListener("DOMContentLoaded", initializeMap);
+</script>
+
+<style>
+  @import "https://unpkg.com/mapbox-gl@2.15.0/dist/mapbox-gl.css";
+
+  /* Custom styles for popups */
+  .mapboxgl-popup-content {
+    padding: 0;
+    border-radius: 0.5rem;
+    background: hsl(var(--b1));
+    color: hsl(var(--bc));
+  }
+
+  /* Remove focus outline from popup close button */
+  .mapboxgl-popup-close-button,
+  .mapboxgl-popup-close-button:focus,
+  .mapboxgl-popup-close-button:focus-visible,
+  .mapboxgl-popup-close-button:active,
+  .mapboxgl-popup-close-button:hover {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0.5rem !important;
+    color: hsl(var(--bc)) !important;
+  }
+</style>

@@ -1,13 +1,51 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
-import mockData from "../../data/mockData.json";
+import { getPianoById } from "../../utils/dataService";
 
 const { id } = Astro.params;
-const piano = mockData.pianos.find((p) => p.id === id);
+let piano = null;
+let error = null;
+
+try {
+  if (!id) {
+    throw new Error("Piano ID is required");
+  }
+  piano = await getPianoById(id);
+} catch (err) {
+  console.error(`Error fetching piano with id ${id}:`, err);
+  error = err instanceof Error ? err.message : "Failed to load piano data";
+}
 ---
 
 <MainLayout>
     <div class="container mx-auto px-4 py-8">
+        {
+            error && (
+                <div class="alert alert-error">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                    <span>{error}</span>
+                </div>
+            )
+        }
+        {
+            !error && !piano && (
+                <div class="flex justify-center items-center h-64">
+                    <div class="loading loading-spinner loading-lg"></div>
+                </div>
+            )
+        }
         {
             piano ? (
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
@@ -48,9 +86,14 @@ const piano = mockData.pianos.find((p) => p.id === id);
                                         Last Maintained
                                     </h2>
                                     <p class="text-base-content/70">
-                                        {piano.lastMaintained}
+                                        {piano.last_maintained || "Unknown"}
                                     </p>
                                 </div>
+                                {piano.verified && (
+                                    <div class="mt-2">
+                                        <span class="badge badge-success">Verified</span>
+                                    </div>
+                                )}
                             </div>
                             <div class="card-actions justify-end mt-6">
                                 <button
@@ -128,40 +171,42 @@ const piano = mockData.pianos.find((p) => p.id === id);
             ?.getAttribute("data-piano-location"),
     };
 
-    const map = new mapboxgl.Map({
-        container: "piano-map",
-        style: "mapbox://styles/mapbox/navigation-day-v1",
-        center: pianoData.coordinates,
-        zoom: 15,
-        pitch: 60,
-        bearing: 0,
-    });
+    if (pianoData.id && pianoData.coordinates) {
+        const map = new mapboxgl.Map({
+            container: "piano-map",
+            style: "mapbox://styles/mapbox/navigation-day-v1",
+            center: pianoData.coordinates,
+            zoom: 15,
+            pitch: 60,
+            bearing: 0,
+        });
 
-    map.on("load", () => {
-        // Add navigation controls
-        map.addControl(new mapboxgl.NavigationControl(), "top-right");
+        map.on("load", () => {
+            // Add navigation controls
+            map.addControl(new mapboxgl.NavigationControl(), "top-right");
 
-        // Add marker
-        new mapboxgl.Marker({
-            color: "#FF0000",
-            scale: 0.8,
-        })
-            .setLngLat(pianoData.coordinates)
-            .addTo(map);
+            // Add marker
+            new mapboxgl.Marker({
+                color: "#FF0000",
+                scale: 0.8,
+            })
+                .setLngLat(pianoData.coordinates)
+                .addTo(map);
 
-        // Add popup
-        new mapboxgl.Popup({ offset: 25 })
-            .setLngLat(pianoData.coordinates)
-            .setHTML(
-                `
-                <div class="p-2">
-                    <h3 class="font-bold text-lg">${pianoData.name}</h3>
-                    <p class="text-sm text-base-content/70">${pianoData.location}</p>
-                </div>
-            `,
-            )
-            .addTo(map);
-    });
+            // Add popup
+            new mapboxgl.Popup({ offset: 25 })
+                .setLngLat(pianoData.coordinates)
+                .setHTML(
+                    `
+                    <div class="p-2">
+                        <h3 class="font-bold text-lg">${pianoData.name}</h3>
+                        <p class="text-sm text-base-content/70">${pianoData.location}</p>
+                    </div>
+                `,
+                )
+                .addTo(map);
+        });
+    }
 </script>
 
 <style>

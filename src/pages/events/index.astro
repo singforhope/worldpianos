@@ -1,6 +1,78 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
-import mockData from "../../data/mockData.json";
+import { getAllEvents } from "../../utils/dataService";
+import type { Event } from "../../utils/dataService";
+
+let events: Event[] = [];
+let error: string | null = null;
+
+try {
+  events = await getAllEvents();
+} catch (err) {
+  console.error("Error fetching events:", err);
+  error = err instanceof Error ? err.message : "Failed to load events data";
+}
+
+// Format events for the calendar
+const formattedEvents = events.map(event => {
+  // Ensure date and time are properly formatted
+  let startDate;
+  try {
+    // Try to create a valid date from the date and time
+    startDate = new Date(`${event.date}T${event.time}`);
+    // Check if the date is valid
+    if (isNaN(startDate.getTime())) {
+      // Fallback to current date if invalid
+      startDate = new Date();
+    }
+  } catch (e) {
+    // Fallback to current date if there's an error
+    startDate = new Date();
+  }
+  
+  return {
+    id: event.id,
+    title: event.name,
+    location: event.location,
+    start: startDate.toISOString(),
+    description: event.description,
+    type: event.type,
+    piano_id: event.piano_id,
+    status: event.status || 'upcoming',
+    // Add color based on event type
+    color: getEventColor(event.type),
+    // Add text color for better contrast
+    textColor: '#ffffff'
+  };
+});
+
+// Function to determine event color based on type
+function getEventColor(type: string): string {
+  switch (type?.toLowerCase()) {
+    case 'festival':
+      return '#FF5722'; // Deep Orange
+    case 'recital':
+      return '#9C27B0'; // Purple
+    case 'concert':
+      return '#2196F3'; // Blue
+    case 'marathon':
+      return '#4CAF50'; // Green
+    case 'showcase':
+      return '#FFC107'; // Amber
+    case 'flash mob':
+      return '#E91E63'; // Pink
+    default:
+      return '#607D8B'; // Blue Grey
+  }
+}
+
+// Filter events for initial display
+const now = new Date();
+const upcomingEvents = formattedEvents.filter(event => new Date(event.start) >= now);
+const pastEvents = formattedEvents.filter(event => new Date(event.start) < now);
+
+// Serialize events data for client-side use
+const serializedEvents = JSON.stringify(formattedEvents);
 ---
 
 <MainLayout>
@@ -25,6 +97,48 @@ import mockData from "../../data/mockData.json";
                         </svg>
                         Add Event
                     </button>
+                </div>
+
+                {
+                    error && (
+                        <div class="alert alert-error mb-4">
+                            <svg
+                                xmlns="http://www.w3.org/2000/svg"
+                                class="stroke-current shrink-0 h-6 w-6"
+                                fill="none"
+                                viewBox="0 0 24 24"
+                            >
+                                <path
+                                    stroke-linecap="round"
+                                    stroke-linejoin="round"
+                                    stroke-width="2"
+                                    d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                                />
+                            </svg>
+                            <span>{error}</span>
+                        </div>
+                    )
+                }
+
+                {
+                    !error && events.length === 0 && (
+                        <div class="alert alert-info mb-4">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>No events found. Be the first to add an event!</span>
+                        </div>
+                    )
+                }
+
+                <!-- Event Type Legend -->
+                <div class="mb-4 flex flex-wrap gap-2">
+                    <span class="font-bold text-sm">Event Types:</span>
+                    <span class="badge" style="background-color: #FF5722; color: white;">Festival</span>
+                    <span class="badge" style="background-color: #9C27B0; color: white;">Recital</span>
+                    <span class="badge" style="background-color: #2196F3; color: white;">Concert</span>
+                    <span class="badge" style="background-color: #4CAF50; color: white;">Marathon</span>
+                    <span class="badge" style="background-color: #FFC107; color: white;">Showcase</span>
+                    <span class="badge" style="background-color: #E91E63; color: white;">Flash Mob</span>
+                    <span class="badge" style="background-color: #607D8B; color: white;">Other</span>
                 </div>
 
                 <!-- Mobile Tabs -->
@@ -52,15 +166,43 @@ import mockData from "../../data/mockData.json";
                             <div class="tabs tabs-boxed mb-4">
                                 <a
                                     class="tab event-type-tab tab-active"
-                                    data-events-type="upcoming">Upcoming</a
+                                    data-events-type="upcoming">Upcoming ({upcomingEvents.length})</a
                                 >
                                 <a
                                     class="tab event-type-tab"
-                                    data-events-type="past">Past</a
+                                    data-events-type="past">Past ({pastEvents.length})</a
                                 >
                             </div>
                             <div class="space-y-4" id="events-list">
-                                <!-- Events will be populated by JavaScript -->
+                                <!-- Initial server-side rendering of upcoming events -->
+                                {upcomingEvents.length === 0 ? (
+                                    <p class="text-center opacity-70">No upcoming events found</p>
+                                ) : (
+                                    upcomingEvents.map(event => (
+                                        <div class="card bg-base-100">
+                                            <div class="card-body p-4">
+                                                <a href={`/events/${event.id}`} class="hover:opacity-80 transition-opacity">
+                                                    <h3 class="font-medium">{event.title}</h3>
+                                                    <p class="text-sm opacity-70">{event.location}</p>
+                                                    <p class="text-sm opacity-70">{new Date(event.start).toLocaleDateString("en-US", {
+                                                        weekday: "long",
+                                                        year: "numeric",
+                                                        month: "long",
+                                                        day: "numeric",
+                                                        hour: "2-digit",
+                                                        minute: "2-digit",
+                                                    })}</p>
+                                                    <div class="mt-2">
+                                                        <span class="badge badge-sm" style={`background-color: ${event.color}; color: white;`}>{event.type}</span>
+                                                        {event.status && (
+                                                            <span class="badge badge-sm badge-outline">{event.status}</span>
+                                                        )}
+                                                    </div>
+                                                </a>
+                                            </div>
+                                        </div>
+                                    ))
+                                )}
                             </div>
                         </div>
                     </div>
@@ -68,46 +210,49 @@ import mockData from "../../data/mockData.json";
             </div>
         </div>
     </div>
+
+    <!-- Hidden element to pass event data to client-side JavaScript -->
+    <script id="event-data" type="application/json">{serializedEvents}</script>
 </MainLayout>
 
 <script>
-    import { Calendar } from "@fullcalendar/core";
-    import dayGridPlugin from "@fullcalendar/daygrid";
-    import interactionPlugin from "@fullcalendar/interaction";
+    // Import FullCalendar core and plugins
+    import { Calendar } from '@fullcalendar/core';
+    import dayGridPlugin from '@fullcalendar/daygrid';
+    import timeGridPlugin from '@fullcalendar/timegrid';
+    import listPlugin from '@fullcalendar/list';
+    import interactionPlugin from '@fullcalendar/interaction';
 
-    // Define events data with March 2025 dates
-    const eventsData = [
-        {
-            id: "e1",
-            title: "Central Park Piano Festival",
-            location: "Central Park, New York, NY",
-            start: "2025-03-15T14:00:00",
-            description: "Annual piano festival featuring local musicians",
-            type: "Festival",
-            pianoId: "p1",
-        },
-        {
-            id: "e2",
-            title: "London Piano Recital",
-            location: "British Library, London, UK",
-            start: "2025-03-20T19:00:00",
-            description: "Evening recital featuring classical masterpieces",
-            type: "Recital",
-            pianoId: "p2",
-        },
-        {
-            id: "e3",
-            title: "Tokyo Station Jazz Night",
-            location: "Tokyo Station, Tokyo, Japan",
-            start: "2025-03-25T20:00:00",
-            description: "Jazz performance featuring local artists",
-            type: "Concert",
-            pianoId: "p3",
-        },
-    ];
+    // Define event type
+    interface CalendarEvent {
+        id: string;
+        title: string;
+        location: string;
+        start: string;
+        description: string;
+        type: string;
+        piano_id: string;
+        status: string;
+        color: string;
+        textColor: string;
+    }
+
+    // Get the formatted events from the server
+    const eventDataElement = document.getElementById('event-data');
+    let formattedEvents: CalendarEvent[] = [];
+    
+    try {
+        if (eventDataElement && eventDataElement.textContent) {
+            formattedEvents = JSON.parse(eventDataElement.textContent);
+        } else {
+            console.error("Event data element not found or empty");
+        }
+    } catch (error) {
+        console.error("Error parsing event data:", error);
+    }
 
     // Helper function to filter events
-    function filterEvents(events: any[], type: "upcoming" | "past") {
+    function filterEvents(events: CalendarEvent[], type: string): CalendarEvent[] {
         const now = new Date();
         return events.filter((event) => {
             const eventDate = new Date(event.start);
@@ -115,8 +260,26 @@ import mockData from "../../data/mockData.json";
         });
     }
 
+    // Function to format date for display
+    function formatEventDate(dateString: string): string {
+        try {
+            const date = new Date(dateString);
+            return date.toLocaleDateString("en-US", {
+                weekday: "long",
+                year: "numeric",
+                month: "long",
+                day: "numeric",
+                hour: "2-digit",
+                minute: "2-digit",
+            });
+        } catch (error) {
+            console.error("Error formatting date:", error);
+            return dateString;
+        }
+    }
+
     // Function to render events list
-    function renderEventsList(events: any[]) {
+    function renderEventsList(events: CalendarEvent[]): void {
         const eventsList = document.getElementById("events-list");
         if (eventsList) {
             if (events.length === 0) {
@@ -130,21 +293,13 @@ import mockData from "../../data/mockData.json";
                     (event) => `
                 <div class="card bg-base-100">
                     <div class="card-body p-4">
-                        <a href="/events/${event.id}" target="_blank" class="hover:opacity-80 transition-opacity">
+                        <a href="/events/${event.id}" class="hover:opacity-80 transition-opacity">
                             <h3 class="font-medium">${event.title}</h3>
                             <p class="text-sm opacity-70">${event.location}</p>
-                            <p class="text-sm opacity-70">${new Date(
-                                event.start,
-                            ).toLocaleDateString("en-US", {
-                                weekday: "long",
-                                year: "numeric",
-                                month: "long",
-                                day: "numeric",
-                                hour: "2-digit",
-                                minute: "2-digit",
-                            })}</p>
+                            <p class="text-sm opacity-70">${formatEventDate(event.start)}</p>
                             <div class="mt-2">
-                                <span class="badge badge-sm">${event.type}</span>
+                                <span class="badge badge-sm" style="background-color: ${event.color}; color: white;">${event.type}</span>
+                                ${event.status ? `<span class="badge badge-sm badge-outline">${event.status}</span>` : ''}
                             </div>
                         </a>
                     </div>
@@ -159,41 +314,59 @@ import mockData from "../../data/mockData.json";
     document.addEventListener("DOMContentLoaded", function () {
         const calendarEl = document.getElementById("calendar");
         if (calendarEl) {
-            const calendar = new Calendar(calendarEl, {
-                plugins: [dayGridPlugin, interactionPlugin],
-                initialView: "dayGridMonth",
-                headerToolbar: {
-                    left: "prev,next today",
-                    center: "title",
-                    right: "dayGridMonth,dayGridWeek,dayGridDay",
-                },
-                editable: true,
-                selectable: true,
-                selectMirror: true,
-                dayMaxEvents: true,
-                weekends: true,
-                height: "auto",
-                contentHeight: "auto",
-                aspectRatio: 1.8,
-                events: eventsData.map((event) => ({
-                    id: event.id,
-                    title: event.title,
-                    start: event.start,
-                    extendedProps: {
-                        location: event.location,
-                        description: event.description,
-                        type: event.type,
+            try {
+                const calendar = new Calendar(calendarEl, {
+                    plugins: [dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin],
+                    initialView: "dayGridMonth",
+                    headerToolbar: {
+                        left: "prev,next today",
+                        center: "title",
+                        right: "dayGridMonth,timeGridWeek,listMonth",
                     },
-                })),
-                eventClick: function (info) {
-                    window.open(`/events/${info.event.id}`, "_blank");
-                },
-            });
-            calendar.render();
+                    buttonText: {
+                        today: 'Today',
+                        month: 'Month',
+                        week: 'Week',
+                        list: 'List'
+                    },
+                    editable: false,
+                    selectable: true,
+                    selectMirror: true,
+                    dayMaxEvents: true,
+                    weekends: true,
+                    height: "auto",
+                    contentHeight: "auto",
+                    aspectRatio: 1.8,
+                    events: formattedEvents,
+                    eventTimeFormat: {
+                        hour: '2-digit',
+                        minute: '2-digit',
+                        meridiem: 'short'
+                    },
+                    eventClick: function(info) {
+                        window.location.href = `/events/${info.event.id}`;
+                    },
+                    eventDidMount: function(info) {
+                        // Add tooltip functionality if needed
+                        info.el.title = `${info.event.title} - ${info.event.extendedProps.location}`;
+                    },
+                    // Highlight today's date
+                    dayCellClassNames: function(arg) {
+                        if (arg.date.setHours(0,0,0,0) === new Date().setHours(0,0,0,0)) {
+                            return ['bg-base-200'];
+                        }
+                        return [];
+                    }
+                });
+                
+                calendar.render();
+            } catch (error: any) {
+                console.error("Error rendering calendar:", error);
+                if (calendarEl) {
+                    calendarEl.innerHTML = `<div class="alert alert-error">Error rendering calendar: ${error.message || 'Unknown error'}</div>`;
+                }
+            }
         }
-
-        // Initial render of upcoming events
-        renderEventsList(filterEvents(eventsData, "upcoming"));
 
         // Events type tab switching
         const eventTypeTabs = document.querySelectorAll(".event-type-tab");
@@ -204,10 +377,8 @@ import mockData from "../../data/mockData.json";
                 tab.classList.add("tab-active");
 
                 // Show filtered events
-                const type = tab.getAttribute("data-events-type") as
-                    | "upcoming"
-                    | "past";
-                renderEventsList(filterEvents(eventsData, type));
+                const type = tab.getAttribute("data-events-type") || "upcoming";
+                renderEventsList(filterEvents(formattedEvents, type));
             });
         });
 
@@ -236,12 +407,37 @@ import mockData from "../../data/mockData.json";
 </script>
 
 <style>
+    @import "https://unpkg.com/fullcalendar@5.11.3/main.min.css";
+
     /* Custom styles for calendar */
     .fc-event {
         cursor: pointer;
         transition: transform 0.2s;
+        border-radius: 4px;
+        border: none;
     }
+    
     .fc-event:hover {
         transform: scale(1.02);
+        box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+    }
+    
+    .fc-toolbar-title {
+        font-weight: bold;
+    }
+    
+    .fc-button {
+        background-color: hsl(var(--p)) !important;
+        border-color: hsl(var(--p)) !important;
+    }
+    
+    .fc-button:hover {
+        background-color: hsl(var(--pf)) !important;
+        border-color: hsl(var(--pf)) !important;
+    }
+    
+    .fc-button-active {
+        background-color: hsl(var(--pf)) !important;
+        border-color: hsl(var(--pf)) !important;
     }
 </style>
