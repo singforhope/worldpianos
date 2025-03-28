@@ -1,0 +1,76 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+---
+
+<MainLayout>
+  <div class="container mx-auto px-4 py-8 text-center">
+    <h1 class="text-2xl font-bold mb-6">Completing Authentication...</h1>
+    <div class="loading loading-spinner loading-lg"></div>
+  </div>
+</MainLayout>
+
+<script>
+  // @ts-nocheck
+  import { createClient } from '@supabase/supabase-js';
+  
+  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+  const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  
+  // Handle the auth callback
+  async function handleAuthCallback() {
+    const { data, error } = await supabase.auth.getSession();
+    
+    if (error) {
+      console.error('Auth error:', error);
+      window.location.href = '/auth?error=Authentication failed';
+      return;
+    }
+    
+    if (data.session) {
+      // Check if user profile exists
+      const { data: profileData, error: profileError } = await supabase
+        .from('user_profiles')
+        .select('*')
+        .eq('id', data.session.user.id)
+        .single();
+      
+      if (profileError && profileError.code !== 'PGRST116') {
+        console.error('Profile error:', profileError);
+      }
+      
+      // Create profile if it doesn't exist
+      if (!profileData) {
+        // Get user metadata
+        const metadata = data.session.user.user_metadata || {};
+        const displayName = metadata.display_name || data.session.user.email?.split('@')[0] || 'User';
+        
+        const { error: insertError } = await supabase
+          .from('user_profiles')
+          .insert({
+            id: data.session.user.id,
+            display_name: displayName,
+            role: 'user', // Default role
+            created_at: new Date().toISOString(),
+            updated_at: new Date().toISOString()
+          });
+          
+        if (insertError) {
+          console.error('Error creating profile:', insertError);
+        } else {
+          console.log('User profile created successfully in auth-callback');
+        }
+      }
+      
+      // Redirect to home or previous page
+      const returnTo = localStorage.getItem('returnTo') || '/';
+      localStorage.removeItem('returnTo');
+      window.location.href = returnTo;
+    } else {
+      window.location.href = '/auth?error=No session found';
+    }
+  }
+  
+  // Run the handler
+  handleAuthCallback();
+</script>

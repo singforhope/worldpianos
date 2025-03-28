@@ -1,8 +1,260 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
+import { supabase } from "../../utils/supabase";
+import { isAuthenticated, getCurrentUser, getUserProfile } from "../../utils/authUtils";
 
+// Check if user is authenticated
+const authenticated = await isAuthenticated();
+const user = await getCurrentUser();
+
+// Redirect if not authenticated
+if (!authenticated || !user) {
+    return Astro.redirect('/auth?error=You must be logged in to view your profile');
+}
+
+// Get user profile
+const profile = await getUserProfile(user.id);
+
+// Get user's pianos
+const { data: userPianos } = await supabase
+    .from('pianos')
+    .select('*')
+    .eq('created_by', user.id)
+    .order('created_at', { ascending: false });
+
+// Get user's events
+const { data: userEvents } = await supabase
+    .from('events')
+    .select('*')
+    .eq('created_by', user.id)
+    .order('created_at', { ascending: false });
 ---
 
 <MainLayout>
-    <h1>Profile</h1>
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Your Profile</h1>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Profile Information -->
+            <div class="lg:col-span-1">
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="flex flex-col items-center mb-6">
+                            <div class="avatar mb-4">
+                                <div class="w-24 rounded-full">
+                                    <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.display_name || 'User'}`} alt="User avatar" />
+                                </div>
+                            </div>
+                            <h2 class="card-title text-2xl">{profile?.display_name || user.email?.split('@')[0]}</h2>
+                            <p class="text-base-content/70">{user.email}</p>
+                            {profile?.role === 'admin' && (
+                                <div class="badge badge-primary mt-2">Admin</div>
+                            )}
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <form id="profile-form" class="space-y-4">
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Display Name</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="display-name"
+                                    name="display_name"
+                                    class="input input-bordered"
+                                    value={profile?.display_name || ''}
+                                />
+                            </div>
+                            
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Bio</span>
+                                </label>
+                                <textarea
+                                    id="bio"
+                                    name="bio"
+                                    class="textarea textarea-bordered h-24"
+                                >{profile?.bio || ''}</textarea>
+                            </div>
+                            
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Avatar URL</span>
+                                </label>
+                                <input
+                                    type="text"
+                                    id="avatar-url"
+                                    name="avatar_url"
+                                    class="input input-bordered"
+                                    value={profile?.avatar_url || ''}
+                                />
+                                <label class="label">
+                                    <span class="label-text-alt">Enter a URL to an image</span>
+                                </label>
+                            </div>
+                            
+                            <div id="status-message" class="mt-4 text-sm hidden"></div>
+                            
+                            <div class="form-control mt-6">
+                                <button type="submit" id="save-profile" class="btn btn-primary">Save Profile</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- User Content -->
+            <div class="lg:col-span-2">
+                <div class="tabs tabs-boxed mb-6">
+                    <a class="tab tab-active" id="pianos-tab">Your Pianos</a>
+                    <a class="tab" id="events-tab">Your Events</a>
+                </div>
+                
+                <!-- Pianos Tab -->
+                <div id="pianos-content" class="space-y-4">
+                    {userPianos && userPianos.length > 0 ? (
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {userPianos.map((piano) => (
+                                <div class="card bg-base-100 shadow-lg">
+                                    <div class="card-body">
+                                        <h3 class="card-title">{piano.name}</h3>
+                                        <p class="text-sm text-base-content/70">{piano.location}</p>
+                                        <p class="mt-2">{piano.description?.substring(0, 100)}...</p>
+                                        <div class="card-actions justify-end mt-4">
+                                            <a href={`/pianos/${piano.id}`} class="btn btn-primary btn-sm">View Details</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div class="alert">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>You haven't added any pianos yet.</span>
+                            <div>
+                                <button class="btn btn-sm open-piano-modal">Add Piano</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+                
+                <!-- Events Tab -->
+                <div id="events-content" class="space-y-4 hidden">
+                    {userEvents && userEvents.length > 0 ? (
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {userEvents.map((event) => (
+                                <div class="card bg-base-100 shadow-lg">
+                                    <div class="card-body">
+                                        <h3 class="card-title">{event.name}</h3>
+                                        <p class="text-sm text-base-content/70">{event.location}</p>
+                                        <p class="mt-2">{event.description?.substring(0, 100)}...</p>
+                                        <div class="card-actions justify-end mt-4">
+                                            <a href={`/events/${event.id}`} class="btn btn-primary btn-sm">View Details</a>
+                                        </div>
+                                    </div>
+                                </div>
+                            ))}
+                        </div>
+                    ) : (
+                        <div class="alert">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>You haven't added any events yet.</span>
+                            <div>
+                                <button class="btn btn-sm open-event-modal">Add Event</button>
+                            </div>
+                        </div>
+                    )}
+                </div>
+            </div>
+        </div>
+    </div>
 </MainLayout>
+
+<script>
+    // @ts-nocheck
+    import { createClient } from '@supabase/supabase-js';
+    
+    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Tab switching
+        const pianosTab = document.getElementById('pianos-tab');
+        const eventsTab = document.getElementById('events-tab');
+        const pianosContent = document.getElementById('pianos-content');
+        const eventsContent = document.getElementById('events-content');
+        
+        pianosTab.addEventListener('click', () => {
+            pianosTab.classList.add('tab-active');
+            eventsTab.classList.remove('tab-active');
+            pianosContent.classList.remove('hidden');
+            eventsContent.classList.add('hidden');
+        });
+        
+        eventsTab.addEventListener('click', () => {
+            eventsTab.classList.add('tab-active');
+            pianosTab.classList.remove('tab-active');
+            eventsContent.classList.remove('hidden');
+            pianosContent.classList.add('hidden');
+        });
+        
+        // Profile form submission
+        const profileForm = document.getElementById('profile-form');
+        const saveProfileBtn = document.getElementById('save-profile');
+        
+        profileForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            saveProfileBtn.disabled = true;
+            saveProfileBtn.textContent = 'Saving...';
+            
+            const formData = new FormData(profileForm);
+            const profileData = {
+                display_name: formData.get('display_name'),
+                bio: formData.get('bio'),
+                avatar_url: formData.get('avatar_url')
+            };
+            
+            try {
+                // Get current user
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) {
+                    throw new Error('Not authenticated');
+                }
+                
+                // Update profile
+                const { error } = await supabase
+                    .from('user_profiles')
+                    .update(profileData)
+                    .eq('id', session.user.id);
+                
+                if (error) {
+                    throw error;
+                }
+                
+                showStatus('success', 'Profile updated successfully!');
+                
+                // Reload page after a short delay
+                setTimeout(() => {
+                    window.location.reload();
+                }, 1500);
+            } catch (error) {
+                console.error('Error updating profile:', error);
+                showStatus('error', 'Error updating profile: ' + (error.message || 'Unknown error'));
+                saveProfileBtn.disabled = false;
+                saveProfileBtn.textContent = 'Save Profile';
+            }
+        });
+        
+        // Function to show status messages
+        function showStatus(type, message) {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
+            statusEl.classList.remove('hidden');
+        }
+    });
+</script>

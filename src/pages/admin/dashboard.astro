@@ -1,8 +1,298 @@
 ---
-import AdminLayout from "../../layouts/AdminLayout.astro";
+import MainLayout from "../../layouts/MainLayout.astro";
+import { supabase } from "../../utils/supabase";
+import { isAuthenticated, getCurrentUser, isAdmin } from "../../utils/authUtils";
 
+// Check if user is authenticated and is an admin
+const authenticated = await isAuthenticated();
+const user = await getCurrentUser();
+const adminAccess = await isAdmin();
+
+// Redirect if not authenticated or not an admin
+if (!authenticated || !user) {
+    return Astro.redirect('/auth?error=You must be logged in to access the admin dashboard');
+}
+
+if (!adminAccess) {
+    return Astro.redirect('/?error=You do not have permission to access the admin dashboard');
+}
+
+// Get stats
+const { count: pianoCount } = await supabase
+    .from('pianos')
+    .select('*', { count: 'exact', head: true });
+
+const { count: eventCount } = await supabase
+    .from('events')
+    .select('*', { count: 'exact', head: true });
+
+const { count: userCount } = await supabase
+    .from('user_profiles')
+    .select('*', { count: 'exact', head: true });
+
+const { count: reportCount } = await supabase
+    .from('piano_reports')
+    .select('*', { count: 'exact', head: true });
+
+// Get recent pianos
+const { data: recentPianos } = await supabase
+    .from('pianos')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+// Get recent events
+const { data: recentEvents } = await supabase
+    .from('events')
+    .select('*')
+    .order('created_at', { ascending: false })
+    .limit(5);
+
+// Get pending reports
+const { data: pendingReports } = await supabase
+    .from('piano_reports')
+    .select('*')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(5);
 ---
 
-<AdminLayout>
-    <h1>Dashboard</h1>
-</AdminLayout>  
+<MainLayout>
+    <div class="container mx-auto px-4 py-8">
+        <h1 class="text-3xl font-bold mb-8">Admin Dashboard</h1>
+        
+        <!-- Stats -->
+        <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6 mb-8">
+            <div class="stat bg-base-100 shadow rounded-lg">
+                <div class="stat-figure text-primary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                    </svg>
+                </div>
+                <div class="stat-title">Total Pianos</div>
+                <div class="stat-value text-primary">{pianoCount || 0}</div>
+                <div class="stat-actions">
+                    <a href="/admin/pianos" class="btn btn-sm btn-primary">Manage</a>
+                </div>
+            </div>
+            
+            <div class="stat bg-base-100 shadow rounded-lg">
+                <div class="stat-figure text-secondary">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                    </svg>
+                </div>
+                <div class="stat-title">Total Events</div>
+                <div class="stat-value text-secondary">{eventCount || 0}</div>
+                <div class="stat-actions">
+                    <a href="/admin/events" class="btn btn-sm btn-secondary">Manage</a>
+                </div>
+            </div>
+            
+            <div class="stat bg-base-100 shadow rounded-lg">
+                <div class="stat-figure text-accent">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0zm6 3a2 2 0 11-4 0 2 2 0 014 0zM7 10a2 2 0 11-4 0 2 2 0 014 0z" />
+                    </svg>
+                </div>
+                <div class="stat-title">Users</div>
+                <div class="stat-value text-accent">{userCount || 0}</div>
+                <div class="stat-actions">
+                    <a href="/admin/users" class="btn btn-sm btn-accent">Manage</a>
+                </div>
+            </div>
+            
+            <div class="stat bg-base-100 shadow rounded-lg">
+                <div class="stat-figure text-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="h-8 w-8" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" />
+                    </svg>
+                </div>
+                <div class="stat-title">Pending Reports</div>
+                <div class="stat-value text-error">{pendingReports?.length || 0}</div>
+                <div class="stat-actions">
+                    <a href="/admin/reports" class="btn btn-sm btn-error">Review</a>
+                </div>
+            </div>
+        </div>
+        
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+            <!-- Recent Pianos -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Recent Pianos</h2>
+                    
+                    {recentPianos && recentPianos.length > 0 ? (
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra w-full">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Location</th>
+                                        <th>Verified</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {recentPianos.map((piano) => (
+                                        <tr>
+                                            <td>{piano.name}</td>
+                                            <td>{piano.location}</td>
+                                            <td>
+                                                {piano.verified ? (
+                                                    <span class="badge badge-success">Yes</span>
+                                                ) : (
+                                                    <span class="badge badge-warning">No</span>
+                                                )}
+                                            </td>
+                                            <td>
+                                                <a href={`/pianos/${piano.id}`} class="btn btn-xs btn-primary">View</a>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div class="alert">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>No pianos found.</span>
+                        </div>
+                    )}
+                    
+                    <div class="card-actions justify-end mt-4">
+                        <a href="/admin/pianos" class="btn btn-primary btn-sm">View All Pianos</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Recent Events -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Recent Events</h2>
+                    
+                    {recentEvents && recentEvents.length > 0 ? (
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra w-full">
+                                <thead>
+                                    <tr>
+                                        <th>Name</th>
+                                        <th>Date</th>
+                                        <th>Status</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {recentEvents.map((event) => (
+                                        <tr>
+                                            <td>{event.name}</td>
+                                            <td>{event.date}</td>
+                                            <td>
+                                                <span class={`badge ${event.status === 'upcoming' ? 'badge-primary' : event.status === 'ongoing' ? 'badge-success' : 'badge-secondary'}`}>
+                                                    {event.status}
+                                                </span>
+                                            </td>
+                                            <td>
+                                                <a href={`/events/${event.id}`} class="btn btn-xs btn-primary">View</a>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div class="alert">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>No events found.</span>
+                        </div>
+                    )}
+                    
+                    <div class="card-actions justify-end mt-4">
+                        <a href="/admin/events" class="btn btn-primary btn-sm">View All Events</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Pending Reports -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Pending Reports</h2>
+                    
+                    {pendingReports && pendingReports.length > 0 ? (
+                        <div class="overflow-x-auto">
+                            <table class="table table-zebra w-full">
+                                <thead>
+                                    <tr>
+                                        <th>Piano</th>
+                                        <th>Issue Type</th>
+                                        <th>Date</th>
+                                        <th>Actions</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {pendingReports.map((report) => (
+                                        <tr>
+                                            <td>{report.piano_id}</td>
+                                            <td>{report.issue_type}</td>
+                                            <td>{new Date(report.created_at).toLocaleDateString()}</td>
+                                            <td>
+                                                <a href={`/admin/reports/${report.id}`} class="btn btn-xs btn-primary">Review</a>
+                                            </td>
+                                        </tr>
+                                    ))}
+                                </tbody>
+                            </table>
+                        </div>
+                    ) : (
+                        <div class="alert alert-success">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span>No pending reports. All clear!</span>
+                        </div>
+                    )}
+                    
+                    <div class="card-actions justify-end mt-4">
+                        <a href="/admin/reports" class="btn btn-primary btn-sm">View All Reports</a>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Quick Actions -->
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <h2 class="card-title">Quick Actions</h2>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-4">
+                        <a href="/admin/pianos/add" class="btn btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Piano
+                        </a>
+                        
+                        <a href="/admin/events/add" class="btn btn-secondary">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Event
+                        </a>
+                        
+                        <a href="/admin/users" class="btn btn-accent">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
+                            </svg>
+                            Manage Users
+                        </a>
+                        
+                        <a href="/admin/settings" class="btn">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            Site Settings
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</MainLayout>

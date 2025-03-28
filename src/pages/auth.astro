@@ -1,9 +1,325 @@
 ---
 import MainLayout from "../layouts/MainLayout.astro";
+import { supabase } from "../utils/supabase";
+
+// Check if there's an error parameter in the URL
+const errorMessage = Astro.url.searchParams.get('error');
 ---
 
 <MainLayout>
-    <div class="container mx-auto">
-        <h1>Login or Sign Up</h1>
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto">
+            <h1 class="text-2xl font-bold mb-6">Login or Sign Up</h1>
+            
+            {errorMessage && (
+                <div class="alert alert-error mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>{errorMessage}</span>
+                </div>
+            )}
+            
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <div class="tabs tabs-boxed mb-6">
+                        <a class="tab tab-active" id="login-tab">Login</a>
+                        <a class="tab" id="signup-tab">Sign Up</a>
+                    </div>
+                    
+                    <div id="login-form" class="space-y-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Email</span>
+                            </label>
+                            <input type="email" id="login-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
+                        </div>
+                        
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Password</span>
+                            </label>
+                            <input type="password" id="login-password" placeholder="••••••••" class="input input-bordered w-full" />
+                        </div>
+                        
+                        <button id="login-button" class="btn btn-primary w-full mt-4">Sign In</button>
+                        
+                        <div class="text-sm text-center mt-4">
+                            <a href="#" id="forgot-password" class="link link-hover">Forgot password?</a>
+                        </div>
+                    </div>
+                    
+                    <div id="signup-form" class="space-y-4 hidden">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Email</span>
+                            </label>
+                            <input type="email" id="signup-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
+                        </div>
+                        
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Password</span>
+                            </label>
+                            <input type="password" id="signup-password" placeholder="••••••••" class="input input-bordered w-full" />
+                            <label class="label">
+                                <span class="label-text-alt">Must be at least 6 characters</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Display Name</span>
+                            </label>
+                            <input type="text" id="signup-name" placeholder="Your Name" class="input input-bordered w-full" />
+                        </div>
+                        
+                        <button id="signup-button" class="btn btn-primary w-full mt-4">Create Account</button>
+                    </div>
+                    
+                    <div id="reset-form" class="space-y-4 hidden">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Email</span>
+                            </label>
+                            <input type="email" id="reset-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
+                        </div>
+                        
+                        <button id="reset-button" class="btn btn-primary w-full mt-4">Reset Password</button>
+                        
+                        <div class="text-sm text-center mt-4">
+                            <a href="#" id="back-to-login" class="link link-hover">Back to login</a>
+                        </div>
+                    </div>
+                    
+                    <div id="status-message" class="mt-4 text-sm hidden"></div>
+                </div>
+            </div>
+        </div>
     </div>
 </MainLayout>
+
+<script>
+    // @ts-nocheck
+    import { createClient } from '@supabase/supabase-js';
+    
+    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Tab switching
+        const loginTab = document.getElementById('login-tab');
+        const signupTab = document.getElementById('signup-tab');
+        const loginForm = document.getElementById('login-form');
+        const signupForm = document.getElementById('signup-form');
+        const resetForm = document.getElementById('reset-form');
+        
+        loginTab.addEventListener('click', () => {
+            loginTab.classList.add('tab-active');
+            signupTab.classList.remove('tab-active');
+            loginForm.classList.remove('hidden');
+            signupForm.classList.add('hidden');
+            resetForm.classList.add('hidden');
+        });
+        
+        signupTab.addEventListener('click', () => {
+            signupTab.classList.add('tab-active');
+            loginTab.classList.remove('tab-active');
+            signupForm.classList.remove('hidden');
+            loginForm.classList.add('hidden');
+            resetForm.classList.add('hidden');
+        });
+        
+        // Forgot password
+        const forgotPassword = document.getElementById('forgot-password');
+        forgotPassword.addEventListener('click', (e) => {
+            e.preventDefault();
+            loginForm.classList.add('hidden');
+            resetForm.classList.remove('hidden');
+        });
+        
+        // Back to login
+        const backToLogin = document.getElementById('back-to-login');
+        backToLogin.addEventListener('click', (e) => {
+            e.preventDefault();
+            resetForm.classList.add('hidden');
+            loginForm.classList.remove('hidden');
+        });
+        
+        // Login
+        const loginButton = document.getElementById('login-button');
+        loginButton.addEventListener('click', async () => {
+            const email = document.getElementById('login-email').value;
+            const password = document.getElementById('login-password').value;
+            
+            if (!email || !password) {
+                showStatus('error', 'Please enter both email and password');
+                return;
+            }
+            
+            showStatus('info', 'Signing in...');
+            loginButton.disabled = true;
+            
+            try {
+                const { data, error } = await supabase.auth.signInWithPassword({
+                    email,
+                    password
+                });
+                
+                if (error) {
+                    showStatus('error', error.message);
+                    loginButton.disabled = false;
+                    return;
+                }
+                
+                showStatus('success', 'Signed in successfully! Redirecting...');
+                
+                // Redirect to home page or previous page
+                setTimeout(() => {
+                    const returnTo = localStorage.getItem('returnTo') || '/';
+                    localStorage.removeItem('returnTo');
+                    window.location.href = returnTo;
+                }, 1000);
+            } catch (error) {
+                showStatus('error', 'An unexpected error occurred');
+                loginButton.disabled = false;
+                console.error('Login error:', error);
+            }
+        });
+        
+        // Sign up
+        const signupButton = document.getElementById('signup-button');
+        signupButton.addEventListener('click', async () => {
+            const email = document.getElementById('signup-email').value;
+            const password = document.getElementById('signup-password').value;
+            const name = document.getElementById('signup-name').value;
+            
+            if (!email || !password) {
+                showStatus('error', 'Please enter both email and password');
+                return;
+            }
+            
+            if (password.length < 6) {
+                showStatus('error', 'Password must be at least 6 characters');
+                return;
+            }
+            
+            showStatus('info', 'Creating account...');
+            signupButton.disabled = true;
+            
+            try {
+                const { data, error } = await supabase.auth.signUp({
+                    email,
+                    password,
+                    options: {
+                        data: {
+                            display_name: name || email.split('@')[0]
+                        }
+                    }
+                });
+                
+                if (error) {
+                    showStatus('error', error.message);
+                    signupButton.disabled = false;
+                    return;
+                }
+                
+                // Create user profile
+                try {
+                    // First check if profile already exists
+                    const { data: existingProfile, error: checkError } = await supabase
+                        .from('user_profiles')
+                        .select('*')
+                        .eq('id', data.user.id)
+                        .single();
+                    
+                    if (checkError && checkError.code !== 'PGRST116') {
+                        console.error('Error checking profile:', checkError);
+                    }
+                    
+                    // Only create profile if it doesn't exist
+                    if (!existingProfile) {
+                        const { error: profileError } = await supabase
+                            .from('user_profiles')
+                            .insert({
+                                id: data.user.id,
+                                display_name: name || email.split('@')[0],
+                                role: 'user',
+                                created_at: new Date().toISOString(),
+                                updated_at: new Date().toISOString()
+                            });
+                        
+                        if (profileError) {
+                            console.error('Error creating profile:', profileError);
+                            throw profileError;
+                        } else {
+                            console.log('User profile created successfully');
+                        }
+                    } else {
+                        console.log('User profile already exists');
+                    }
+                } catch (err) {
+                    console.error('Error creating profile:', err);
+                    showStatus('error', 'Account created but there was an error setting up your profile. Please contact support.');
+                }
+                
+                showStatus('success', 'Account created! Please check your email for confirmation.');
+                
+                // Switch to login tab
+                setTimeout(() => {
+                    loginTab.click();
+                    signupButton.disabled = false;
+                }, 2000);
+            } catch (error) {
+                showStatus('error', 'An unexpected error occurred');
+                signupButton.disabled = false;
+                console.error('Signup error:', error);
+            }
+        });
+        
+        // Reset password
+        const resetButton = document.getElementById('reset-button');
+        resetButton.addEventListener('click', async () => {
+            const email = document.getElementById('reset-email').value;
+            
+            if (!email) {
+                showStatus('error', 'Please enter your email');
+                return;
+            }
+            
+            showStatus('info', 'Sending password reset email...');
+            resetButton.disabled = true;
+            
+            try {
+                const { error } = await supabase.auth.resetPasswordForEmail(email, {
+                    redirectTo: `${window.location.origin}/reset-password`
+                });
+                
+                if (error) {
+                    showStatus('error', error.message);
+                    resetButton.disabled = false;
+                    return;
+                }
+                
+                showStatus('success', 'Password reset email sent! Please check your inbox.');
+                
+                // Switch to login tab
+                setTimeout(() => {
+                    loginTab.click();
+                    resetButton.disabled = false;
+                }, 2000);
+            } catch (error) {
+                showStatus('error', 'An unexpected error occurred');
+                resetButton.disabled = false;
+                console.error('Reset password error:', error);
+            }
+        });
+        
+        // Function to show status messages
+        function showStatus(type, message) {
+            const statusEl = document.getElementById('status-message');
+            statusEl.textContent = message;
+            statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : type === 'success' ? 'text-success' : 'text-info'}`;
+            statusEl.classList.remove('hidden');
+        }
+    });
+</script>

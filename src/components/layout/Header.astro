@@ -4,8 +4,17 @@ import Results from "../search/Results.astro";
 import Location from "../search/Location.astro";
 import { Image } from "astro:assets";
 import logo from "../../assets/logo.png";
+import { isAuthenticated, getCurrentUser, getUserProfile } from "../../utils/authUtils";
 
-const isLoggedIn = true; // This would come from your auth system
+// Get authentication status and user data
+const authenticated = await isAuthenticated();
+const user = await getCurrentUser();
+
+// Get user profile if authenticated
+let profile = null;
+if (user) {
+  profile = await getUserProfile(user.id);
+}
 const currentPath = Astro.url.pathname;
 const searchQuery = Astro.url.searchParams.get("q") || "";
 
@@ -201,7 +210,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
         <!-- Add Event Button removed -->
 
         {
-            !isLoggedIn ? (
+            !authenticated ? (
                 <div class="flex items-center gap-2">
                     <a href="/auth" class="btn btn-primary btn-sm">
                         Login or Sign Up
@@ -212,7 +221,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                     <label tabindex="0" class="btn btn-ghost btn-circle avatar">
                         <div class="w-10 rounded-full">
                             <img
-                                src="https://picsum.photos/100/100"
+                                src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.display_name || 'User'}`}
                                 alt="User avatar"
                             />
                         </div>
@@ -222,10 +231,10 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
                     >
                         <li class="menu-title">
-                            <span>Michael Chen</span>
+                            <span>{profile?.display_name || user?.email?.split('@')[0] || 'User'}</span>
                         </li>
                         <li>
-                            <a>
+                            <a href="/user/profile">
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     class="h-5 w-5"
@@ -244,7 +253,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                             </a>
                         </li>
                         <li>
-                            <a>
+                            <a href="/user/settings">
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     class="h-5 w-5"
@@ -268,6 +277,27 @@ const isActive = (path: string) => currentPath.startsWith(path);
                                 Settings
                             </a>
                         </li>
+                        {profile?.role === 'admin' && (
+                            <li>
+                                <a href="/admin/dashboard">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z"
+                                        />
+                                    </svg>
+                                    Admin Dashboard
+                                </a>
+                            </li>
+                        )}
                         <li>
                             <a id="theme-toggle">
                                 <svg
@@ -288,7 +318,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                             </a>
                         </li>
                         <li>
-                            <a>
+                            <a href="#" id="logout-btn">
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     class="h-5 w-5"
@@ -464,6 +494,32 @@ const isActive = (path: string) => currentPath.startsWith(path);
             (searchInput as HTMLInputElement).placeholder = `Search ${currentType}...`;
         }
     }
+</script>
+
+<script>
+    // @ts-nocheck
+    import { createClient } from '@supabase/supabase-js';
+    
+    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    
+    // Handle logout
+    document.addEventListener('DOMContentLoaded', () => {
+        const logoutBtn = document.getElementById('logout-btn');
+        if (logoutBtn) {
+            logoutBtn.addEventListener('click', async (e) => {
+                e.preventDefault();
+                
+                try {
+                    await supabase.auth.signOut();
+                    window.location.href = '/';
+                } catch (error) {
+                    console.error('Error signing out:', error);
+                }
+            });
+        }
+    });
 </script>
 
 <style is:global>

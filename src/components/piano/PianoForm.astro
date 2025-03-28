@@ -495,17 +495,39 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         const formData = new FormData(form);
         
         try {
-          // Check for authentication in production mode
-          if (!developmentMode) {
-            // In production, we should check if the user is authenticated
-            // This is a placeholder for actual authentication check
-            const isAuthenticated = false; // Replace with actual auth check
+          // Check for authentication
+          try {
+            const { data: sessionData } = await supabase.auth.getSession();
+            const isAuthenticated = !!sessionData.session;
+            
             if (!isAuthenticated) {
               showStatus("error", "You must be logged in to add a piano.");
               throw new Error('Authentication required');
             }
-          } else {
-            console.warn('⚠️ Bypassing authentication in development mode');
+            
+            // Get user ID for tracking who created the piano
+            const userId = sessionData.session.user.id;
+            
+            // Check if admin for certain operations
+            const { data: userData } = await supabase
+              .from('user_profiles')
+              .select('role')
+              .eq('id', userId)
+              .single();
+              
+            const isAdmin = userData?.role === 'admin';
+            
+            // Add user ID to piano data
+            pianoData.created_by = userId;
+            
+            // Additional admin-only fields
+            if (isAdmin) {
+              pianoData.verified = formData.get('verified') === 'true';
+            }
+          } catch (error) {
+            console.error('Authentication error:', error);
+            showStatus("error", "Authentication error. Please try logging in again.");
+            throw new Error('Authentication error');
           }
           
           // Log all form data for debugging
