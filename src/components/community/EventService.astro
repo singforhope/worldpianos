@@ -1,0 +1,207 @@
+---
+// Props for the component
+interface Props {
+  developmentMode?: boolean;
+}
+
+const {
+  developmentMode = false
+} = Astro.props;
+---
+
+<script is:inline>
+  // @ts-nocheck
+  // Client-side implementation of createEvent function
+  async function createEvent(eventData) {
+    console.log('Creating event with data:', eventData);
+    
+    // Get Supabase client using our helper function
+    const supabase = await getSupabaseClient();
+    
+    // Log Supabase client details for debugging
+    console.log('Supabase client details:', {
+      usingDevelopmentMode: window.developmentMode
+    });
+    
+    try {
+      // Check if we can connect to Supabase
+      console.log('Testing Supabase connection...');
+      const { data: healthCheck, error: healthError } = await supabase.from('events').select('count').limit(1);
+      if (healthError) {
+        console.error('Supabase connection test failed:', healthError);
+        throw healthError;
+      }
+      console.log('Supabase connection test successful, result:', healthCheck);
+      
+      // Insert the event data with explicit headers for debugging
+      console.log('Inserting event data...');
+      const { data, error } = await supabase
+        .from('events')
+        .insert(eventData, { 
+          returning: 'representation'  // Ensure we get the created record back
+        })
+        .select();
+      
+      if (error) {
+        console.error('Error creating event:', error);
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Check for specific error types
+        if (error.code === '42501' || error.message?.includes('permission')) {
+          throw new Error('Permission denied: You may need to log in to add an event');
+        } else if (error.code === '23505') {
+          throw new Error('An event with this information already exists');
+        } else if (error.code === '23502') {
+          throw new Error('Missing required fields: ' + error.details);
+        } else if (error.code === '400') {
+          throw new Error('Bad request: ' + (error.message || 'Check your data format'));
+        } else {
+          // Try to provide a more helpful error message
+          const errorMsg = error.message || 'Unknown error';
+          throw new Error(`Database error (${error.code}): ${errorMsg}`);
+        }
+      }
+      
+      if (!data || data.length === 0) {
+        console.error('No data returned after insert');
+        throw new Error('No data returned after insert');
+      }
+      
+      console.log('Event created successfully:', data[0]);
+      return data[0];
+    } catch (error) {
+      console.error('Exception in createEvent:', error);
+      throw error;
+    }
+  }
+  
+  // Helper function to get Supabase client
+  async function getSupabaseClient() {
+    // First try to get it from the global variable (simplest approach)
+    if (window.supabaseClient) {
+      console.log('Got Supabase client from global variable');
+      return window.supabaseClient;
+    }
+    
+    // If still not available, try to initialize it
+    if (typeof window.supabase !== 'undefined' &&
+        typeof window.supabaseUrl !== 'undefined' &&
+        typeof window.supabaseAnonKey !== 'undefined') {
+      try {
+        const client = window.supabase.createClient(
+          window.supabaseUrl,
+          window.developmentMode && window.serviceRoleKey ? window.serviceRoleKey : window.supabaseAnonKey
+        );
+        console.log('Created new Supabase client as last resort');
+        
+        // Store it globally for future use
+        window.supabaseClient = client;
+        return client;
+      } catch (initError) {
+        console.error('Failed to initialize Supabase client as last resort:', initError);
+      }
+    }
+    
+    // If we get here, we couldn't get a client
+    console.error('Supabase client is not initialized');
+    throw new Error('Supabase client is not initialized');
+  }
+
+  // Function to upload an image to Supabase storage
+  async function uploadEventImage(imageFile, eventName) {
+    if (!imageFile || imageFile.size === 0) {
+      return null;
+    }
+    
+    // Get Supabase client using our helper function
+    const supabase = await getSupabaseClient();
+    
+    console.log('Uploading image:', imageFile.name);
+    
+    // Generate a unique file name
+    const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+    
+    // Create a storage bucket if it doesn't exist
+    try {
+      const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('event-images');
+      if (bucketError && bucketError.code === 'PGRST116') {
+        // Bucket doesn't exist, create it
+        await supabase.storage.createBucket('event-images', {
+          public: true,
+          fileSizeLimit: 10485760, // 10MB
+        });
+      }
+    } catch (bucketError) {
+      console.error('Error checking/creating bucket:', bucketError);
+    }
+    
+    // Upload to Supabase Storage
+    const { data: uploadData, error: uploadError } = await supabase.storage
+      .from('event-images')
+      .upload(fileName, imageFile);
+      
+    if (uploadError) {
+      console.error('Error uploading image:', uploadError);
+      throw uploadError;
+    }
+    
+    // Get public URL
+    const { data: urlData } = supabase.storage
+      .from('event-images')
+      .getPublicUrl(fileName);
+      
+    const imageUrl = urlData.publicUrl;
+    console.log('Image uploaded successfully:', imageUrl);
+    
+    return imageUrl;
+  }
+  
+  // Function to create an event media entry
+  async function createEventMedia(eventId, imageUrl, description) {
+    if (!eventId || !imageUrl) {
+      return null;
+    }
+    
+    // Get Supabase client using our helper function
+    const supabase = await getSupabaseClient();
+    
+    const { data: mediaData, error: mediaError } = await supabase
+      .from('event_media')
+      .insert({
+        event_id: eventId,
+        media_type: 'image',
+        url: imageUrl,
+        description: description || `Image for event ${eventId}`
+      });
+      
+    if (mediaError) {
+      console.error('Error creating event media entry:', mediaError);
+      throw mediaError;
+    }
+    
+    console.log('Event media entry created:', mediaData);
+    return mediaData;
+  }
+  
+  // Helper function to log form data (for debugging)
+  function logFormData(formData) {
+    const formDataObj = {};
+    formData.forEach((value, key) => {
+      formDataObj[key] = value instanceof File ? `File: ${value.name}` : value;
+    });
+    console.log("Form data:", formDataObj);
+  }
+  
+  // Make functions available globally
+  window.eventService = {
+    createEvent,
+    uploadEventImage,
+    createEventMedia,
+    logFormData
+  };
+</script>

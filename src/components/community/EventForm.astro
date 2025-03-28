@@ -1,29 +1,45 @@
 ---
-// EventForm.astro - Simplified version
-// Import mock data to get pianos for the dropdown
-import mockData from "../../data/mockData.json";
+// Import Supabase client and dataService functions
+import { supabase } from '../../utils/supabase';
+import { getAllPianos } from '../../utils/dataService';
+
+// Import our custom components
+import SupabaseClient from './SupabaseClient.astro';
+import LocationPicker from './LocationPicker.astro';
+import ImageUploader from './ImageUploader.astro';
+import FormStatusMessage from './FormStatusMessage.astro';
+import EventService from './EventService.astro';
+
+// TEMPORARY: For development only - this bypasses authentication
+const DEVELOPMENT_MODE = true; // Set to false in production
+const SERVICE_ROLE_KEY = import.meta.env.SUPABASE_SERVICE_ROLE_KEY || '';
 
 interface Props {
   formTitle?: string;
+  contactEmail?: string;
 }
 
-const { formTitle = "Add a New Event" } = Astro.props;
+const { formTitle = "Add a New Event", contactEmail = "it@singforhope.org" } = Astro.props;
 
-// Get pianos for the dropdown
-const pianos = mockData.pianos || [];
+// Get pianos from Supabase instead of mock data
+const pianos = await getAllPianos();
 ---
 
-<!-- Load Mapbox GL JS and Geocoder from CDN -->
-<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css">
+{DEVELOPMENT_MODE && (
+  <div class="alert alert-warning mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+    <div>
+      <h3 class="font-bold">Development Mode</h3>
+      <div class="text-xs">Authentication is bypassed. This should NOT be used in production!</div>
+    </div>
+  </div>
+)}
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
     <h2 class="card-title text-2xl mb-6">{formTitle}</h2>
     
-    <form action="#" method="POST" class="space-y-6" enctype="multipart/form-data">
+    <form id="event-form" class="space-y-6" enctype="multipart/form-data">
       <!-- Event Name -->
       <div class="form-control w-full">
         <label for="event-name" class="label">
@@ -34,15 +50,7 @@ const pianos = mockData.pianos || [];
       </div>
       
       <!-- Location -->
-      <div class="form-control w-full">
-        <label for="location-container" class="label">
-          <span class="label-text">Location</span>
-          <span class="label-text-alt text-error">*</span>
-        </label>
-        <div id="event-location-geocoder-container"></div>
-        <input type="hidden" id="event-location-lat" name="latitude" />
-        <input type="hidden" id="event-location-lng" name="longitude" />
-      </div>
+      <LocationPicker id="event-location" label="Location" required={true} />
       
       <!-- Event Date and Time -->
       <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -87,19 +95,16 @@ const pianos = mockData.pianos || [];
       </div>
       
       <!-- Picture Upload -->
-      <div class="form-control w-full">
-        <label for="event-picture" class="label">
-          <span class="label-text">Event Picture</span>
-        </label>
-        <input type="file" id="event-picture" name="eventPicture" accept="image/*" class="file-input file-input-bordered w-full" />
-      </div>
+      <ImageUploader id="event-picture" name="eventPicture" label="Event Picture" required={false} />
       
       <!-- Event Type -->
       <div class="form-control w-full">
         <label for="event-type" class="label">
           <span class="label-text">Event Type</span>
+          <span class="label-text-alt text-error">*</span>
         </label>
-        <select id="event-type" name="eventType" class="select select-bordered w-full">
+        <select id="event-type" name="eventType" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select event type</option>
           <option value="Concert">Concert</option>
           <option value="Recital">Recital</option>
           <option value="Festival">Festival</option>
@@ -109,87 +114,274 @@ const pianos = mockData.pianos || [];
         </select>
       </div>
       
-      <script is:inline>
-        document.addEventListener("DOMContentLoaded", () => {
-          const geocoderContainer = document.getElementById("event-location-geocoder-container");
-          const locationLat = document.getElementById("event-location-lat");
-          const locationLng = document.getElementById("event-location-lng");
-          
-          // Initialize Mapbox Geocoder for location
-          if (geocoderContainer && mapboxgl && MapboxGeocoder) {
-            const geocoder = new MapboxGeocoder({
-              accessToken: "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ",
-              countries: "us,ca,gb,fr,de,it,es,pt,au,nz,jp,kr,cn",
-              language: "en",
-              placeholder: "Search for a location...",
-              types: "place,locality,neighborhood,address",
-              bbox: [-180, -90, 180, 90],
-              limit: 5,
-              minLength: 2,
-              flyTo: false,
-              marker: false,
-              mapboxgl: mapboxgl,
-            });
-            
-            geocoderContainer.appendChild(geocoder.onAdd());
-            
-            // Handle geocoder result
-            geocoder.on("result", (event) => {
-              const result = event.result;
-              const coordinates = result.center;
-              
-              // Set hidden input values for coordinates
-              if (locationLat && locationLng) {
-                locationLat.setAttribute('value', coordinates[1]); // latitude
-                locationLng.setAttribute('value', coordinates[0]); // longitude
-              }
-            });
-          }
-        });
-      </script>
-      
-      <style>
-        /* Mapbox Geocoder styles */
-        .mapboxgl-ctrl-geocoder {
-          box-shadow: none !important;
-          border: 1px solid hsl(var(--bc) / 0.2) !important;
-          border-radius: 0.5rem !important;
-          background-color: hsl(var(--b1)) !important;
-          color: hsl(var(--bc)) !important;
-          font-family: inherit !important;
-          width: 100% !important;
-          min-height: 2.5rem !important;
-        }
-      
-        .mapboxgl-ctrl-geocoder .suggestions {
-          background-color: hsl(var(--b1)) !important;
-          border: 1px solid hsl(var(--bc) / 0.2) !important;
-          border-radius: 0.5rem !important;
-          margin-top: 0.5rem !important;
-        }
-      
-        .mapboxgl-ctrl-geocoder .suggestions .suggestion {
-          padding: 0.5rem 1rem !important;
-          color: hsl(var(--bc)) !important;
-        }
-      
-        .mapboxgl-ctrl-geocoder .suggestions .suggestion.active {
-          background-color: hsl(var(--b2)) !important;
-        }
-      
-        .mapboxgl-ctrl-geocoder .suggestions .suggestion:hover {
-          background-color: hsl(var(--b2)) !important;
-        }
-      
-        .mapboxgl-ctrl-geocoder .suggestions .suggestion .address {
-          color: hsl(var(--bc) / 0.7) !important;
-        }
-      </style>
+      <!-- Form Status Messages -->
+      <FormStatusMessage id="form-status" />
       
       <!-- Submit Button -->
       <div class="form-control mt-6">
-        <button type="submit" class="btn btn-primary">Submit</button>
+        <button type="submit" id="submit-btn" class="btn btn-primary">
+          <span id="submit-text">Submit</span>
+          <span id="loading-spinner" class="loading loading-spinner hidden"></span>
+        </button>
       </div>
     </form>
   </div>
 </div>
+
+<!-- No external libraries needed for simple success message -->
+
+<!-- Include the Supabase client -->
+<SupabaseClient developmentMode={DEVELOPMENT_MODE} serviceRoleKey={SERVICE_ROLE_KEY} />
+
+<!-- Include the Event Service -->
+<EventService developmentMode={DEVELOPMENT_MODE} />
+
+<script define:vars={{ DEVELOPMENT_MODE }}>
+  // Make development mode available globally
+  window.developmentMode = DEVELOPMENT_MODE;
+  // @ts-nocheck
+  // Make development mode available globally
+  window.developmentMode = DEVELOPMENT_MODE;
+  
+  document.addEventListener("DOMContentLoaded", () => {
+    const form = document.getElementById("event-form");
+    const submitBtn = document.getElementById("submit-btn");
+    const submitText = document.getElementById("submit-text");
+    const loadingSpinner = document.getElementById("loading-spinner");
+    
+    // Form submission
+    if (form) {
+      form.addEventListener("submit", async (e) => {
+        e.preventDefault();
+        
+        // Show loading state
+        if (submitBtn && submitText && loadingSpinner) {
+          submitBtn.disabled = true;
+          submitText.textContent = "Sending...";
+          loadingSpinner.classList.remove("hidden");
+        }
+        
+        // Get form data
+        const formData = new FormData(form);
+        
+        try {
+          // Check for authentication in production mode
+          if (!window.developmentMode) {
+            // In production, we should check if the user is authenticated
+            // This is a placeholder for actual authentication check
+            const isAuthenticated = false; // Replace with actual auth check
+            if (!isAuthenticated) {
+              window.showStatus("error", "You must be logged in to add an event.");
+              throw new Error('Authentication required');
+            }
+          } else {
+            console.warn('⚠️ Bypassing authentication in development mode');
+          }
+          
+          // Log all form data for debugging
+          console.log('Form submission started');
+          window.eventService.logFormData(formData);
+          
+          // Check if location is selected
+          const lat = document.getElementById("event-location-lat").value || 
+                      document.getElementById("event-location-lat").getAttribute('value');
+          const lng = document.getElementById("event-location-lng").value || 
+                      document.getElementById("event-location-lng").getAttribute('value');
+          
+          if (!lat || !lng) {
+            console.error('Location not selected');
+            window.showStatus("error", "Please select a location using the map.");
+            throw new Error('Location not selected');
+          }
+          
+          console.log('Location coordinates:', { lat, lng });
+          
+          // Generate a unique ID for the event
+          const uniqueId = `event_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          console.log('Generated unique ID:', uniqueId);
+          
+          const eventData = {
+            id: uniqueId,
+            name: formData.get('eventName'),
+            location: formData.get('locationAddress') || 'Unknown location',
+            coordinates: [
+              parseFloat(lng),
+              parseFloat(lat)
+            ],
+            date: formData.get('eventDate'),
+            time: formData.get('eventTime'),
+            description: formData.get('description'),
+            type: formData.get('eventType'),
+            piano_id: formData.get('relatedPiano'),
+            status: 'upcoming'
+          };
+          
+          // Validate all required fields are present
+          const requiredFields = ['id', 'name', 'location', 'date', 'time', 'description', 'type', 'piano_id'];
+          const missingFields = [];
+          
+          for (const field of requiredFields) {
+            if (!eventData[field]) {
+              missingFields.push(field);
+            }
+          }
+          
+          if (missingFields.length > 0) {
+            console.error('Missing required fields:', missingFields);
+            window.showStatus("error", `Missing required fields: ${missingFields.join(', ')}`);
+            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+          }
+          
+          // Validate coordinates
+          if (!Array.isArray(eventData.coordinates) || 
+              eventData.coordinates.length !== 2 || 
+              isNaN(eventData.coordinates[0]) || 
+              isNaN(eventData.coordinates[1])) {
+            console.error('Invalid coordinates:', eventData.coordinates);
+            window.showStatus("error", "Invalid coordinates. Please select a location using the map.");
+            throw new Error('Invalid coordinates');
+          }
+          
+          console.log('Submitting event data:', eventData);
+          
+          // Handle image upload if present
+          const imageFile = formData.get('eventPicture');
+          let imageUrl = null;
+          
+          if (imageFile && imageFile.size > 0) {
+            imageUrl = await window.eventService.uploadEventImage(imageFile, eventData.name);
+          }
+          
+          // Create event in database
+          console.log('Calling createEvent with data:', JSON.stringify(eventData));
+          let newEvent;
+          try {
+            newEvent = await window.eventService.createEvent(eventData);
+            console.log('Event created successfully:', newEvent);
+            
+            if (!newEvent || !newEvent.id) {
+              console.error('Event created but no ID returned');
+              throw new Error('Event created but no ID returned');
+            }
+          } catch (createError) {
+            console.error('Error in createEvent:', createError);
+            
+            // Check for specific error types
+            if (createError.message && createError.message.includes('permission')) {
+              window.showStatus("error", "Permission denied. You may need to log in or check your access rights.");
+            } else if (createError.message && createError.message.includes('network')) {
+              window.showStatus("error", "Network error. Please check your internet connection.");
+            } else {
+              window.showStatus("error", `Error creating event: ${createError.message || 'Unknown error'}`);
+            }
+            throw createError;
+          }
+          
+          // If we have an image, create an event_media entry
+          if (imageUrl && newEvent && newEvent.id) {
+            try {
+              await window.eventService.createEventMedia(
+                newEvent.id, 
+                imageUrl, 
+                `Primary image for ${newEvent.name}`
+              );
+            } catch (mediaError) {
+              console.error('Error creating event media entry:', mediaError);
+              // Continue even if media creation fails
+            }
+          }
+          
+          // Close any open modals
+          const closeModals = () => {
+            // Close any modal dialogs that might be open
+            const modals = document.querySelectorAll('.modal');
+            modals.forEach(modal => {
+              if (modal.classList.contains('modal-open')) {
+                modal.classList.remove('modal-open');
+              }
+            });
+            
+            // Close any custom modals
+            const customModals = document.querySelectorAll('[data-modal]');
+            customModals.forEach(modal => {
+              modal.style.display = 'none';
+            });
+            
+            // Remove any modal backdrops
+            const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
+            backdrops.forEach(backdrop => {
+              backdrop.remove();
+            });
+          };
+          
+          // Close all modals
+          closeModals();
+          
+          // Show success message with popup
+          const successMessage = `
+            <div class="bg-success text-success-content p-4 rounded-lg shadow-lg">
+              <h3 class="font-bold text-lg">Success!</h3>
+              <p>Event added successfully! Thank you for your contribution.</p>
+              <p class="mt-2">Redirecting to event details page...</p>
+            </div>
+          `;
+          
+          // Create and show the popup
+          const popup = document.createElement('div');
+          popup.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50';
+          popup.innerHTML = successMessage;
+          document.body.appendChild(popup);
+          
+          // Show success status below form as well
+          window.showStatus("success", "Event added successfully!");
+          
+          // Reset form
+          form.reset();
+          
+          // Redirect to event details page after a short delay
+          setTimeout(() => {
+            window.location.href = `/events/${newEvent.id}`;
+          }, 2000);
+        } catch (error) {
+          // Show detailed error message
+          console.error("Form submission error:", error);
+          
+          let errorMessage = "There was an error submitting the form. Please try again.";
+          
+          // Provide more specific error messages based on the error type
+          if (error.message) {
+            if (error.message.includes('Location not selected')) {
+              errorMessage = "Please select a location using the map.";
+            } else if (error.message.includes('permission') || error.message.includes('access')) {
+              errorMessage = "Permission denied. You may need to log in or check your access rights.";
+            } else if (error.message.includes('network') || error.message.includes('connection')) {
+              errorMessage = "Network error. Please check your internet connection.";
+            } else if (error.message.includes('validation')) {
+              errorMessage = "Validation error. Please check your form inputs.";
+            } else if (error.message.includes('bucket')) {
+              errorMessage = "Error with image storage. Please try again or skip adding an image.";
+            }
+          }
+          
+          // Show the error message
+          window.showStatus("error", errorMessage);
+          
+          // Log detailed error information to console
+          console.error("Detailed error:", {
+            message: error.message,
+            stack: error.stack,
+            code: error.code,
+            details: error.details
+          });
+        } finally {
+          // Reset button state
+          if (submitBtn && submitText && loadingSpinner) {
+            submitBtn.disabled = false;
+            submitText.textContent = "Submit";
+            loadingSpinner.classList.add("hidden");
+          }
+        }
+      });
+    }
+  });
+</script>

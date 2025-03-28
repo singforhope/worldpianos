@@ -1,0 +1,162 @@
+---
+// Props for the component
+interface Props {
+  id?: string;
+  required?: boolean;
+  label?: string;
+}
+
+const { 
+  id = "location-picker",
+  required = true,
+  label = "Location"
+} = Astro.props;
+
+// Generate unique IDs for the form elements
+const geocoderContainerId = `${id}-geocoder-container`;
+const latInputId = `${id}-lat`;
+const lngInputId = `${id}-lng`;
+const addressInputId = `${id}-address`;
+const countryInputId = `${id}-country`;
+const cityInputId = `${id}-city`;
+---
+
+<!-- Load Mapbox GL JS and Geocoder from CDN -->
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css">
+
+<div class="form-control w-full">
+  <label for={geocoderContainerId} class="label">
+    <span class="label-text">{label}</span>
+    {required && <span class="label-text-alt text-error">*</span>}
+  </label>
+  <div id={geocoderContainerId}></div>
+  <input type="hidden" id={latInputId} name="latitude" />
+  <input type="hidden" id={lngInputId} name="longitude" />
+  <input type="hidden" id={addressInputId} name="locationAddress" />
+  <input type="hidden" id={countryInputId} name="country" />
+  <input type="hidden" id={cityInputId} name="city" />
+</div>
+
+<style>
+  /* Mapbox Geocoder styles */
+  .mapboxgl-ctrl-geocoder {
+    box-shadow: none !important;
+    border: 1px solid hsl(var(--bc) / 0.2) !important;
+    border-radius: 0.5rem !important;
+    background-color: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+    font-family: inherit !important;
+    width: 100% !important;
+    min-height: 2.5rem !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions {
+    background-color: hsl(var(--b1)) !important;
+    border: 1px solid hsl(var(--bc) / 0.2) !important;
+    border-radius: 0.5rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion {
+    padding: 0.5rem 1rem !important;
+    color: hsl(var(--bc)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion.active {
+    background-color: hsl(var(--b2)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion:hover {
+    background-color: hsl(var(--b2)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion .address {
+    color: hsl(var(--bc) / 0.7) !important;
+  }
+</style>
+
+<script define:vars={{ geocoderContainerId, latInputId, lngInputId, addressInputId, countryInputId, cityInputId }}>
+  // @ts-nocheck
+  document.addEventListener("DOMContentLoaded", () => {
+    const geocoderContainer = document.getElementById(geocoderContainerId);
+    const locationLat = document.getElementById(latInputId);
+    const locationLng = document.getElementById(lngInputId);
+    const locationAddressInput = document.getElementById(addressInputId);
+    const countryInput = document.getElementById(countryInputId);
+    const cityInput = document.getElementById(cityInputId);
+    
+    // Initialize Mapbox Geocoder for location
+    if (geocoderContainer && mapboxgl && MapboxGeocoder) {
+      const geocoder = new MapboxGeocoder({
+        accessToken: "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ",
+        countries: "us,ca,gb,fr,de,it,es,pt,au,nz,jp,kr,cn",
+        language: "en",
+        placeholder: "Search for a location...",
+        types: "place,locality,neighborhood,address",
+        bbox: [-180, -90, 180, 90],
+        limit: 5,
+        minLength: 2,
+        flyTo: false,
+        marker: false,
+        mapboxgl: mapboxgl,
+      });
+      
+      geocoderContainer.appendChild(geocoder.onAdd());
+      
+      // Handle geocoder result
+      geocoder.on("result", (event) => {
+        const result = event.result;
+        const coordinates = result.center;
+        
+        // Set hidden input values for coordinates
+        if (locationLat && locationLng) {
+          locationLat.setAttribute('value', coordinates[1]); // latitude
+          locationLng.setAttribute('value', coordinates[0]); // longitude
+        }
+        
+        // Store the full address
+        if (locationAddressInput) {
+          locationAddressInput.value = result.place_name;
+        }
+        
+        // Extract country and city from context
+        if (countryInput && cityInput) {
+          // Find country and city from context
+          let country = '';
+          let city = '';
+          
+          if (result.context) {
+            // Find country (usually last in context array)
+            const countryContext = result.context.find(c => c.id.startsWith('country'));
+            if (countryContext) {
+              country = countryContext.text;
+            }
+            
+            // Find city/place
+            const placeContext = result.context.find(c => c.id.startsWith('place'));
+            if (placeContext) {
+              city = placeContext.text;
+            } else if (result.place_type.includes('place')) {
+              // If the result itself is a place
+              city = result.text;
+            }
+          }
+          
+          // Set values
+          countryInput.value = country || 'Unknown';
+          cityInput.value = city || 'Unknown';
+          
+          console.log('Location data extracted:', {
+            address: result.place_name,
+            country,
+            city,
+            coordinates
+          });
+        }
+      });
+    }
+  });
+</script>

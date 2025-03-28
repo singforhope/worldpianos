@@ -1,0 +1,140 @@
+---
+// Props for the component
+interface Props {
+  developmentMode?: boolean;
+  serviceRoleKey?: string;
+}
+
+const { 
+  developmentMode = false,
+  serviceRoleKey = ''
+} = Astro.props;
+
+const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+---
+
+<!-- Add Supabase client script with specific version and defer attribute -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/umd/supabase.min.js" defer></script>
+
+<!-- Add a fallback script in case the CDN fails -->
+<script>
+  // Check if Supabase loaded after a timeout
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      // Check if Supabase is available
+      if (typeof (window as any).supabase === 'undefined') {
+        console.error('Supabase library failed to load from CDN');
+        // Create a fallback script element
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+        script.onload = () => console.log('Supabase loaded from fallback CDN');
+        script.onerror = () => console.error('Failed to load Supabase from fallback CDN');
+        document.head.appendChild(script);
+      } else {
+        console.log('Supabase library loaded successfully from primary CDN');
+      }
+    }, 1000); // Check after 1 second
+  });
+</script>
+
+<script is:inline define:vars={{ supabaseUrl, supabaseAnonKey, developmentMode, serviceRoleKey }}>
+  // @ts-nocheck
+  // Debug environment variables
+  console.log('Supabase URL:', supabaseUrl);
+  console.log('Supabase Anon Key:', supabaseAnonKey ? 'Key is present' : 'Key is missing');
+  
+  // Initialize Supabase client
+  let supabase;
+  
+  // Function to initialize Supabase
+  function initSupabase() {
+    // Check if environment variables are set
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Supabase environment variables not set:', {
+        url: supabaseUrl ? 'Set' : 'Not set',
+        key: supabaseAnonKey ? 'Set' : 'Not set'
+      });
+      alert('Database configuration is missing. Please contact the administrator.');
+      return;
+    }
+    
+    if (typeof supabaseClient !== 'undefined') {
+      // Use global supabaseClient if available
+      supabase = supabaseClient;
+      console.log('Using global supabaseClient');
+      return;
+    }
+    
+    // Check if the supabase property exists on window
+    if (typeof window['supabase'] === 'undefined') {
+      console.error('Supabase library not loaded');
+      
+      // Try to load the library dynamically
+      console.log('Attempting to load Supabase library dynamically...');
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+      script.onload = () => {
+        console.log('Supabase loaded dynamically');
+        // Try to initialize again after loading
+        setTimeout(() => {
+          if (typeof window['supabase'] !== 'undefined') {
+            try {
+              supabase = window['supabase'].createClient(supabaseUrl, developmentMode && serviceRoleKey ? serviceRoleKey : supabaseAnonKey);
+              console.log('Supabase client initialized after dynamic loading');
+            } catch (err) {
+              console.error('Failed to initialize after dynamic loading:', err);
+            }
+          }
+        }, 500);
+      };
+      script.onerror = () => {
+        console.error('Failed to load Supabase dynamically');
+        alert('Error: Supabase library could not be loaded. Please refresh the page and try again.');
+      };
+      document.head.appendChild(script);
+      return;
+    }
+    
+    try {
+      // DEVELOPMENT MODE WARNING
+      if (developmentMode && serviceRoleKey) {
+        console.warn('⚠️ USING DEVELOPMENT MODE WITH SERVICE ROLE KEY ⚠️');
+        console.warn('This bypasses authentication and should NOT be used in production!');
+        supabase = window['supabase'].createClient(supabaseUrl, serviceRoleKey);
+        console.log('Supabase client initialized with service role key for development');
+      } else {
+        supabase = window['supabase'].createClient(supabaseUrl, supabaseAnonKey);
+        console.log('Supabase client initialized with anon key');
+      }
+      
+      // Test the connection
+      supabase.from('events').select('count').limit(1)
+        .then(response => {
+          if (response.error) {
+            console.error('Supabase connection test failed:', response.error);
+          } else {
+            console.log('Supabase connection test successful');
+          }
+        })
+        .catch(err => {
+          console.error('Supabase connection test exception:', err);
+        });
+    } catch (error) {
+      console.error('Error initializing Supabase client:', error);
+      alert('Error initializing database connection. Please check console for details.');
+    }
+  }
+  
+  // Initialize Supabase when the script loads
+  initSupabase();
+  
+  // Make supabase available globally
+  window.supabaseClient = supabase;
+  
+  // Store the Supabase URL and keys globally for direct access if needed
+  window.supabaseUrl = supabaseUrl;
+  window.supabaseAnonKey = supabaseAnonKey;
+  window.serviceRoleKey = serviceRoleKey;
+  window.developmentMode = developmentMode;
+</script>

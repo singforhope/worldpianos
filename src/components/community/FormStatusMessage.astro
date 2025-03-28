@@ -1,0 +1,52 @@
+---
+// Props for the component
+interface Props {
+  id?: string;
+}
+
+const { 
+  id = "form-status"
+} = Astro.props;
+---
+
+<div id={id} class="hidden alert mt-4"></div>
+
+<script define:vars={{ id }}>
+  // @ts-nocheck
+  // Function to show status messages
+  window.showStatus = function(type, message) {
+    const formStatus = document.getElementById(id);
+    if (formStatus) {
+      formStatus.textContent = message;
+      formStatus.classList.remove("hidden", "alert-success", "alert-error", "alert-warning", "alert-info");
+      
+      // Add the appropriate alert class based on type
+      switch(type) {
+        case "success":
+          formStatus.classList.add("alert-success");
+          break;
+        case "error":
+          formStatus.classList.add("alert-error");
+          break;
+        case "warning":
+          formStatus.classList.add("alert-warning");
+          break;
+        case "info":
+          formStatus.classList.add("alert-info");
+          break;
+        default:
+          formStatus.classList.add("alert-info");
+      }
+      
+      // Scroll to status message
+      formStatus.scrollIntoView({ behavior: "smooth", block: "nearest" });
+      
+      // Hide message after 5 seconds if it's a success message
+      if (type === "success") {
+        setTimeout(() => {
+          formStatus.classList.add("hidden");
+        }, 5000);
+      }
+    }
+  };
+</script>
