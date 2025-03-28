@@ -1,5 +1,13 @@
 ---
 // PianoForm.astro
+// Import Supabase client for server-side use if needed
+import { supabase } from '../../utils/supabase';
+
+// TEMPORARY: For development only - this bypasses authentication
+// In production, proper authentication should be implemented
+const DEVELOPMENT_MODE = true; // Set to false in production
+const SERVICE_ROLE_KEY = import.meta.env.SUPABASE_SERVICE_ROLE_KEY || '';
+
 // Access environment variables via import.meta.env
 const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "it@singforhope.org";
 
@@ -15,6 +23,16 @@ const { formTitle = "Add a New Piano" } = Astro.props;
 <script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
 <script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
 <link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css">
+
+{DEVELOPMENT_MODE && (
+  <div class="alert alert-warning mb-4">
+    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+    <div>
+      <h3 class="font-bold">Development Mode</h3>
+      <div class="text-xs">Authentication is bypassed. This should NOT be used in production!</div>
+    </div>
+  </div>
+)}
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
@@ -39,6 +57,72 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         <div id="location-geocoder-container"></div>
         <input type="hidden" id="location-lat" name="latitude" />
         <input type="hidden" id="location-lng" name="longitude" />
+        <input type="hidden" id="location-address" name="locationAddress" />
+        <input type="hidden" id="country" name="country" />
+        <input type="hidden" id="city" name="city" />
+      </div>
+      
+      <!-- Piano Type -->
+      <div class="form-control w-full">
+        <label for="piano-type" class="label">
+          <span class="label-text">Piano Type</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <select id="piano-type" name="pianoType" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select piano type</option>
+          <option value="Grand">Grand</option>
+          <option value="Upright">Upright</option>
+          <option value="Digital">Digital</option>
+          <option value="Other">Other</option>
+        </select>
+      </div>
+      
+      <!-- Condition -->
+      <div class="form-control w-full">
+        <label for="condition" class="label">
+          <span class="label-text">Condition</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <select id="condition" name="condition" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select condition</option>
+          <option value="Excellent">Excellent</option>
+          <option value="Good">Good</option>
+          <option value="Fair">Fair</option>
+          <option value="Poor">Poor</option>
+          <option value="Unknown">Unknown</option>
+        </select>
+      </div>
+      
+      <!-- Access -->
+      <div class="form-control w-full">
+        <label for="access" class="label">
+          <span class="label-text">Access</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <select id="access" name="access" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select access type</option>
+          <option value="Public">Public</option>
+          <option value="Limited">Limited</option>
+          <option value="Private">Private</option>
+        </select>
+      </div>
+      
+      <!-- Category -->
+      <div class="form-control w-full">
+        <label for="category" class="label">
+          <span class="label-text">Category</span>
+          <span class="label-text-alt text-error">*</span>
+        </label>
+        <select id="category" name="category" class="select select-bordered w-full" required>
+          <option value="" disabled selected>Select category</option>
+          <option value="Street">Street</option>
+          <option value="Airport">Airport</option>
+          <option value="Station">Station</option>
+          <option value="Park">Park</option>
+          <option value="Mall">Mall</option>
+          <option value="School">School</option>
+          <option value="Other">Other</option>
+        </select>
       </div>
       
       <!-- Last Maintained Date -->
@@ -85,7 +169,200 @@ const { formTitle = "Add a New Piano" } = Astro.props;
   </div>
 </div>
 
-<script is:inline define:vars={{ contactEmail }}>
+<!-- Add Supabase client script with specific version and defer attribute to ensure it loads properly -->
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.38.4/dist/umd/supabase.min.js" defer></script>
+
+<!-- Add a fallback script in case the CDN fails -->
+<script>
+  // Check if Supabase loaded after a timeout
+  window.addEventListener('DOMContentLoaded', () => {
+    setTimeout(() => {
+      // Use a type-safe approach to check for the supabase property
+      if (typeof (window as any).supabase === 'undefined') {
+        console.error('Supabase library failed to load from CDN');
+        // Create a fallback script element
+        const script = document.createElement('script');
+        script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+        script.onload = () => console.log('Supabase loaded from fallback CDN');
+        script.onerror = () => console.error('Failed to load Supabase from fallback CDN');
+        document.head.appendChild(script);
+      } else {
+        console.log('Supabase library loaded successfully from primary CDN');
+      }
+    }, 1000); // Check after 1 second
+  });
+</script>
+
+<script is:inline define:vars={{ contactEmail, supabaseUrl: import.meta.env.PUBLIC_SUPABASE_URL, supabaseAnonKey: import.meta.env.PUBLIC_SUPABASE_ANON_KEY, developmentMode: DEVELOPMENT_MODE, serviceRoleKey: SERVICE_ROLE_KEY }}>
+  // Debug environment variables
+  console.log('Supabase URL:', supabaseUrl);
+  console.log('Supabase Anon Key:', supabaseAnonKey ? 'Key is present' : 'Key is missing');
+  
+  // Initialize Supabase client
+  let supabase;
+  
+  // Function to initialize Supabase
+  function initSupabase() {
+    // Check if environment variables are set
+    if (!supabaseUrl || !supabaseAnonKey) {
+      console.error('Supabase environment variables not set:', {
+        url: supabaseUrl ? 'Set' : 'Not set',
+        key: supabaseAnonKey ? 'Set' : 'Not set'
+      });
+      alert('Database configuration is missing. Please contact the administrator.');
+      return;
+    }
+    
+    if (typeof supabaseClient !== 'undefined') {
+      // Use global supabaseClient if available
+      supabase = supabaseClient;
+      console.log('Using global supabaseClient');
+      return;
+    }
+    
+    // Check if the supabase property exists on window
+    if (typeof window.supabase === 'undefined') {
+      console.error('Supabase library not loaded');
+      
+      // Try to load the library dynamically
+      console.log('Attempting to load Supabase library dynamically...');
+      const script = document.createElement('script');
+      script.src = 'https://unpkg.com/@supabase/supabase-js@2/dist/umd/supabase.js';
+      script.onload = () => {
+        console.log('Supabase loaded dynamically');
+        // Try to initialize again after loading
+        setTimeout(() => {
+          if (typeof window.supabase !== 'undefined') {
+            try {
+              supabase = window.supabase.createClient(supabaseUrl, developmentMode && serviceRoleKey ? serviceRoleKey : supabaseAnonKey);
+              console.log('Supabase client initialized after dynamic loading');
+            } catch (err) {
+              console.error('Failed to initialize after dynamic loading:', err);
+            }
+          }
+        }, 500);
+      };
+      script.onerror = () => {
+        console.error('Failed to load Supabase dynamically');
+        alert('Error: Supabase library could not be loaded. Please refresh the page and try again.');
+      };
+      document.head.appendChild(script);
+      return;
+    }
+    
+    try {
+      // DEVELOPMENT MODE WARNING
+      if (developmentMode && serviceRoleKey) {
+        console.warn('⚠️ USING DEVELOPMENT MODE WITH SERVICE ROLE KEY ⚠️');
+        console.warn('This bypasses authentication and should NOT be used in production!');
+        supabase = window.supabase.createClient(supabaseUrl, serviceRoleKey);
+        console.log('Supabase client initialized with service role key for development');
+      } else {
+        supabase = window.supabase.createClient(supabaseUrl, supabaseAnonKey);
+        console.log('Supabase client initialized with anon key');
+      }
+      
+      // Test the connection
+      supabase.from('pianos').select('count').limit(1)
+        .then(response => {
+          if (response.error) {
+            console.error('Supabase connection test failed:', response.error);
+          } else {
+            console.log('Supabase connection test successful');
+          }
+        })
+        .catch(err => {
+          console.error('Supabase connection test exception:', err);
+        });
+    } catch (error) {
+      console.error('Error initializing Supabase client:', error);
+      alert('Error initializing database connection. Please check console for details.');
+    }
+  }
+  
+  // Initialize Supabase when the script loads
+  initSupabase();
+  
+  // Client-side implementation of createPiano function
+  async function createPiano(pianoData) {
+    console.log('Creating piano with data:', pianoData);
+    
+    // Try to initialize Supabase if not already initialized
+    if (!supabase) {
+      console.log('Supabase client not initialized, attempting to initialize again...');
+      initSupabase();
+      
+      // Check again after initialization attempt
+      if (!supabase) {
+        console.error('Supabase client initialization failed');
+        alert('Could not connect to the database. Please refresh the page and try again.');
+        throw new Error('Supabase client initialization failed');
+      }
+    }
+    
+    // Log Supabase client details for debugging
+    console.log('Supabase client details:', {
+      url: supabaseUrl,
+      usingDevelopmentMode: developmentMode,
+      usingServiceRole: developmentMode && serviceRoleKey
+    });
+    
+    try {
+      // Check if we can connect to Supabase
+      console.log('Testing Supabase connection...');
+      const { data: healthCheck, error: healthError } = await supabase.from('pianos').select('count').limit(1);
+      if (healthError) {
+        console.error('Supabase connection test failed:', healthError);
+        throw healthError;
+      }
+      console.log('Supabase connection test successful, result:', healthCheck);
+      
+      // Insert the piano data with explicit headers for debugging
+      console.log('Inserting piano data...');
+      const { data, error } = await supabase
+        .from('pianos')
+        .insert(pianoData, {
+          returning: 'representation'  // Ensure we get the created record back
+        })
+        .select();
+      
+      if (error) {
+        console.error('Error creating piano:', error);
+        console.error('Error details:', {
+          code: error.code,
+          message: error.message,
+          details: error.details,
+          hint: error.hint
+        });
+        
+        // Check for specific error types
+        if (error.code === '42501' || error.message?.includes('permission')) {
+          throw new Error('Permission denied: You may need to log in to add a piano');
+        } else if (error.code === '23505') {
+          throw new Error('A piano with this information already exists');
+        } else if (error.code === '23502') {
+          throw new Error('Missing required fields: ' + error.details);
+        } else if (error.code === '400') {
+          throw new Error('Bad request: ' + (error.message || 'Check your data format'));
+        } else {
+          // Try to provide a more helpful error message
+          const errorMsg = error.message || 'Unknown error';
+          throw new Error(`Database error (${error.code}): ${errorMsg}`);
+        }
+      }
+      
+      if (!data || data.length === 0) {
+        console.error('No data returned after insert');
+        throw new Error('No data returned after insert');
+      }
+      
+      console.log('Piano created successfully:', data[0]);
+      return data[0];
+    } catch (error) {
+      console.error('Exception in createPiano:', error);
+      throw error;
+    }
+  }
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("piano-form");
     const fileInput = document.getElementById("piano-picture");
@@ -127,6 +404,50 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         if (locationLat && locationLng) {
           locationLat.setAttribute('value', coordinates[1]); // latitude
           locationLng.setAttribute('value', coordinates[0]); // longitude
+        }
+        
+        // Store the full address
+        const locationAddressInput = document.getElementById('location-address');
+        if (locationAddressInput) {
+          locationAddressInput.value = result.place_name;
+        }
+        
+        // Extract country and city from context
+        const countryInput = document.getElementById('country');
+        const cityInput = document.getElementById('city');
+        
+        if (countryInput && cityInput) {
+          // Find country and city from context
+          let country = '';
+          let city = '';
+          
+          if (result.context) {
+            // Find country (usually last in context array)
+            const countryContext = result.context.find(c => c.id.startsWith('country'));
+            if (countryContext) {
+              country = countryContext.text;
+            }
+            
+            // Find city/place
+            const placeContext = result.context.find(c => c.id.startsWith('place'));
+            if (placeContext) {
+              city = placeContext.text;
+            } else if (result.place_type.includes('place')) {
+              // If the result itself is a place
+              city = result.text;
+            }
+          }
+          
+          // Set values
+          countryInput.value = country || 'Unknown';
+          cityInput.value = city || 'Unknown';
+          
+          console.log('Location data extracted:', {
+            address: result.place_name,
+            country,
+            city,
+            coordinates
+          });
         }
       });
     }
@@ -174,22 +495,233 @@ const { formTitle = "Add a New Piano" } = Astro.props;
         const formData = new FormData(form);
         
         try {
-          // In a real implementation, you would send this to your backend
-          // For this example, we'll simulate sending an email
-          await simulateSendEmail(formData, contactEmail);
+          // Check for authentication in production mode
+          if (!developmentMode) {
+            // In production, we should check if the user is authenticated
+            // This is a placeholder for actual authentication check
+            const isAuthenticated = false; // Replace with actual auth check
+            if (!isAuthenticated) {
+              showStatus("error", "You must be logged in to add a piano.");
+              throw new Error('Authentication required');
+            }
+          } else {
+            console.warn('⚠️ Bypassing authentication in development mode');
+          }
           
-          // Show success message
-          showStatus("success", "Piano information submitted successfully! We will review your submission.");
+          // Log all form data for debugging
+          console.log('Form submission started');
+          logFormData(formData);
+          
+          // Check if location is selected
+          const lat = locationLat.value || locationLat.getAttribute('value');
+          const lng = locationLng.value || locationLng.getAttribute('value');
+          
+          if (!lat || !lng) {
+            console.error('Location not selected');
+            showStatus("error", "Please select a location using the map.");
+            throw new Error('Location not selected');
+          }
+          
+          console.log('Location coordinates:', { lat, lng });
+          
+          // Create piano object from form data
+          // Generate a unique ID for the piano
+          const uniqueId = `piano_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          console.log('Generated unique ID:', uniqueId);
+          
+          const pianoData = {
+            id: uniqueId, // Add unique ID for the primary key
+            name: formData.get('pianoName'),
+            location: formData.get('locationAddress') || 'Unknown location',
+            coordinates: [
+              parseFloat(locationLng.value || locationLng.getAttribute('value')),
+              parseFloat(locationLat.value || locationLat.getAttribute('value'))
+            ],
+            description: formData.get('notes') || '',
+            type: formData.get('pianoType'),
+            condition: formData.get('condition'),
+            access: formData.get('access'),
+            last_maintained: formData.get('maintainedDate') || null,
+            category: formData.get('category'),
+            country: formData.get('country') || 'Unknown',
+            city: formData.get('city') || 'Unknown',
+            verified: false
+            // Removed verification_count as it doesn't exist in the database schema
+          };
+          
+          // Validate all required fields are present
+          const requiredFields = ['id', 'name', 'location', 'type', 'condition', 'access', 'category', 'country', 'city'];
+          const missingFields = [];
+          
+          for (const field of requiredFields) {
+            if (!pianoData[field]) {
+              missingFields.push(field);
+            }
+          }
+          
+          if (missingFields.length > 0) {
+            console.error('Missing required fields:', missingFields);
+            showStatus("error", `Missing required fields: ${missingFields.join(', ')}`);
+            throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
+          }
+          
+          // Validate coordinates
+          if (!Array.isArray(pianoData.coordinates) ||
+              pianoData.coordinates.length !== 2 ||
+              isNaN(pianoData.coordinates[0]) ||
+              isNaN(pianoData.coordinates[1])) {
+            console.error('Invalid coordinates:', pianoData.coordinates);
+            showStatus("error", "Invalid coordinates. Please select a location using the map.");
+            throw new Error('Invalid coordinates');
+          }
+          
+          console.log('Submitting piano data:', pianoData);
+          
+          // Handle image upload if present
+          const imageFile = formData.get('pianoPicture');
+          let imageUrl = null;
+          
+          if (imageFile && imageFile.size > 0) {
+            console.log('Uploading image:', imageFile.name);
+            
+            // Generate a unique file name
+            const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            
+            // Create a storage bucket if it doesn't exist (this would normally be done in advance)
+            try {
+              const { data: bucketData, error: bucketError } = await supabase.storage.getBucket('piano-images');
+              if (bucketError && bucketError.code === 'PGRST116') {
+                // Bucket doesn't exist, create it
+                await supabase.storage.createBucket('piano-images', {
+                  public: true,
+                  fileSizeLimit: 10485760, // 10MB
+                });
+              }
+            } catch (bucketError) {
+              console.error('Error checking/creating bucket:', bucketError);
+            }
+            
+            // Upload to Supabase Storage
+            const { data: uploadData, error: uploadError } = await supabase.storage
+              .from('piano-images')
+              .upload(fileName, imageFile);
+              
+            if (uploadError) {
+              console.error('Error uploading image:', uploadError);
+              throw uploadError;
+            }
+            
+            // Get public URL
+            const { data: urlData } = supabase.storage
+              .from('piano-images')
+              .getPublicUrl(fileName);
+              
+            imageUrl = urlData.publicUrl;
+            console.log('Image uploaded successfully:', imageUrl);
+          }
+          
+          // Create piano in database
+          console.log('Calling createPiano with data:', JSON.stringify(pianoData));
+          let newPiano;
+          try {
+            newPiano = await createPiano(pianoData);
+            console.log('Piano created successfully:', newPiano);
+            
+            if (!newPiano || !newPiano.id) {
+              console.error('Piano created but no ID returned');
+              throw new Error('Piano created but no ID returned');
+            }
+          } catch (createError) {
+            console.error('Error in createPiano:', createError);
+            
+            // Check for specific error types
+            if (createError.message && createError.message.includes('permission')) {
+              showStatus("error", "Permission denied. You may need to log in or check your access rights.");
+            } else if (createError.message && createError.message.includes('network')) {
+              showStatus("error", "Network error. Please check your internet connection.");
+            } else {
+              showStatus("error", `Error creating piano: ${createError.message || 'Unknown error'}`);
+            }
+            throw createError;
+          }
+          
+          // If we have an image, create a piano_media entry
+          if (imageUrl && newPiano && newPiano.id) {
+            const { data: mediaData, error: mediaError } = await supabase
+              .from('piano_media')
+              .insert({
+                piano_id: newPiano.id,
+                media_type: 'image',
+                url: imageUrl,
+                description: `Primary image for ${newPiano.name}`
+              });
+              
+            if (mediaError) {
+              console.error('Error creating piano media entry:', mediaError);
+            } else {
+              console.log('Piano media entry created:', mediaData);
+            }
+          }
+          
+          // Show success message with popup
+          const successMessage = `
+            <div class="bg-success text-success-content p-4 rounded-lg shadow-lg">
+              <h3 class="font-bold text-lg">Success!</h3>
+              <p>Piano added successfully! Thank you for your contribution.</p>
+              <p class="mt-2">Redirecting to piano details page...</p>
+            </div>
+          `;
+          
+          // Create and show the popup
+          const popup = document.createElement('div');
+          popup.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50';
+          popup.innerHTML = successMessage;
+          document.body.appendChild(popup);
+          
+          // Show success status below form as well
+          showStatus("success", "Piano added successfully! Redirecting to piano details page...");
           
           // Reset form
           form.reset();
           if (imagePreview) {
             imagePreview.classList.add("hidden");
           }
+          
+          // Redirect to piano details page after a short delay
+          setTimeout(() => {
+            window.location.href = `/pianos/${newPiano.id}`;
+          }, 2000);
         } catch (error) {
-          // Show error message
-          showStatus("error", "There was an error submitting the form. Please try again.");
+          // Show detailed error message
           console.error("Form submission error:", error);
+          
+          let errorMessage = "There was an error submitting the form. Please try again.";
+          
+          // Provide more specific error messages based on the error type
+          if (error.message) {
+            if (error.message.includes('Location not selected')) {
+              errorMessage = "Please select a location using the map.";
+            } else if (error.message.includes('permission') || error.message.includes('access')) {
+              errorMessage = "Permission denied. You may need to log in or check your access rights.";
+            } else if (error.message.includes('network') || error.message.includes('connection')) {
+              errorMessage = "Network error. Please check your internet connection.";
+            } else if (error.message.includes('validation')) {
+              errorMessage = "Validation error. Please check your form inputs.";
+            } else if (error.message.includes('bucket')) {
+              errorMessage = "Error with image storage. Please try again or skip adding an image.";
+            }
+          }
+          
+          // Show the error message
+          showStatus("error", errorMessage);
+          
+          // Log detailed error information to console
+          console.error("Detailed error:", {
+            message: error.message,
+            stack: error.stack,
+            code: error.code,
+            details: error.details
+          });
         } finally {
           // Reset button state
           if (submitBtn && submitText && loadingSpinner) {
@@ -220,22 +752,13 @@ const { formTitle = "Add a New Piano" } = Astro.props;
       }
     }
     
-    // Simulate sending an email (in a real app, this would be a server endpoint)
-    async function simulateSendEmail(formData, email) {
-      // This is a simulation - in a real app, you would send this to your backend
-      console.log("Sending form data to:", email);
-      
-      // Extract form data for logging
+    // Helper function to log form data (for debugging)
+    function logFormData(formData) {
       const formDataObj = {};
       formData.forEach((value, key) => {
         formDataObj[key] = value instanceof File ? `File: ${value.name}` : value;
       });
       console.log("Form data:", formDataObj);
-      
-      // Simulate network delay
-      return new Promise((resolve) => {
-        setTimeout(resolve, 1500);
-      });
     }
   });
 </script>
