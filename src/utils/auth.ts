@@ -64,8 +64,7 @@ export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   },
 });
 
-// Log initialization
-console.log(`Auth: Supabase client initialized in ${isBrowser ? 'browser' : 'server'} environment`);
+// Supabase client initialization
 
 /**
  * Authentication service class
@@ -84,13 +83,11 @@ class AuthService {
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Auth: Error checking authentication:', error);
         return false;
       }
       
       return !!data.session;
     } catch (err) {
-      console.error('Auth: Exception in isAuthenticated:', err);
       return false;
     }
   }
@@ -108,13 +105,11 @@ class AuthService {
       const { data, error } = await supabase.auth.getUser();
       
       if (error) {
-        console.error('Auth: Error getting user:', error);
         return null;
       }
       
       return data.user;
     } catch (err) {
-      console.error('Auth: Exception in getCurrentUser:', err);
       return null;
     }
   }
@@ -131,13 +126,11 @@ class AuthService {
       const { data, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Auth: Error getting session:', error);
         return null;
       }
       
       return data.session;
     } catch (err) {
-      console.error('Auth: Exception in getSession:', err);
       return null;
     }
   }
@@ -162,7 +155,6 @@ class AuthService {
         error
       };
     } catch (err) {
-      console.error('Auth: Exception in signInWithPassword:', err);
       return {
         user: null,
         session: null,
@@ -198,7 +190,6 @@ class AuthService {
         error
       };
     } catch (err) {
-      console.error('Auth: Exception in signUp:', err);
       return {
         user: null,
         session: null,
@@ -219,7 +210,6 @@ class AuthService {
       const { error } = await supabase.auth.signOut();
       return { error };
     } catch (err) {
-      console.error('Auth: Exception in signOut:', err);
       return {
         error: {
           message: err instanceof Error ? err.message : 'Unknown error',
@@ -241,7 +231,6 @@ class AuthService {
       
       return { error };
     } catch (err) {
-      console.error('Auth: Exception in resetPasswordForEmail:', err);
       return {
         error: {
           message: err instanceof Error ? err.message : 'Unknown error',
@@ -263,7 +252,6 @@ class AuthService {
       
       return { error };
     } catch (err) {
-      console.error('Auth: Exception in updatePassword:', err);
       return {
         error: {
           message: err instanceof Error ? err.message : 'Unknown error',
@@ -278,7 +266,7 @@ class AuthService {
    * Get the return URL for redirects after authentication
    */
   getReturnUrl(): string {
-    if (!isBrowser) return '/user/profile';
+    if (!isBrowser) return '/user/dashboard';
     
     const returnTo = localStorage.getItem('returnTo');
     if (returnTo) {
@@ -286,7 +274,7 @@ class AuthService {
       return returnTo;
     }
     
-    return '/user/profile';
+    return '/user/dashboard';
   }
 
   /**
@@ -317,13 +305,11 @@ class ProfileService {
         .single();
       
       if (error) {
-        console.error('Profile: Error fetching user profile:', error);
         return null;
       }
       
       return data;
     } catch (err) {
-      console.error('Profile: Exception in getUserProfile:', err);
       return null;
     }
   }
@@ -341,7 +327,6 @@ class ProfileService {
         .single();
       
       if (existingProfile) {
-        console.log('Profile: Profile already exists for user:', userId);
         return { data: existingProfile, error: null };
       }
       
@@ -358,16 +343,14 @@ class ProfileService {
         .select();
       
       if (error) {
-        console.error('Profile: Error creating profile:', error);
         return { data: null, error };
       }
       
       return { data, error: null };
     } catch (err) {
-      console.error('Profile: Exception in createUserProfile:', err);
-      return { 
-        data: null, 
-        error: { message: err instanceof Error ? err.message : 'Unknown error' } 
+      return {
+        data: null,
+        error: { message: err instanceof Error ? err.message : 'Unknown error' }
       };
     }
   }
@@ -378,7 +361,6 @@ class ProfileService {
   async createUserProfileViaApi(userId: string, displayName: string) {
     try {
       if (!isBrowser) {
-        console.error('Profile: Cannot call API from server-side');
         return { success: false, error: 'Cannot call API from server-side' };
       }
       
@@ -400,16 +382,14 @@ class ProfileService {
       const result = await response.json();
       
       if (!response.ok) {
-        console.error('Profile: Error creating profile via API:', result);
         return { success: false, error: result.message || 'Failed to create profile' };
       }
       
       return { success: true, data: result.data };
     } catch (err) {
-      console.error('Profile: Exception in createUserProfileViaApi:', err);
-      return { 
-        success: false, 
-        error: err instanceof Error ? err.message : 'Unknown error' 
+      return {
+        success: false,
+        error: err instanceof Error ? err.message : 'Unknown error'
       };
     }
   }
@@ -426,16 +406,14 @@ class ProfileService {
         .select();
       
       if (error) {
-        console.error('Profile: Error updating profile:', error);
         return { data: null, error };
       }
       
       return { data, error: null };
     } catch (err) {
-      console.error('Profile: Exception in updateUserProfile:', err);
-      return { 
-        data: null, 
-        error: { message: err instanceof Error ? err.message : 'Unknown error' } 
+      return {
+        data: null,
+        error: { message: err instanceof Error ? err.message : 'Unknown error' }
       };
     }
   }
@@ -452,13 +430,11 @@ class ProfileService {
         .single();
       
       if (error) {
-        console.error('Profile: Error fetching user role:', error);
         return null;
       }
       
       return data?.role || 'user';
     } catch (err) {
-      console.error('Profile: Exception in getUserRole:', err);
       return null;
     }
   }

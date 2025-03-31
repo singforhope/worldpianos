@@ -19,7 +19,6 @@ import MainLayout from "../layouts/MainLayout.astro";
       const session = await auth.getSession();
       
       if (!session) {
-        console.error('Auth callback: No session found');
         window.location.href = '/auth?error=No session found';
         return;
       }
@@ -31,46 +30,43 @@ import MainLayout from "../layouts/MainLayout.astro";
         const userProfile = await profile.getUserProfile(user.id);
         
         if (!userProfile) {
-          console.log('Auth callback: Creating profile for user:', user.id);
-          
           // Get user metadata
           const metadata = user.user_metadata || {};
           const displayName = metadata.display_name || user.email?.split('@')[0] || 'User';
           
           // Create profile via API
           try {
-            const result = await profile.createUserProfileViaApi(user.id, displayName);
-            
-            if (!result.success) {
-              console.error('Auth callback: Error creating profile via API:', result.error);
-              // Continue with redirect despite error
-            } else {
-              console.log('Auth callback: User profile created successfully via API');
-            }
+            await profile.createUserProfileViaApi(user.id, displayName);
+            // Continue with redirect regardless of result
           } catch (apiError) {
-            console.error('Auth callback: API call error:', apiError);
             // Continue with redirect despite error
           }
         }
       }
       
-      // Log successful authentication
-      console.log('Auth callback successful, session established:', {
-        userId: user?.id,
-        hasSession: !!session,
-        expiresAt: session?.expires_at
-      });
+      // Authentication successful
       
-      // Redirect to the return URL
-      const returnTo = auth.getReturnUrl();
-      console.log('Redirecting to:', returnTo);
-      
-      // Add a slight delay to ensure session is established
-      setTimeout(() => {
-        window.location.href = returnTo;
-      }, 1000);
+      // Check if user is admin and redirect accordingly
+      if (user) {
+        const isAdmin = await profile.isAdmin(user.id);
+        
+        // Determine redirect URL based on role
+        let redirectUrl;
+        if (isAdmin) {
+          redirectUrl = '/admin/dashboard';
+        } else {
+          redirectUrl = auth.getReturnUrl();
+        }
+        
+        // Add a slight delay to ensure session is established
+        setTimeout(() => {
+          window.location.href = redirectUrl;
+        }, 1000);
+      } else {
+        // Fallback to default redirect
+        window.location.href = auth.getReturnUrl();
+      }
     } catch (error) {
-      console.error('Auth callback error:', error);
       window.location.href = '/auth?error=Authentication failed';
     }
   }

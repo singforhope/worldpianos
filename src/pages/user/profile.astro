@@ -6,22 +6,15 @@ import { auth, profile } from "../../utils/auth";
 // Add a class to the body to indicate this is an auth-required page
 const authRequiredClass = 'auth-required';
 
-// Enhanced authentication check with detailed logging
-console.log('Profile page: Checking authentication...');
+// Authentication check
 const authenticated = await auth.isAuthenticated();
-console.log('Profile page: Authentication result:', authenticated);
-
-// Get current user with detailed logging
-console.log('Profile page: Getting current user...');
 const user = await auth.getCurrentUser();
-console.log('Profile page: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
 
 // For server-side rendering, we'll set a flag but not redirect immediately
 // Client-side JS will handle the redirect if needed
 let authFailed = false;
 
 if (!authenticated || !user) {
-    console.log('Profile page: Not authenticated on server-side');
     authFailed = true;
     // We'll add a special class that client-side JS can detect
     // But we won't redirect immediately to allow client-side auth to take precedence
@@ -274,33 +267,27 @@ const bodyClasses = [
         
         // Redirect if not authenticated
         if (!authenticated || !user) {
-            console.log('Profile page: Not authenticated on client-side, redirecting to login');
             // Store the current URL to redirect back after login
             auth.setReturnUrl(window.location.pathname);
             window.location.href = '/auth?error=You must be logged in to view your profile';
             return;
         }
         
-        console.log('Profile page (client): User authenticated:', user.id);
-        
         // Check if profile exists and create if needed
         let userProfile = await profile.getUserProfile(user.id);
         
         if (!userProfile) {
-            console.log('Profile page (client): Creating profile for user:', user.id);
             const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
             const { data, error } = await profile.createUserProfile(user.id, displayName);
             
             if (error) {
-                console.error('Profile page (client): Error creating profile:', error);
+                // Handle error silently
             } else if (data) {
-                console.log('Profile page (client): Profile created successfully');
                 userProfile = Array.isArray(data) ? data[0] : data;
                 // Reload the page to show the new profile
                 window.location.reload();
             }
         } else {
-            console.log('Profile page (client): User profile found:', userProfile.display_name);
             
             // Update the UI with the user's data
             const nameElement = document.getElementById('sidebar-name');

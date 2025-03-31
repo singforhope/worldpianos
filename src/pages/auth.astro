@@ -175,22 +175,26 @@ const errorMessage = Astro.url.searchParams.get('error');
                     
                     showStatus('success', 'Signed in successfully! Redirecting...');
                     
-                    console.log('Login successful, session established:', {
-                        userId: user?.id,
-                        hasSession: !!session,
-                        expiresAt: session?.expires_at
-                    });
-                    
-                    // Redirect after a short delay
-                    setTimeout(() => {
-                        const returnTo = auth.getReturnUrl();
-                        console.log('Redirecting to:', returnTo);
-                        window.location.href = returnTo;
+                    // Check if user is admin and redirect accordingly
+                    setTimeout(async () => {
+                        if (user) {
+                            const isAdmin = await profile.isAdmin(user.id);
+                            
+                            if (isAdmin) {
+                                window.location.href = '/admin/dashboard';
+                            } else {
+                                const returnTo = auth.getReturnUrl();
+                                window.location.href = returnTo;
+                            }
+                        } else {
+                            // Fallback to default redirect
+                            const returnTo = auth.getReturnUrl();
+                            window.location.href = returnTo;
+                        }
                     }, 1500);
                 } catch (error) {
                     showStatus('error', 'An unexpected error occurred');
                     loginButton.disabled = false;
-                    console.error('Login error:', error);
                 }
             });
         }
@@ -239,7 +243,6 @@ const errorMessage = Astro.url.searchParams.get('error');
                             const result = await profile.createUserProfileViaApi(user.id, displayName);
                             
                             if (!result.success) {
-                                console.error('Error creating profile:', result.error);
                                 showStatus('error', 'Account created but there was an error setting up your profile. Please contact support.');
                                 signupButton.disabled = false;
                                 return;

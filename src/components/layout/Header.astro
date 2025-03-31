@@ -9,15 +9,9 @@ import { auth, profile } from "../../utils/auth";
 // Check if we're in a browser environment
 const isBrowser = typeof window !== 'undefined';
 
-// Enhanced authentication check with detailed logging
-console.log('Header: Checking authentication...');
+// Authentication check
 const authenticated = await auth.isAuthenticated();
-console.log('Header: Authentication result:', authenticated);
-
-// Get current user with detailed logging
-console.log('Header: Getting current user...');
 const user = await auth.getCurrentUser();
-console.log('Header: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
 
 // Get user profile if authenticated
 let userProfile = null;
@@ -248,7 +242,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                             <span>{userProfile?.display_name || user?.email?.split('@')[0] || 'User'}</span>
                         </li>
                         <li>
-                            <a href="/user/profile">
+                            <a href="/user/dashboard">
                                 <svg
                                     xmlns="http://www.w3.org/2000/svg"
                                     class="h-5 w-5"
@@ -263,7 +257,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                                         d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z"
                                     />
                                 </svg>
-                                Profile
+                                User Dashboard
                             </a>
                         </li>
                         <li>
@@ -520,8 +514,6 @@ const isActive = (path: string) => currentPath.startsWith(path);
         const user = await auth.getCurrentUser();
         
         if (authenticated && user) {
-            console.log('Header (client): User authenticated:', user.id);
-            
             // Get user profile
             const userProfile = await profile.getUserProfile(user.id);
             
@@ -529,7 +521,6 @@ const isActive = (path: string) => currentPath.startsWith(path);
             const authContainer = document.getElementById('auth-container');
             
             if (authContainer) {
-                console.log('Header (client): Auth container found, replacing content');
                 
                 // Create the user dropdown HTML
                 const avatarUrl = userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}`;
@@ -544,8 +535,8 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         </label>
                         <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
                             <li>
-                                <a href="/user/profile" class="justify-between">
-                                    Profile
+                                <a href="/user/dashboard" class="justify-between">
+                                    User Dashboard
                                     <span class="badge">${displayName}</span>
                                 </a>
                             </li>
