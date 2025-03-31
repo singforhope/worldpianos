@@ -270,6 +270,41 @@ const serializedEvents = JSON.stringify(formattedEvents);
             };
         }
         
+        // Function to handle the Add Event button click
+        const handleAddEventClick = async (e: Event) => {
+            e.preventDefault(); // Prevent default button behavior
+            
+            try {
+                // Import auth from utils
+                const { auth } = await import('../../utils/auth');
+                
+                // Check if user is authenticated
+                const isAuthenticated = await auth.isAuthenticated();
+                
+                if (isAuthenticated) {
+                    // If authenticated, show the modal
+                    if (eventModal) {
+                        eventModal.showModal();
+                    }
+                } else {
+                    // If not authenticated, redirect to the login page
+                    // Store the return URL so user can be redirected back after login
+                    localStorage.setItem('returnTo', '/events');
+                    window.location.href = '/auth?message=Please log in to add an event';
+                }
+            } catch (error) {
+                console.error('Error checking authentication:', error);
+                // Default to login page if there's an error
+                localStorage.setItem('returnTo', '/events');
+                window.location.href = '/auth?message=Please log in to add an event';
+            }
+        };
+        
+        // Add click event listener to the button
+        if (addEventBtn) {
+            addEventBtn.addEventListener('click', handleAddEventClick);
+        }
+        
         // Listen for messages from the iframe or modal
         window.addEventListener('message', (event) => {
             if (event.data && event.data.type === 'event-added') {
