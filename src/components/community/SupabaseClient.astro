@@ -36,34 +36,66 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
     window.supabaseUrl = supabaseUrl;
     window.supabaseAnonKey = supabaseAnonKey;
     
+    // Function to initialize Supabase client
+    function initSupabaseClient() {
+      // Check if Supabase is already loaded
+      if (window.supabase && supabaseUrl && supabaseAnonKey) {
+        console.log('Creating Supabase client from CDN');
+        try {
+          // Initialize the Supabase client
+          window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
+            auth: {
+              persistSession: true,
+              autoRefreshToken: true,
+              storageKey: 'worldpianos-auth',
+              flowType: 'implicit'
+            }
+          });
+          console.log('Supabase client created successfully');
+          
+          // Check if the client is working by getting the current session
+          window.supabaseClient.auth.getSession()
+            .then(({ data, error }) => {
+              if (error) {
+                console.error('Error getting session:', error);
+              } else {
+                console.log('Session check successful:', data.session ? 'User is logged in' : 'No active session');
+              }
+              
+              // Dispatch an event to notify other components that Supabase is ready
+              const event = new CustomEvent('supabase-ready');
+              window.dispatchEvent(event);
+            })
+            .catch(err => {
+              console.error('Error checking session:', err);
+              // Still dispatch the event so components can handle the error
+              const event = new CustomEvent('supabase-ready');
+              window.dispatchEvent(event);
+            });
+        } catch (err) {
+          console.error('Error creating Supabase client:', err);
+        }
+      } else {
+        console.error('Failed to create Supabase client: missing dependencies');
+      }
+    }
+    
     // Load the Supabase library from CDN
     const script = document.createElement('script');
     script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
     script.async = true;
-    script.onload = function() {
-      // Initialize the Supabase client
-      if (window.supabase && supabaseUrl && supabaseAnonKey) {
-        console.log('Creating Supabase client from CDN');
-        window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
-          auth: {
-            persistSession: true,
-            autoRefreshToken: true,
-            storageKey: 'worldpianos-auth',
-            flowType: 'implicit'
-          }
-        });
-        console.log('Supabase client created successfully');
-        
-        // Dispatch an event to notify other components that Supabase is ready
-        const event = new CustomEvent('supabase-ready');
-        window.dispatchEvent(event);
-      } else {
-        console.error('Failed to create Supabase client: missing dependencies');
-      }
-    };
+    script.onload = initSupabaseClient;
     script.onerror = function() {
       console.error('Failed to load Supabase library from CDN');
     };
     document.head.appendChild(script);
+    
+    // Set a timeout to check if Supabase was loaded
+    setTimeout(() => {
+      if (!window.supabaseClient) {
+        console.warn('Supabase client not initialized after 5 seconds, retrying...');
+        initSupabaseClient();
+      }
+    }, 5000);
   }
 </script>

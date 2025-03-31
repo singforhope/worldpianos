@@ -695,22 +695,43 @@ const isActive = (path: string) => currentPath.startsWith(path);
 
 <script>
     // Handle Add Piano button click
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
         const addPianoBtn = document.getElementById('open-piano-modal');
+        const mobileAddPianoBtn = document.querySelector('.open-piano-modal');
         
-        if (addPianoBtn) {
-            addPianoBtn.addEventListener('click', () => {
-                // Find the add-piano-modal in the DOM
-                const pianoModal = document.getElementById('piano-modal') as HTMLDialogElement;
+        // Function to handle the Add Piano button click
+        const handleAddPianoClick = async () => {
+            try {
+                // Import auth from utils
+                const { auth } = await import('../../utils/auth');
                 
-                if (pianoModal) {
-                    // Open the modal
-                    pianoModal.showModal();
-                } else {
-                    // If modal doesn't exist in the current page, redirect to the add piano page
+                // Check if user is authenticated
+                const isAuthenticated = await auth.isAuthenticated();
+                
+                if (isAuthenticated) {
+                    // If authenticated, redirect to the add piano page
                     window.location.href = '/pianos/add';
+                } else {
+                    // If not authenticated, redirect to the login page
+                    // Store the return URL so user can be redirected back after login
+                    localStorage.setItem('returnTo', '/pianos/add');
+                    window.location.href = '/auth?message=Please log in to add a piano';
                 }
-            });
+            } catch (error) {
+                console.error('Error checking authentication:', error);
+                // Default to login page if there's an error
+                window.location.href = '/auth?message=Please log in to add a piano';
+            }
+        };
+        
+        // Add click event listener to the desktop button
+        if (addPianoBtn) {
+            addPianoBtn.addEventListener('click', handleAddPianoClick);
+        }
+        
+        // Add click event listener to the mobile button
+        if (mobileAddPianoBtn) {
+            mobileAddPianoBtn.addEventListener('click', handleAddPianoClick);
         }
     });
 </script>

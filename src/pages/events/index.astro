@@ -222,6 +222,41 @@ const serializedEvents = JSON.stringify(formattedEvents);
     import timeGridPlugin from '@fullcalendar/timegrid';
     import listPlugin from '@fullcalendar/list';
     import interactionPlugin from '@fullcalendar/interaction';
+    
+    // Handle Add Event button click
+    document.addEventListener('DOMContentLoaded', async () => {
+        const addEventBtn = document.querySelector('.open-event-modal');
+        
+        // Function to handle the Add Event button click
+        const handleAddEventClick = async () => {
+            try {
+                // Import auth from utils
+                const { auth } = await import('../../utils/auth');
+                
+                // Check if user is authenticated
+                const isAuthenticated = await auth.isAuthenticated();
+                
+                if (isAuthenticated) {
+                    // If authenticated, redirect to the add event page
+                    window.location.href = '/events/add';
+                } else {
+                    // If not authenticated, redirect to the login page
+                    // Store the return URL so user can be redirected back after login
+                    localStorage.setItem('returnTo', '/events/add');
+                    window.location.href = '/auth?message=Please log in to add an event';
+                }
+            } catch (error) {
+                console.error('Error checking authentication:', error);
+                // Default to login page if there's an error
+                window.location.href = '/auth?message=Please log in to add an event';
+            }
+        };
+        
+        // Add click event listener to the button
+        if (addEventBtn) {
+            addEventBtn.addEventListener('click', handleAddEventClick);
+        }
+    });
 
     // Define event type
     interface CalendarEvent {

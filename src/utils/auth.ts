@@ -89,14 +89,24 @@ class AuthService {
         return false;
       }
       
-      const { data, error } = await supabase.auth.getSession();
+      // Use the global supabaseClient if available, otherwise fall back to the imported one
+      const client = (window as any).supabaseClient || supabase;
+      
+      console.log('Auth check using client:', client ? 'Available' : 'Not available');
+      
+      const { data, error } = await client.auth.getSession();
       
       if (error) {
+        console.error('Error getting session:', error);
         return false;
       }
       
-      return !!data.session;
+      const isAuthenticated = !!data.session;
+      console.log('Auth check result:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
+      
+      return isAuthenticated;
     } catch (err) {
+      console.error('Exception in isAuthenticated:', err);
       return false;
     }
   }
@@ -111,11 +121,19 @@ class AuthService {
         return null;
       }
       
-      const { data, error } = await supabase.auth.getUser();
+      // Use the global supabaseClient if available, otherwise fall back to the imported one
+      const client = (window as any).supabaseClient || supabase;
+      
+      console.log('Get user using client:', client ? 'Available' : 'Not available');
+      
+      const { data, error } = await client.auth.getUser();
       
       if (error) {
+        console.error('Error getting user:', error);
         return null;
       }
+      
+      console.log('User retrieved:', data.user ? 'Found' : 'Not found');
       
       return data.user;
     } catch (err) {
@@ -153,10 +171,21 @@ class AuthService {
     error: AuthError | null;
   }> {
     try {
-      const { data, error } = await supabase.auth.signInWithPassword({
+      // Use the global supabaseClient if available, otherwise fall back to the imported one
+      const client = (window as any).supabaseClient || supabase;
+      
+      console.log('Sign in using client:', client ? 'Available' : 'Not available');
+      
+      const { data, error } = await client.auth.signInWithPassword({
         email,
         password
       });
+      
+      if (error) {
+        console.error('Error signing in:', error);
+      } else {
+        console.log('Sign in successful:', data.user ? 'User found' : 'No user');
+      }
       
       return {
         user: data?.user || null,

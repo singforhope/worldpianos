@@ -350,54 +350,82 @@ const bodyClasses = [
         const loadingState = document.getElementById('loading-state');
         const dashboardContent = document.getElementById('dashboard-content');
         
-        // Check if user is authenticated on client-side
-        const authenticated = await auth.isAuthenticated();
-        const user = await auth.getCurrentUser();
-        
-        // Redirect if not authenticated
-        if (!authenticated || !user) {
-            // Store the current URL to redirect back after login
-            auth.setReturnUrl(window.location.pathname);
-            window.location.href = '/auth?error=You must be logged in to view your dashboard';
-            return;
-        }
-        
-        // Check if profile exists and create if needed
-        let userProfile = await profile.getUserProfile(user.id);
-        
-        if (!userProfile) {
-            const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
-            const { data, error } = await profile.createUserProfile(user.id, displayName);
-            
-            if (error) {
-                // Handle error silently
-            } else if (data) {
-                userProfile = Array.isArray(data) ? data[0] : data;
-                // Reload the page to show the new profile
-                window.location.reload();
+        // Function to check authentication and handle dashboard
+        const checkAuthAndLoadDashboard = async () => {
+            try {
+                // Check if user is authenticated on client-side
+                const authenticated = await auth.isAuthenticated();
+                const currentUser = await auth.getCurrentUser();
+                
+                // Redirect if not authenticated
+                if (!authenticated || !currentUser) {
+                    console.log('Dashboard: User not authenticated, redirecting to login');
+                    // Store the current URL to redirect back after login
+                    auth.setReturnUrl(window.location.pathname);
+                    window.location.href = '/auth?error=You must be logged in to view your dashboard';
+                    return;
+                }
+                
+                console.log('Dashboard: User authenticated, loading dashboard');
+                
+                // Check if profile exists and create if needed
+                let userProfile = await profile.getUserProfile(currentUser.id);
+                
+                if (!userProfile) {
+                    const displayName = currentUser.user_metadata?.display_name || currentUser.email?.split('@')[0] || 'User';
+                    const { data, error } = await profile.createUserProfile(currentUser.id, displayName);
+                    
+                    if (error) {
+                        // Handle error silently
+                        console.error('Error creating user profile:', error);
+                    } else if (data) {
+                        userProfile = Array.isArray(data) ? data[0] : data;
+                        // Reload the page to show the new profile
+                        window.location.reload();
+                    }
+                } else {
+                    // Update the UI with the user's data
+                    const nameElement = document.getElementById('sidebar-name');
+                    const emailElement = document.getElementById('sidebar-email');
+                    const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
+                    
+                    if (nameElement) {
+                        nameElement.textContent = userProfile.display_name || currentUser.email?.split('@')[0] || 'User';
+                    }
+                    
+                    if (emailElement) {
+                        emailElement.textContent = currentUser.email || 'No email available';
+                    }
+                    
+                    if (avatarImg && userProfile.avatar_url) {
+                        avatarImg.src = userProfile.avatar_url;
+                    }
+                    
+                    // Hide loading state and show dashboard content
+                    if (loadingState) loadingState.classList.add('hidden');
+                    if (dashboardContent) dashboardContent.classList.remove('hidden');
+                }
+            } catch (error) {
+                console.error('Error checking authentication:', error);
+                // Show error message
+                if (loadingState) {
+                    loadingState.innerHTML = `
+                        <div class="alert alert-error">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                            <span>Error loading dashboard. Please try refreshing the page.</span>
+                        </div>
+                    `;
+                }
             }
+        };
+        
+        // Check if Supabase client is already available
+        if ((window as any).supabaseClient) {
+            checkAuthAndLoadDashboard();
         } else {
-            
-            // Update the UI with the user's data
-            const nameElement = document.getElementById('sidebar-name');
-            const emailElement = document.getElementById('sidebar-email');
-            const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
-            
-            if (nameElement) {
-                nameElement.textContent = userProfile.display_name || user.email?.split('@')[0] || 'User';
-            }
-            
-            if (emailElement) {
-                emailElement.textContent = user.email || 'No email available';
-            }
-            
-            if (avatarImg && userProfile.avatar_url) {
-                avatarImg.src = userProfile.avatar_url;
-            }
-            
-            // Hide loading state and show dashboard content
-            if (loadingState) loadingState.classList.add('hidden');
-            if (dashboardContent) dashboardContent.classList.remove('hidden');
+            console.log('Dashboard: Waiting for Supabase client...');
+            // Wait for the supabase-ready event
+            window.addEventListener('supabase-ready', checkAuthAndLoadDashboard);
         }
         
         // Setup logout button
