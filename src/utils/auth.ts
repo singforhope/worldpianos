@@ -86,6 +86,7 @@ class AuthService {
     try {
       // In server-side rendering, we can't reliably check auth
       if (!isBrowser) {
+        console.log('isAuthenticated called server-side, returning false');
         return false;
       }
       
@@ -94,6 +95,28 @@ class AuthService {
       
       console.log('Auth check using client:', client ? 'Available' : 'Not available');
       
+      // First, check localStorage directly for session data
+      try {
+        const storedSession = localStorage.getItem('worldpianos-auth');
+        if (storedSession) {
+          const parsedSession = JSON.parse(storedSession);
+          // If the stored session has a non-expired access token, consider the user authenticated
+          if (parsedSession && parsedSession.access_token && parsedSession.expires_at) {
+            const expiresAt = new Date(parsedSession.expires_at * 1000);
+            // Check if the token is not expired (with 60 seconds buffer)
+            if (expiresAt > new Date(Date.now() + 60000)) {
+              console.log('Found valid session in localStorage');
+              return true;
+            } else {
+              console.log('Found expired session in localStorage');
+            }
+          }
+        }
+      } catch (e) {
+        console.warn('Error checking localStorage for session:', e);
+      }
+      
+      // If localStorage check failed or returned false, try the Supabase API
       const { data, error } = await client.auth.getSession();
       
       if (error) {
@@ -102,11 +125,12 @@ class AuthService {
       }
       
       const isAuthenticated = !!data.session;
-      console.log('Auth check result:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
+      console.log('Auth check result from API:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
       
       return isAuthenticated;
     } catch (err) {
       console.error('Exception in isAuthenticated:', err);
+      // In case of errors, default to not authenticated for security
       return false;
     }
   }

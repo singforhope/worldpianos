@@ -33,7 +33,7 @@ const isFullScreen = Astro.url.pathname === "/map";
 
         <!-- Piano Modal -->
         <dialog id="piano-modal" class="modal">
-            <div class="modal-box max-w-3xl">
+            <div class="modal-box max-w-7xl w-full md:w-[95%] lg:w-[90%]">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-lg">Add a New Piano</h3>
                     <form method="dialog" class="flex">
@@ -43,7 +43,7 @@ const isFullScreen = Astro.url.pathname === "/map";
                     </form>
                 </div>
                 <div class="divider mt-0 mb-4"></div>
-                <PianoForm formTitle="" />
+                <PianoForm formTitle="" isModal={true} />
             </div>
             <form method="dialog" class="modal-backdrop">
                 <button>close</button>
@@ -52,7 +52,7 @@ const isFullScreen = Astro.url.pathname === "/map";
 
         <!-- Event Modal -->
         <dialog id="event-modal" class="modal">
-            <div class="modal-box max-w-3xl">
+            <div class="modal-box max-w-7xl w-full md:w-[95%] lg:w-[90%]">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-lg">Add a New Event</h3>
                     <form method="dialog" class="flex">
@@ -62,7 +62,7 @@ const isFullScreen = Astro.url.pathname === "/map";
                     </form>
                 </div>
                 <div class="divider mt-0 mb-4"></div>
-                <EventForm formTitle="" />
+                <EventForm formTitle="" isModal={true} />
             </div>
             <form method="dialog" class="modal-backdrop">
                 <button>close</button>
@@ -155,11 +155,14 @@ const isFullScreen = Astro.url.pathname === "/map";
                     console.log('Client-side auth check: Authenticated as', data.session.user.id);
                     document.body.classList.add('authenticated');
                     
-                    // If on a page that requires auth but server rendered as not authenticated, reload
+                    // REMOVED: Don't reload on auth mismatch - this causes refresh loops
+                    // Just add a class that the page can use to show content
                     if (window.location.pathname.startsWith('/user/') &&
                         document.body.classList.contains('auth-required-not-authenticated')) {
-                        console.log('Client-side auth check: Detected auth mismatch, reloading...');
-                        window.location.reload();
+                        console.log('Client-side auth check: Detected auth mismatch, updating class');
+                        document.body.classList.remove('auth-required-not-authenticated');
+                        document.body.classList.add('auth-required-authenticated');
+                        // No reload - let the page handle this
                     }
                     
                     // Update UI elements that depend on authentication
@@ -174,12 +177,13 @@ const isFullScreen = Astro.url.pathname === "/map";
                     console.log('Client-side auth check: Not authenticated');
                     document.body.classList.add('not-authenticated');
                     
-                    // If on a page that requires auth, redirect to login
+                    // Don't auto-redirect when on user pages - just set a class
+                    // This prevents redirect loops when SSR and client-side auth disagree
                     if (window.location.pathname.startsWith('/user/') &&
                         !document.body.classList.contains('auth-bypass')) {
-                        console.log('Client-side auth check: Unauthorized access to protected page, redirecting...');
-                        localStorage.setItem('returnTo', window.location.pathname);
-                        window.location.href = '/auth?error=Session expired';
+                        console.log('Client-side auth check: Unauthorized access to protected page, adding class');
+                        document.body.classList.add('client-side-auth-failed');
+                        // Each page should handle redirect in its own way to prevent loops
                     }
                     
                     // Update UI elements that depend on authentication
@@ -192,10 +196,23 @@ const isFullScreen = Astro.url.pathname === "/map";
                     });
                 }
                 
-                // Mark the body as auth-ready
+                // Mark the body as auth-ready and dispatch event
                 document.body.classList.add('auth-ready');
+                
+                // Dispatch an event that pages can listen for
+                const event = new CustomEvent('auth-check-complete', { 
+                    detail: { authenticated: !!data.session } 
+                });
+                window.dispatchEvent(event);
+                
             } catch (err) {
                 console.error('Client-side auth check: Exception', err);
+                
+                // Still dispatch event on error
+                const event = new CustomEvent('auth-check-complete', { 
+                    detail: { authenticated: false, error: err } 
+                });
+                window.dispatchEvent(event);
             }
         }
         
@@ -206,6 +223,14 @@ const isFullScreen = Astro.url.pathname === "/map";
             // Wait for the supabase-ready event
             console.log('Client-side auth check: Waiting for Supabase client...');
             window.addEventListener('supabase-ready', checkAuth);
+            
+            // Failsafe: if supabase-ready never fires, do auth check anyway after timeout
+            setTimeout(() => {
+                if (!document.body.classList.contains('auth-ready')) {
+                    console.warn('Client-side auth check: Timeout waiting for Supabase, checking auth anyway');
+                    checkAuth();
+                }
+            }, 3000);
         }
     } else {
         console.log('Skipping client-side auth check in server environment');

@@ -2,6 +2,7 @@
 import MainLayout from "../../layouts/MainLayout.astro";
 import { getAllEvents } from "../../utils/dataService";
 import type { Event } from "../../utils/dataService";
+import EventForm from "../../components/community/EventForm.astro";
 
 let events: Event[] = [];
 let error: string | null = null;
@@ -213,9 +214,23 @@ const serializedEvents = JSON.stringify(formattedEvents);
 
     <!-- Hidden element to pass event data to client-side JavaScript -->
     <script id="event-data" type="application/json">{JSON.stringify(formattedEvents)}</script>
+
+    <!-- Add Toastify CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+
+    <!-- Add Toastify JS -->
+    <script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </MainLayout>
 
 <script>
+    // TypeScript declarations
+    declare global {
+        interface Window {
+            showToast?: (message: string, type?: string) => void;
+            Toastify: any;
+        }
+    }
+    
     // Import FullCalendar core and plugins
     import { Calendar } from '@fullcalendar/core';
     import dayGridPlugin from '@fullcalendar/daygrid';
@@ -226,36 +241,53 @@ const serializedEvents = JSON.stringify(formattedEvents);
     // Handle Add Event button click
     document.addEventListener('DOMContentLoaded', async () => {
         const addEventBtn = document.querySelector('.open-event-modal');
+        const eventModal = document.getElementById('event-modal') as HTMLDialogElement;
         
-        // Function to handle the Add Event button click
-        const handleAddEventClick = async () => {
-            try {
-                // Import auth from utils
-                const { auth } = await import('../../utils/auth');
-                
-                // Check if user is authenticated
-                const isAuthenticated = await auth.isAuthenticated();
-                
-                if (isAuthenticated) {
-                    // If authenticated, redirect to the add event page
-                    window.location.href = '/events/add';
+        // Create a showToast function if it doesn't exist
+        if (typeof window.showToast !== 'function') {
+            window.showToast = function(message: string, type = 'info') {
+                // Check if Toastify is available
+                if (typeof window.Toastify === 'function') {
+                    window.Toastify({
+                        text: message,
+                        duration: 3000,
+                        close: true,
+                        gravity: "top",
+                        position: "right",
+                        className: `toastify-${type}`,
+                        style: {
+                            background: type === "success" ? "#36d399" : 
+                                      type === "error" ? "#f87272" : 
+                                      type === "warning" ? "#fbbd23" : "#3abff8",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                        }
+                    }).showToast();
                 } else {
-                    // If not authenticated, redirect to the login page
-                    // Store the return URL so user can be redirected back after login
-                    localStorage.setItem('returnTo', '/events/add');
-                    window.location.href = '/auth?message=Please log in to add an event';
+                    // Fallback to alert if Toastify is not available
+                    console.log(`Toast (${type}): ${message}`);
                 }
-            } catch (error) {
-                console.error('Error checking authentication:', error);
-                // Default to login page if there's an error
-                window.location.href = '/auth?message=Please log in to add an event';
-            }
-        };
-        
-        // Add click event listener to the button
-        if (addEventBtn) {
-            addEventBtn.addEventListener('click', handleAddEventClick);
+            };
         }
+        
+        // Listen for messages from the iframe or modal
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'event-added') {
+                console.log('Event added:', event.data);
+                
+                // Show success toast
+                if (window.showToast) {
+                    window.showToast(`Event "${event.data.eventName}" added successfully!`, 'success');
+                }
+                
+                // Redirect to the event details page instead of reloading
+                if (event.data.eventId) {
+                    setTimeout(() => {
+                        window.location.href = `/events/${event.data.eventId}`;
+                    }, 1000);
+                }
+            }
+        });
     });
 
     // Define event type

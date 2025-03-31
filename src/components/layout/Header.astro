@@ -709,12 +709,17 @@ const isActive = (path: string) => currentPath.startsWith(path);
                 const isAuthenticated = await auth.isAuthenticated();
                 
                 if (isAuthenticated) {
-                    // If authenticated, redirect to the add piano page
-                    window.location.href = '/pianos/add';
+                    // If authenticated, open the piano modal
+                    const pianoModal = document.getElementById('piano-modal') as HTMLDialogElement;
+                    if (pianoModal) {
+                        pianoModal.showModal();
+                    } else {
+                        console.error('Piano modal element not found');
+                    }
                 } else {
                     // If not authenticated, redirect to the login page
-                    // Store the return URL so user can be redirected back after login
-                    localStorage.setItem('returnTo', '/pianos/add');
+                    // Store the current URL so user can be redirected back after login
+                    localStorage.setItem('returnTo', window.location.pathname);
                     window.location.href = '/auth?message=Please log in to add a piano';
                 }
             } catch (error) {

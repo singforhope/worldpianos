@@ -192,7 +192,7 @@ const bodyClasses = [
                                     Add Piano
                                 </button>
                             </div>
-                            <button class="btn btn-primary" onclick="document.getElementById('piano-modal').showModal()">
+                            <button class="btn btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                     <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                 </svg>
@@ -234,7 +234,7 @@ const bodyClasses = [
                                         <span>You haven't added any pianos yet.</span>
                                     </div>
                                     <div class="flex justify-center mt-4">
-                                        <button class="btn btn-primary" onclick="document.getElementById('piano-modal').showModal()">
+                                        <button class="btn btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                             </svg>
@@ -251,7 +251,7 @@ const bodyClasses = [
     </div>
     
     <!-- Piano Modal -->
-    <dialog id="piano-modal" class="modal">
+    <dialog id="user-piano-modal" class="modal">
         <div class="modal-box w-11/12 max-w-6xl h-[90vh]">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="font-bold text-lg">Add a New Piano</h3>
@@ -280,7 +280,7 @@ const bodyClasses = [
             const closeButtons = document.querySelectorAll('.modal form[method="dialog"] button');
             closeButtons.forEach(button => {
                 button.addEventListener('click', () => {
-                    const modal = document.getElementById('piano-modal') as HTMLDialogElement;
+                    const modal = document.getElementById('user-piano-modal') as HTMLDialogElement;
                     if (modal) {
                         modal.close();
                     }
@@ -301,7 +301,7 @@ const bodyClasses = [
         // Handle piano added message
         if (event.data && event.data.type === 'piano-added') {
             // Close the modal
-            const pianoModal = document.getElementById('piano-modal') as HTMLDialogElement;
+            const pianoModal = document.getElementById('user-piano-modal') as HTMLDialogElement;
             if (pianoModal) pianoModal.close();
             // Show a success message
             alert(`Piano "${event.data.pianoName}" added successfully!`);

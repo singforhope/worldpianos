@@ -44,6 +44,19 @@ const pianos = await getAllPianos();
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
+    <!-- Duplicate submission message -->
+    <div id="duplicate-submission-message" class="hidden">
+      <div class="alert alert-warning shadow-lg fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-auto max-w-md fade-in">
+        <div>
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          <span>Form is already being submitted, please wait...</span>
+        </div>
+        <div class="flex-none">
+          <button onclick="window.hideDuplicateSubmissionMessage()" class="btn btn-sm btn-ghost">×</button>
+        </div>
+      </div>
+    </div>
+    
     <form id="event-form" class="space-y-6" enctype="multipart/form-data">
       <!-- Event Name -->
       <div class="form-control w-full">
@@ -141,12 +154,165 @@ const pianos = await getAllPianos();
 <!-- Include the Event Service -->
 <EventService developmentMode={DEVELOPMENT_MODE} />
 
-<script define:vars={{ DEVELOPMENT_MODE }}>
+<!-- Add Toastify CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+
+<!-- Add Toastify JS -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+<style>
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -20px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+</style>
+
+<!-- Auth utilities script -->
+<script>
+  // Import auth and profile directly (not dynamically)
+  import { auth, profile } from '../../utils/auth';
+  
+  // Add TypeScript declaration to extend window interface
+  interface WindowWithAuth extends Window {
+    worldPianosAuth?: {
+      auth: typeof auth;
+      profile: typeof profile;
+    }
+  }
+  
+  // Expose auth utilities to the window for use in the inline script
+  (window as WindowWithAuth).worldPianosAuth = { auth, profile };
+</script>
+
+<script define:vars={{ DEVELOPMENT_MODE, displayInModal }}>
   // Make development mode available globally
   window.developmentMode = DEVELOPMENT_MODE;
-  // @ts-nocheck
-  // Make development mode available globally
-  window.developmentMode = DEVELOPMENT_MODE;
+  
+  // Create global static flags to prevent duplicate submissions
+  if (typeof window !== 'undefined') {
+    // Initialize global flags if they don't exist
+    window.worldPianosGlobals = window.worldPianosGlobals || {};
+    window.worldPianosGlobals.eventFormState = window.worldPianosGlobals.eventFormState || {
+      isSubmitting: false,
+      formSubmitted: false,
+      eventCreated: false,
+      submittedEventId: null,
+      lastSubmissionTime: 0
+    };
+    
+    // Create a showToast function if it doesn't exist
+    if (!window.showToast) {
+      window.showToast = function(message, type = 'info') {
+        // Check if Toastify is available
+        if (typeof Toastify === 'function') {
+          Toastify({
+            text: message,
+            duration: 3000, // 3 seconds
+            close: true, // Show close button
+            gravity: "top",
+            position: "right",
+            className: `toastify-${type}`,
+            onClick: function() { this.hideToast(); }, // Click to dismiss
+            style: {
+              background: type === "success" ? "#36d399" : 
+                        type === "error" ? "#f87272" : 
+                        type === "warning" ? "#fbbd23" : "#3abff8",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+            }
+          }).showToast();
+        } else {
+          // Fallback to alert if Toastify is not available
+          console.log(`Toast (${type}): ${message}`);
+        }
+      };
+    }
+    
+    // Create a function to hide duplicate submission message
+    window.hideDuplicateSubmissionMessage = function() {
+      const msgEl = document.getElementById('duplicate-submission-message');
+      if (msgEl) {
+        msgEl.style.display = 'none';
+      }
+    };
+    
+    // Create a function to show duplicate submission message
+    window.showDuplicateSubmissionMessage = function() {
+      const msgEl = document.getElementById('duplicate-submission-message');
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+          msgEl.style.display = 'none';
+        }, 3000);
+      }
+    };
+  }
+  
+  // Function to ensure auth utilities are available
+  function ensureAuthUtilities(maxAttempts = 10, interval = 300) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
+      
+      const checkAuth = () => {
+        if (window.worldPianosAuth && window.worldPianosAuth.auth && window.worldPianosAuth.profile) {
+          console.log('Auth utilities found on window');
+          resolve(window.worldPianosAuth);
+        } else {
+          attempts++;
+          if (attempts >= maxAttempts) {
+            console.error('Auth utilities not found after', maxAttempts, 'attempts');
+            reject(new Error('Auth utilities not found on window after multiple attempts'));
+          } else {
+            console.log(`Auth utilities not found, retrying (${attempts}/${maxAttempts})...`);
+            setTimeout(checkAuth, interval);
+          }
+        }
+      };
+      
+      checkAuth();
+    });
+  }
+
+  // Wrapper for showing status messages
+  function showStatus(type, message) {
+    const statusEl = document.getElementById('form-status');
+    if (statusEl) {
+      // Clear existing classes
+      statusEl.classList.remove('hidden', 'alert-success', 'alert-error', 'alert-warning', 'alert-info');
+      
+      // Add new class based on type
+      statusEl.classList.add('alert', `alert-${type}`);
+      
+      // Set the message
+      statusEl.textContent = message;
+      
+      // Show the element
+      statusEl.classList.remove('hidden');
+      
+      // Scroll to the status message
+      statusEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+    
+    // Also show a toast notification
+    if (window.showToast) {
+      window.showToast(message, type);
+    }
+  }
+  
+  // Make showStatus available to the window
+  window.showStatus = showStatus;
   
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("event-form");
@@ -154,10 +320,49 @@ const pianos = await getAllPianos();
     const submitText = document.getElementById("submit-text");
     const loadingSpinner = document.getElementById("loading-spinner");
     
+    // Make displayInModal available to the client-side script
+    console.log('Event Form - Display in modal:', displayInModal);
+    
+    // Add event listener for ESC key to dismiss status messages
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        // Hide form status messages
+        const statusEl = document.getElementById('form-status');
+        if (statusEl && !statusEl.classList.contains('hidden')) {
+          statusEl.classList.add('hidden');
+        }
+      }
+    });
+    
+    // Add click event to dismiss form status on click
+    const statusEl = document.getElementById('form-status');
+    if (statusEl) {
+      statusEl.addEventListener('click', () => {
+        statusEl.classList.add('hidden');
+      });
+    }
+    
     // Form submission
     if (form) {
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        
+        // Prevent duplicate submissions
+        if (window.worldPianosGlobals && window.worldPianosGlobals.eventFormState.isSubmitting) {
+          console.log('Form is already being submitted, ignoring duplicate submission');
+          
+          // Show the floating message instead of a toast
+          if (window.showDuplicateSubmissionMessage) {
+            window.showDuplicateSubmissionMessage();
+          }
+          
+          return;
+        }
+        
+        // Set submission flag
+        if (window.worldPianosGlobals) {
+          window.worldPianosGlobals.eventFormState.isSubmitting = true;
+        }
         
         // Show loading state
         if (submitBtn && submitText && loadingSpinner) {
@@ -170,52 +375,15 @@ const pianos = await getAllPianos();
         const formData = new FormData(form);
         
         try {
-          // Check for authentication using the auth service
-          try {
-            // Import auth and profile from auth.ts
-            const authModule = await import('../../utils/auth');
-            const { auth, profile } = authModule;
-            
-            // Get the current session
-            const session = await auth.getSession();
-            
-            if (!session) {
-              window.showStatus("error", "You must be logged in to add an event.");
-              throw new Error('Authentication required');
-            }
-            
-            // Get user ID for tracking who created the event
-            const userId = session.user.id;
-            
-            // Check if admin for certain operations
-            const isAdmin = await profile.isAdmin(userId);
-            
-            // Add user ID to event data
-            eventData.created_by = userId;
-            
-            // Additional admin-only fields
-            if (isAdmin) {
-              eventData.verified = formData.get('verified') === 'true';
-            }
-          } catch (error) {
-            console.error('Authentication error:', error);
-            window.showStatus("error", "Authentication error. Please try logging in again.");
-            throw new Error('Authentication error');
-          }
-          
-          // Log all form data for debugging
-          console.log('Form submission started');
-          window.eventService.logFormData(formData);
-          
-          // Check if location is selected
-          const lat = document.getElementById("event-location-lat").value || 
-                      document.getElementById("event-location-lat").getAttribute('value');
-          const lng = document.getElementById("event-location-lng").value || 
-                      document.getElementById("event-location-lng").getAttribute('value');
+          // Check for location selection
+          const lat = document.getElementById("event-location-lat")?.value ||
+                      document.getElementById("event-location-lat")?.getAttribute('value');
+          const lng = document.getElementById("event-location-lng")?.value ||
+                      document.getElementById("event-location-lng")?.getAttribute('value');
           
           if (!lat || !lng) {
             console.error('Location not selected');
-            window.showStatus("error", "Please select a location using the map.");
+            showStatus("error", "Please select a location using the map.");
             throw new Error('Location not selected');
           }
           
@@ -228,7 +396,7 @@ const pianos = await getAllPianos();
           const eventData = {
             id: uniqueId,
             name: formData.get('eventName'),
-            location: formData.get('locationAddress') || 'Unknown location',
+            location: document.getElementById("event-location-address")?.value || 'Unknown location',
             coordinates: [
               parseFloat(lng),
               parseFloat(lat)
@@ -238,8 +406,41 @@ const pianos = await getAllPianos();
             description: formData.get('description'),
             type: formData.get('eventType'),
             piano_id: formData.get('relatedPiano'),
-            status: 'upcoming'
+            status: 'upcoming',
+            created_by: null // Will be set in the authentication check
           };
+          
+          // Check for authentication using the exposed auth utilities
+          try {
+            // Use the auth utilities exposed on the window with our helper function
+            const { auth, profile } = await ensureAuthUtilities();
+            
+            // Get the current session
+            const session = await auth.getSession();
+            
+            if (!session) {
+              showStatus("error", "You must be logged in to add an event.");
+              throw new Error('Authentication required');
+            }
+            
+            // Get user ID for tracking who created the event
+            const userId = session.user.id;
+            
+            // Set the user ID on the eventData object
+            eventData.created_by = userId;
+            
+            // Check if admin for certain operations
+            const isAdmin = await profile.isAdmin(userId);
+            
+            // Additional admin-only fields
+            if (isAdmin) {
+              eventData.verified = true;
+            }
+          } catch (error) {
+            console.error('Authentication error:', error);
+            showStatus("error", "Authentication error. Please try logging in again. You may need to refresh the page.");
+            throw new Error('Authentication error');
+          }
           
           // Validate all required fields are present
           const requiredFields = ['id', 'name', 'location', 'date', 'time', 'description', 'type', 'piano_id'];
@@ -253,17 +454,17 @@ const pianos = await getAllPianos();
           
           if (missingFields.length > 0) {
             console.error('Missing required fields:', missingFields);
-            window.showStatus("error", `Missing required fields: ${missingFields.join(', ')}`);
+            showStatus("error", "Missing required fields: " + missingFields.join(', '));
             throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
           }
           
           // Validate coordinates
-          if (!Array.isArray(eventData.coordinates) || 
-              eventData.coordinates.length !== 2 || 
-              isNaN(eventData.coordinates[0]) || 
+          if (!Array.isArray(eventData.coordinates) ||
+              eventData.coordinates.length !== 2 ||
+              isNaN(eventData.coordinates[0]) ||
               isNaN(eventData.coordinates[1])) {
             console.error('Invalid coordinates:', eventData.coordinates);
-            window.showStatus("error", "Invalid coordinates. Please select a location using the map.");
+            showStatus("error", "Invalid coordinates. Please select a location using the map.");
             throw new Error('Invalid coordinates');
           }
           
@@ -274,130 +475,147 @@ const pianos = await getAllPianos();
           let imageUrl = null;
           
           if (imageFile && imageFile.size > 0) {
-            imageUrl = await window.eventService.uploadEventImage(imageFile, eventData.name);
-          }
-          
-          // Create event in database
-          console.log('Calling createEvent with data:', JSON.stringify(eventData));
-          let newEvent;
-          try {
-            newEvent = await window.eventService.createEvent(eventData);
-            console.log('Event created successfully:', newEvent);
+            console.log('Uploading image:', imageFile.name);
             
-            if (!newEvent || !newEvent.id) {
-              console.error('Event created but no ID returned');
-              throw new Error('Event created but no ID returned');
-            }
-          } catch (createError) {
-            console.error('Error in createEvent:', createError);
+            // Generate a unique file name
+            const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
             
-            // Check for specific error types
-            if (createError.message && createError.message.includes('permission')) {
-              window.showStatus("error", "Permission denied. You may need to log in or check your access rights.");
-            } else if (createError.message && createError.message.includes('network')) {
-              window.showStatus("error", "Network error. Please check your internet connection.");
-            } else {
-              window.showStatus("error", `Error creating event: ${createError.message || 'Unknown error'}`);
-            }
-            throw createError;
-          }
-          
-          // If we have an image, create an event_media entry
-          if (imageUrl && newEvent && newEvent.id) {
             try {
-              await window.eventService.createEventMedia(
-                newEvent.id, 
-                imageUrl, 
-                `Primary image for ${newEvent.name}`
-              );
-            } catch (mediaError) {
-              console.error('Error creating event media entry:', mediaError);
-              // Continue even if media creation fails
+              // Upload to Supabase Storage
+              const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
+                .from('event-images')
+                .upload(fileName, imageFile);
+                
+              if (uploadError) {
+                console.error('Error uploading image:', uploadError);
+                throw uploadError;
+              }
+              
+              // Get public URL
+              const { data: urlData } = window.supabaseClient.storage
+                .from('event-images')
+                .getPublicUrl(fileName);
+                
+              imageUrl = urlData.publicUrl;
+              console.log('Image uploaded successfully:', imageUrl);
+            } catch (error) {
+              console.error('Error handling image upload:', error);
+              // Continue with event creation even if image upload fails
             }
           }
           
-          // Close any open modals
-          const closeModals = () => {
-            // Close any modal dialogs that might be open
-            const modals = document.querySelectorAll('.modal');
-            modals.forEach(modal => {
-              if (modal.classList.contains('modal-open')) {
-                modal.classList.remove('modal-open');
-              }
-            });
-            
-            // Close any custom modals
-            const customModals = document.querySelectorAll('[data-modal]');
-            customModals.forEach(modal => {
-              modal.style.display = 'none';
-            });
-            
-            // Remove any modal backdrops
-            const backdrops = document.querySelectorAll('.modal-backdrop, .backdrop');
-            backdrops.forEach(backdrop => {
-              backdrop.remove();
-            });
-          };
-          
-          // Close all modals
-          closeModals();
-          
-          // Show success status
-          window.showStatus("success", "Event added successfully!");
-          
-          // Reset form
-          form.reset();
-          
-          // Handle different behaviors based on whether it's in a modal or not
-          if (displayInModal) {
-            // If in a modal, notify the parent window and don't redirect
-            if (window.parent && window.parent !== window) {
-              // Send a message to the parent window
-              window.parent.postMessage({
-                type: 'event-added',
-                eventId: newEvent.id,
-                eventName: newEvent.name
-              }, '*');
-              
-              // Show a success message
-              const successMessage = `
-                <div class="bg-success text-success-content p-4 rounded-lg shadow-lg">
-                  <h3 class="font-bold text-lg">Success!</h3>
-                  <p>Event added successfully! You can close this modal.</p>
-                </div>
-              `;
-              
-              // Create and show the message
-              const messageDiv = document.createElement('div');
-              messageDiv.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50';
-              messageDiv.innerHTML = successMessage;
-              document.body.appendChild(messageDiv);
-              
-              // Remove the message after a delay
-              setTimeout(() => {
-                messageDiv.remove();
-              }, 3000);
+          try {
+            if (!window.supabaseClient) {
+              throw new Error('Supabase client not available');
             }
-          } else {
-            // If not in a modal, show popup and redirect
-            const successMessage = `
-              <div class="bg-success text-success-content p-4 rounded-lg shadow-lg">
-                <h3 class="font-bold text-lg">Success!</h3>
-                <p>Event added successfully! Thank you for your contribution.</p>
-                <p class="mt-2">Redirecting to event details page...</p>
-              </div>
-            `;
             
-            // Create and show the popup
-            const popup = document.createElement('div');
-            popup.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50';
-            popup.innerHTML = successMessage;
-            document.body.appendChild(popup);
+            // Set global flag to indicate event creation is in progress
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.eventFormState.eventCreated = true;
+              window.worldPianosGlobals.eventFormState.lastSubmissionTime = Date.now();
+            }
             
-            // Redirect to event details page after a short delay
-            setTimeout(() => {
-              window.location.href = `/events/${newEvent.id}`;
-            }, 2000);
+            // Insert the event into the database
+            const { data, error } = await window.supabaseClient
+              .from('events')
+              .insert(eventData)
+              .select();
+            
+            if (error) {
+              // Reset global flag since creation failed
+              if (window.worldPianosGlobals) {
+                window.worldPianosGlobals.eventFormState.eventCreated = false;
+              }
+              throw error;
+            }
+            
+            console.log('Event created successfully:', data);
+            
+            // Store the created event ID globally
+            if (window.worldPianosGlobals && data && data[0] && data[0].id) {
+              window.worldPianosGlobals.eventFormState.submittedEventId = data[0].id;
+              window.worldPianosGlobals.eventFormState.formSubmitted = true;
+            }
+            
+            // If we have an image, create an event_media entry
+            if (imageUrl && data && data[0] && data[0].id) {
+              try {
+                const { data: mediaData, error: mediaError } = await window.supabaseClient
+                  .from('event_media')
+                  .insert({
+                    event_id: data[0].id,
+                    media_type: 'image',
+                    url: imageUrl,
+                    description: `Primary image for ${eventData.name}`
+                  });
+                  
+                if (mediaError) {
+                  console.error('Error creating event media entry:', mediaError);
+                } else {
+                  console.log('Event media entry created:', mediaData);
+                }
+              } catch (mediaError) {
+                console.error('Error creating event media entry:', mediaError);
+                // Continue even if media creation fails
+              }
+            }
+            
+            // Reset form
+            form.reset();
+            
+            // Close modals if they exist
+            if (displayInModal) {
+              console.log('Closing event-modal after successful submission');
+              
+              // Find the closest parent modal
+              const eventModal = document.getElementById('event-modal');
+              if (eventModal && 'close' in eventModal) {
+                // Close the modal
+                eventModal.close();
+              }
+              
+              // Notify the parent window if in a modal
+              if (window.parent && window.parent !== window) {
+                window.parent.postMessage({
+                  type: 'event-added',
+                  eventId: data[0].id,
+                  eventName: data[0].name
+                }, '*');
+              }
+              
+              // Show a success toast
+              if (window.showToast) {
+                window.showToast(`Event "${data[0].name}" added successfully!`, 'success');
+              }
+              
+              // Redirect to the event details page instead of reloading
+              setTimeout(() => {
+                window.location.href = `/events/${data[0].id}`;
+              }, 1000);
+            } else {
+              // Show a success toast
+              if (window.showToast) {
+                window.showToast(`Event "${data[0].name}" added successfully!`, 'success');
+              }
+              
+              // Redirect to event details page after a short delay
+              setTimeout(() => {
+                window.location.href = `/events/${data[0].id}`;
+              }, 1500);
+            }
+          } catch (error) {
+            console.error('Error creating event:', error);
+            
+            // Handle specific error types
+            if (error.code === '42501' || error.message?.includes('permission')) {
+              showStatus("error", "Permission denied: You may need to log in to add an event");
+            } else if (error.code === '23505') {
+              showStatus("error", "An event with this information already exists");
+            } else if (error.code === '23502') {
+              showStatus("error", "Missing required fields: " + (error.details || ''));
+            } else {
+              showStatus("error", `Error creating event: ${error.message || 'Unknown error'}`);
+            }
           }
         } catch (error) {
           // Show detailed error message
@@ -421,7 +639,7 @@ const pianos = await getAllPianos();
           }
           
           // Show the error message
-          window.showStatus("error", errorMessage);
+          showStatus("error", errorMessage);
           
           // Log detailed error information to console
           console.error("Detailed error:", {
@@ -437,6 +655,13 @@ const pianos = await getAllPianos();
             submitText.textContent = "Submit";
             loadingSpinner.classList.add("hidden");
           }
+          
+          // Reset submission flag after a short delay
+          setTimeout(() => {
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.eventFormState.isSubmitting = false;
+            }
+          }, 500);
         }
       });
     }

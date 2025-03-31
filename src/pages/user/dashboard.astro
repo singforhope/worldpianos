@@ -341,104 +341,152 @@ const bodyClasses = [
 </MainLayout>
 
 <script>
-    import { auth, profile } from '../../utils/auth';
-    
-    // No event listeners needed since we're redirecting to separate pages
-    
     document.addEventListener('DOMContentLoaded', async () => {
+        console.log('Dashboard script loaded, checking auth state');
+        
         // Get loading and content elements
         const loadingState = document.getElementById('loading-state');
         const dashboardContent = document.getElementById('dashboard-content');
         
-        // Function to check authentication and handle dashboard
-        const checkAuthAndLoadDashboard = async () => {
-            try {
-                // Check if user is authenticated on client-side
-                const authenticated = await auth.isAuthenticated();
-                const currentUser = await auth.getCurrentUser();
-                
-                // Redirect if not authenticated
-                if (!authenticated || !currentUser) {
-                    console.log('Dashboard: User not authenticated, redirecting to login');
-                    // Store the current URL to redirect back after login
-                    auth.setReturnUrl(window.location.pathname);
-                    window.location.href = '/auth?error=You must be logged in to view your dashboard';
-                    return;
-                }
-                
-                console.log('Dashboard: User authenticated, loading dashboard');
-                
-                // Check if profile exists and create if needed
-                let userProfile = await profile.getUserProfile(currentUser.id);
-                
-                if (!userProfile) {
-                    const displayName = currentUser.user_metadata?.display_name || currentUser.email?.split('@')[0] || 'User';
-                    const { data, error } = await profile.createUserProfile(currentUser.id, displayName);
-                    
-                    if (error) {
-                        // Handle error silently
-                        console.error('Error creating user profile:', error);
-                    } else if (data) {
-                        userProfile = Array.isArray(data) ? data[0] : data;
-                        // Reload the page to show the new profile
-                        window.location.reload();
-                    }
-                } else {
-                    // Update the UI with the user's data
-                    const nameElement = document.getElementById('sidebar-name');
-                    const emailElement = document.getElementById('sidebar-email');
-                    const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
-                    
-                    if (nameElement) {
-                        nameElement.textContent = userProfile.display_name || currentUser.email?.split('@')[0] || 'User';
-                    }
-                    
-                    if (emailElement) {
-                        emailElement.textContent = currentUser.email || 'No email available';
-                    }
-                    
-                    if (avatarImg && userProfile.avatar_url) {
-                        avatarImg.src = userProfile.avatar_url;
-                    }
-                    
-                    // Hide loading state and show dashboard content
-                    if (loadingState) loadingState.classList.add('hidden');
-                    if (dashboardContent) dashboardContent.classList.remove('hidden');
-                }
-            } catch (error) {
-                console.error('Error checking authentication:', error);
-                // Show error message
-                if (loadingState) {
-                    loadingState.innerHTML = `
-                        <div class="alert alert-error">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                            <span>Error loading dashboard. Please try refreshing the page.</span>
-                        </div>
-                    `;
-                }
+        // Track if we've shown the dashboard to prevent redundant operations
+        let dashboardShown = false;
+        
+        // Simple function to show the dashboard
+        const showDashboard = () => {
+            if (dashboardShown) return; // Prevent multiple executions
+            
+            console.log('Showing dashboard content');
+            dashboardShown = true;
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (dashboardContent) dashboardContent.classList.remove('hidden');
+        };
+        
+        // Simple function to show an error
+        const showError = (message: string) => {
+            if (dashboardShown) return; // Prevent multiple executions
+            
+            console.log('Showing error message:', message);
+            
+            if (loadingState) {
+                loadingState.innerHTML = `
+                    <div class="alert alert-warning">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        <span>${message}</span>
+                    </div>
+                `;
             }
         };
         
-        // Check if Supabase client is already available
-        if ((window as any).supabaseClient) {
-            checkAuthAndLoadDashboard();
-        } else {
-            console.log('Dashboard: Waiting for Supabase client...');
-            // Wait for the supabase-ready event
-            window.addEventListener('supabase-ready', checkAuthAndLoadDashboard);
+        // Immediately show dashboard if server-side rendering authenticated the user
+        if (document.body.classList.contains('auth-required-authenticated')) {
+            console.log('Server-side authentication succeeded, showing dashboard immediately');
+            showDashboard();
+            // But still check localStorage to prevent any asynchronous issues
+        }
+        
+        // Check for refresh loop
+        const pageLoads = parseInt(sessionStorage.getItem('dashboard_page_loads') || '0');
+        sessionStorage.setItem('dashboard_page_loads', (pageLoads + 1).toString());
+        
+        if (pageLoads > 3) {
+            console.warn('Detected potential refresh loop, clearing session storage');
+            sessionStorage.clear();
+            
+            // Still show the dashboard if server-side auth worked
+            if (document.body.classList.contains('auth-required-authenticated')) {
+                showDashboard();
+            } else {
+                showError(`
+                    Detected a refresh loop. 
+                    <a href="/auth" class="btn btn-sm btn-primary ml-2">Log in manually</a> 
+                    or <button class="btn btn-sm btn-secondary ml-2" onclick="window.location.href='/'">Go to homepage</button>
+                `);
+            }
+            return; // Exit early to break the loop
+        }
+        
+        // Check if we have a token in localStorage first (most direct method)
+        try {
+            const storedSession = localStorage.getItem('worldpianos-auth');
+            if (storedSession) {
+                console.log('Found session in localStorage, showing dashboard');
+                showDashboard();
+                // Don't return early, continue with the rest of the checks
+            }
+        } catch (e) {
+            console.warn('Error checking localStorage for session:', e);
+        }
+        
+        // Only try the auth check if dashboard is not already shown
+        if (!dashboardShown) {
+            try {
+                console.log('No valid session in localStorage, attempting auth check');
+                
+                // Import the auth utilities only if needed
+                const { auth } = await import('../../utils/auth');
+                
+                // Simple timeout to prevent hanging
+                const timeoutPromise = new Promise((_, reject) => 
+                    setTimeout(() => reject(new Error('Auth check timeout')), 5000)
+                );
+                
+                // Race the auth check against the timeout
+                const authenticated = await Promise.race([
+                    auth.isAuthenticated().catch(err => {
+                        console.error('Error in isAuthenticated:', err);
+                        return false;
+                    }),
+                    timeoutPromise
+                ]);
+                
+                if (authenticated) {
+                    console.log('Authentication successful, showing dashboard');
+                    showDashboard();
+                } else if (!dashboardShown) {
+                    console.log('Not authenticated, showing login link');
+                    showError(`
+                        You need to be logged in to view this page.
+                        <a href="/auth" class="btn btn-sm btn-primary ml-2">Log in</a>
+                    `);
+                    
+                    // Don't redirect automatically, just show the login button
+                    // This prevents potential redirect loops
+                }
+            } catch (error) {
+                console.error('Error during authentication check:', error);
+                
+                // Show error if dashboard not already shown
+                if (!dashboardShown) {
+                    // Show a button to try again or go to login
+                    showError(`
+                        Authentication check failed. 
+                        <a href="/auth" class="btn btn-sm btn-primary ml-2">Log in</a>
+                        <button class="btn btn-sm btn-secondary ml-2" onclick="window.location.reload()">Try Again</button>
+                    `);
+                }
+            }
         }
         
         // Setup logout button
         const logoutBtn = document.getElementById('logout-btn');
         if (logoutBtn) {
-            logoutBtn.addEventListener('click', async (e) => {
+            logoutBtn.addEventListener('click', (e) => {
                 e.preventDefault();
-                const { error } = await auth.signOut();
-                if (error) {
+                try {
+                    localStorage.removeItem('worldpianos-auth');
+                    console.log('Logged out, redirecting to homepage');
+                    window.location.href = '/';
+                } catch (error) {
                     console.error('Error signing out:', error);
+                    window.location.href = '/';  // Redirect anyway
                 }
-                window.location.href = '/';
             });
         }
+        
+        // Reset page load counter after 5 minutes (normal usage shouldn't hit the loop detection)
+        setTimeout(() => {
+            sessionStorage.removeItem('dashboard_page_loads');
+        }, 5 * 60 * 1000);
     });
 </script>

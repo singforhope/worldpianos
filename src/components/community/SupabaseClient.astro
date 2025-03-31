@@ -38,6 +38,8 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
     
     // Function to initialize Supabase client
     function initSupabaseClient() {
+      console.log('Initializing Supabase client');
+      
       // Check if Supabase is already loaded
       if (window.supabase && supabaseUrl && supabaseAnonKey) {
         console.log('Creating Supabase client from CDN');
@@ -65,37 +67,69 @@ const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
               // Dispatch an event to notify other components that Supabase is ready
               const event = new CustomEvent('supabase-ready');
               window.dispatchEvent(event);
+              console.log('Dispatched supabase-ready event');
             })
             .catch(err => {
               console.error('Error checking session:', err);
               // Still dispatch the event so components can handle the error
               const event = new CustomEvent('supabase-ready');
               window.dispatchEvent(event);
+              console.log('Dispatched supabase-ready event (after error)');
             });
         } catch (err) {
           console.error('Error creating Supabase client:', err);
+          // Dispatch the event even on failure so pages don't hang
+          const event = new CustomEvent('supabase-ready');
+          window.dispatchEvent(event);
+          console.log('Dispatched supabase-ready event (after client creation error)');
         }
       } else {
         console.error('Failed to create Supabase client: missing dependencies');
+        // Dispatch the event even on failure so pages don't hang
+        const event = new CustomEvent('supabase-ready');
+        window.dispatchEvent(event);
+        console.log('Dispatched supabase-ready event (after missing dependencies)');
       }
     }
     
-    // Load the Supabase library from CDN
-    const script = document.createElement('script');
-    script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-    script.async = true;
-    script.onload = initSupabaseClient;
-    script.onerror = function() {
-      console.error('Failed to load Supabase library from CDN');
-    };
-    document.head.appendChild(script);
-    
-    // Set a timeout to check if Supabase was loaded
-    setTimeout(() => {
-      if (!window.supabaseClient) {
-        console.warn('Supabase client not initialized after 5 seconds, retrying...');
+    // Check if we have a locally stored version first
+    if (window.supabaseClient) {
+      console.log('Supabase client already exists, dispatching ready event');
+      const event = new CustomEvent('supabase-ready');
+      window.dispatchEvent(event);
+    } else {
+      // Load the Supabase library from CDN
+      console.log('Loading Supabase from CDN');
+      const script = document.createElement('script');
+      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
+      script.async = true;
+      script.onload = () => {
+        console.log('Supabase library loaded from CDN');
         initSupabaseClient();
+      };
+      script.onerror = function() {
+        console.error('Failed to load Supabase library from CDN');
+        // Dispatch the event even on failure so pages don't hang
+        const event = new CustomEvent('supabase-ready');
+        window.dispatchEvent(event);
+        console.log('Dispatched supabase-ready event (after CDN load error)');
+      };
+      document.head.appendChild(script);
+    }
+    
+    // Set a timeout to ensure the event is fired even if something fails
+    setTimeout(() => {
+      if (!window.hasDispatchedSupabaseReady) {
+        console.warn('Forcing supabase-ready event after timeout');
+        window.hasDispatchedSupabaseReady = true;
+        const event = new CustomEvent('supabase-ready');
+        window.dispatchEvent(event);
       }
-    }, 5000);
+    }, 3000);
+    
+    // Track if the event has been dispatched
+    window.addEventListener('supabase-ready', () => {
+      window.hasDispatchedSupabaseReady = true;
+    });
   }
 </script>

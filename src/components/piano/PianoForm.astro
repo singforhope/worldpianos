@@ -3,6 +3,7 @@
 // Import Supabase client for server-side use if needed
 import { supabase } from '../../utils/supabase';
 import LocationPicker from '../community/LocationPicker.astro';
+import { auth, profile } from '../../utils/auth';
 
 // Authentication is now properly implemented
 const DEVELOPMENT_MODE = false; // No longer bypassing authentication
@@ -24,12 +25,6 @@ const { formTitle = "Add a New Piano", isModal: propsIsModal = false } = Astro.p
 // Use either the URL parameter or the prop to determine if it's in a modal
 const displayInModal = isModal || propsIsModal;
 ---
-
-<!-- Load Mapbox GL JS and Geocoder from CDN -->
-<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
-<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
-<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
-<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css">
 
 {DEVELOPMENT_MODE && (
   <div class="alert alert-warning mb-4">
@@ -171,10 +166,98 @@ const displayInModal = isModal || propsIsModal;
 
 <!-- No need to load Supabase from CDN as it's already imported -->
 
-<script is:inline define:vars={{ contactEmail }}>
+<!-- Add Toastify CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+
+<!-- Add Toastify JS -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+<!-- Auth utilities script -->
+<script>
+  // Import auth and profile directly (not dynamically)
+  import { auth, profile } from '../../utils/auth';
+  
+  // Add TypeScript declaration to extend window interface
+  interface WindowWithAuth extends Window {
+    worldPianosAuth?: {
+      auth: typeof auth;
+      profile: typeof profile;
+    }
+  }
+  
+  // Expose auth utilities to the window for use in the inline script
+  (window as WindowWithAuth).worldPianosAuth = { auth, profile };
+</script>
+
+<script is:inline define:vars={{ contactEmail, displayInModal }}>
   // Use the global supabaseClient that's set by SupabaseClient.astro
   let supabase;
   
+  // Make displayInModal available to the client-side script
+  console.log('Display in modal:', displayInModal);
+  
+  // Create global static flags to prevent duplicate submissions across multiple form instances
+  // Use window object to ensure they're shared across all instances
+  if (typeof window !== 'undefined') {
+    // Initialize global flags if they don't exist
+    window.worldPianosGlobals = window.worldPianosGlobals || {};
+    window.worldPianosGlobals.pianoFormState = window.worldPianosGlobals.pianoFormState || {
+      isSubmitting: false,
+      formSubmitted: false,
+      pianoCreated: false,
+      submittedPianoId: null,
+      lastSubmissionTime: 0
+    };
+    
+    // Create a global toast manager to avoid duplicate toast notifications
+    window.worldPianosGlobals.toastManager = window.worldPianosGlobals.toastManager || {
+      activeToasts: {},
+      showToast: function(message, type = "success") {
+        // Make sure Toastify is available
+        if (typeof Toastify !== 'function') {
+          console.error('Toastify not loaded');
+          return;
+        }
+        
+        // Generate a hash for the message to use as ID
+        const messageId = message.split(' ').join('_').toLowerCase();
+        
+        // Check if a toast with this ID is already active
+        if (this.activeToasts[messageId]) {
+          console.log('Toast already visible, not showing duplicate:', message);
+          return;
+        }
+        
+        // Mark this toast as active
+        this.activeToasts[messageId] = true;
+        
+        Toastify({
+          text: message,
+          duration: 3000,
+          close: true,
+          gravity: "top",
+          position: "right",
+          className: `toastify-${type}`,
+          style: {
+            background: type === "success" ? "#36d399" : "#f87272",
+            borderRadius: "8px",
+            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
+            fontSize: "14px",
+            fontWeight: "500"
+          },
+          // Cleanup when toast is removed
+          callback: function() {
+            setTimeout(() => {
+              window.worldPianosGlobals.toastManager.activeToasts[messageId] = false;
+            }, 500);
+          }
+        }).showToast();
+      }
+    };
+    
+    console.log('PianoForm global state initialized:', window.worldPianosGlobals.pianoFormState);
+  }
+
   // Function to initialize the form when Supabase is ready
   function initPianoForm() {
     if (window.supabaseClient) {
@@ -193,147 +276,31 @@ const displayInModal = isModal || propsIsModal;
   // Initialize the form
   initPianoForm();
   
-  // Client-side implementation of createPiano function
-  async function createPiano(pianoData) {
-    console.log('Creating piano with data:', pianoData);
-    
-    try {
-      // Check if we can connect to Supabase
-      console.log('Testing Supabase connection...');
-      const { data: healthCheck, error: healthError } = await supabase.from('pianos').select('count').limit(1);
-      if (healthError) {
-        console.error('Supabase connection test failed:', healthError);
-        throw healthError;
-      }
-      console.log('Supabase connection test successful, result:', healthCheck);
+  // Function to ensure auth utilities are available
+  function ensureAuthUtilities(maxAttempts = 10, interval = 300) {
+    return new Promise((resolve, reject) => {
+      let attempts = 0;
       
-      // Insert the piano data
-      console.log('Inserting piano data...');
-      const { data, error } = await supabase
-        .from('pianos')
-        .insert(pianoData, {
-          returning: 'representation'  // Ensure we get the created record back
-        })
-        .select();
-      
-      if (error) {
-        console.error('Error creating piano:', error);
-        console.error('Error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        // Check for specific error types
-        if (error.code === '42501' || error.message?.includes('permission')) {
-          throw new Error('Permission denied: You may need to log in to add a piano');
-        } else if (error.code === '23505') {
-          throw new Error('A piano with this information already exists');
-        } else if (error.code === '23502') {
-          throw new Error('Missing required fields: ' + error.details);
-        } else if (error.code === '400') {
-          throw new Error('Bad request: ' + (error.message || 'Check your data format'));
+      const checkAuth = () => {
+        if (window.worldPianosAuth && window.worldPianosAuth.auth && window.worldPianosAuth.profile) {
+          console.log('Auth utilities found on window');
+          resolve(window.worldPianosAuth);
         } else {
-          // Try to provide a more helpful error message
-          const errorMsg = error.message || 'Unknown error';
-          throw new Error(`Database error (${error.code}): ${errorMsg}`);
+          attempts++;
+          if (attempts >= maxAttempts) {
+            console.error('Auth utilities not found after', maxAttempts, 'attempts');
+            reject(new Error('Auth utilities not found on window after multiple attempts'));
+          } else {
+            console.log(`Auth utilities not found, retrying (${attempts}/${maxAttempts})...`);
+            setTimeout(checkAuth, interval);
+          }
         }
-      }
+      };
       
-      if (!data || data.length === 0) {
-        console.error('No data returned after insert');
-        throw new Error('No data returned after insert');
-      }
-      
-      console.log('Piano created successfully:', data[0]);
-      return data[0];
-    } catch (error) {
-      console.error('Exception in createPiano:', error);
-      throw error;
-    }
+      checkAuth();
+    });
   }
   
-  // Client-side implementation of createPiano function
-  async function createPiano(pianoData) {
-    console.log('Creating piano with data:', pianoData);
-    
-    // Try to initialize Supabase if not already initialized
-    if (!supabase) {
-      console.log('Supabase client not initialized, attempting to initialize again...');
-      initSupabase();
-      
-      // Check again after initialization attempt
-      if (!supabase) {
-        console.error('Supabase client initialization failed');
-        alert('Could not connect to the database. Please refresh the page and try again.');
-        throw new Error('Supabase client initialization failed');
-      }
-    }
-    
-    // Log Supabase client details for debugging
-    console.log('Supabase client details:', {
-      url: supabaseUrl,
-      usingDevelopmentMode: developmentMode,
-      usingServiceRole: developmentMode && serviceRoleKey
-    });
-    
-    try {
-      // Check if we can connect to Supabase
-      console.log('Testing Supabase connection...');
-      const { data: healthCheck, error: healthError } = await supabase.from('pianos').select('count').limit(1);
-      if (healthError) {
-        console.error('Supabase connection test failed:', healthError);
-        throw healthError;
-      }
-      console.log('Supabase connection test successful, result:', healthCheck);
-      
-      // Insert the piano data with explicit headers for debugging
-      console.log('Inserting piano data...');
-      const { data, error } = await supabase
-        .from('pianos')
-        .insert(pianoData, {
-          returning: 'representation'  // Ensure we get the created record back
-        })
-        .select();
-      
-      if (error) {
-        console.error('Error creating piano:', error);
-        console.error('Error details:', {
-          code: error.code,
-          message: error.message,
-          details: error.details,
-          hint: error.hint
-        });
-        
-        // Check for specific error types
-        if (error.code === '42501' || error.message?.includes('permission')) {
-          throw new Error('Permission denied: You may need to log in to add a piano');
-        } else if (error.code === '23505') {
-          throw new Error('A piano with this information already exists');
-        } else if (error.code === '23502') {
-          throw new Error('Missing required fields: ' + error.details);
-        } else if (error.code === '400') {
-          throw new Error('Bad request: ' + (error.message || 'Check your data format'));
-        } else {
-          // Try to provide a more helpful error message
-          const errorMsg = error.message || 'Unknown error';
-          throw new Error(`Database error (${error.code}): ${errorMsg}`);
-        }
-      }
-      
-      if (!data || data.length === 0) {
-        console.error('No data returned after insert');
-        throw new Error('No data returned after insert');
-      }
-      
-      console.log('Piano created successfully:', data[0]);
-      return data[0];
-    } catch (error) {
-      console.error('Exception in createPiano:', error);
-      throw error;
-    }
-  }
   document.addEventListener("DOMContentLoaded", () => {
     const form = document.getElementById("piano-form");
     const fileInput = document.getElementById("piano-picture");
@@ -389,52 +356,15 @@ const displayInModal = isModal || propsIsModal;
         const formData = new FormData(form);
         
         try {
-          // Check for authentication using the auth service
-          try {
-            // Import auth and profile from auth.ts
-            const authModule = await import('../../utils/auth');
-            const { auth, profile } = authModule;
-            
-            // Get the current session
-            const session = await auth.getSession();
-            
-            if (!session) {
-              showStatus("error", "You must be logged in to add a piano.");
-              throw new Error('Authentication required');
-            }
-            
-            // Get user ID for tracking who created the piano
-            const userId = session.user.id;
-            
-            // Check if admin for certain operations
-            const isAdmin = await profile.isAdmin(userId);
-            
-            // Add user ID to piano data
-            pianoData.created_by = userId;
-            
-            // Additional admin-only fields
-            if (isAdmin) {
-              pianoData.verified = formData.get('verified') === 'true';
-            }
-          } catch (error) {
-            console.error('Authentication error:', error);
-            showStatus("error", "Authentication error. Please try logging in again.");
-            throw new Error('Authentication error');
-          }
-          
-          // Log all form data for debugging
-          console.log('Form submission started');
-          logFormData(formData);
-          
           // Check if location is selected
-          const lat = document.getElementById("piano-location-lat").value ||
-                      document.getElementById("piano-location-lat").getAttribute('value');
-          const lng = document.getElementById("piano-location-lng").value ||
-                      document.getElementById("piano-location-lng").getAttribute('value');
+          const lat = document.getElementById("piano-location-lat")?.value ||
+                      document.getElementById("piano-location-lat")?.getAttribute('value');
+          const lng = document.getElementById("piano-location-lng")?.value ||
+                      document.getElementById("piano-location-lng")?.getAttribute('value');
           
           if (!lat || !lng) {
             console.error('Location not selected');
-            showStatus("error", "Please select a location using the map.");
+            window.worldPianosGlobals.toastManager.showToast("Please select a location using the map.", "error");
             throw new Error('Location not selected');
           }
           
@@ -448,12 +378,10 @@ const displayInModal = isModal || propsIsModal;
           const pianoData = {
             id: uniqueId, // Add unique ID for the primary key
             name: formData.get('pianoName'),
-            location: document.getElementById("piano-location-address").value || 'Unknown location',
+            location: document.getElementById("piano-location-address")?.value || 'Unknown location',
             coordinates: [
-              parseFloat(document.getElementById("piano-location-lng").value ||
-                        document.getElementById("piano-location-lng").getAttribute('value')),
-              parseFloat(document.getElementById("piano-location-lat").value ||
-                        document.getElementById("piano-location-lat").getAttribute('value'))
+              parseFloat(lng),
+              parseFloat(lat)
             ],
             description: formData.get('notes') || '',
             type: formData.get('pianoType'),
@@ -461,11 +389,47 @@ const displayInModal = isModal || propsIsModal;
             access: formData.get('access'),
             last_maintained: formData.get('maintainedDate') || null,
             category: formData.get('category'),
-            country: document.getElementById("piano-location-country").value || 'Unknown',
-            city: document.getElementById("piano-location-city").value || 'Unknown',
-            verified: false
-            // Removed verification_count as it doesn't exist in the database schema
+            country: document.getElementById("piano-location-country")?.value || 'Unknown',
+            city: document.getElementById("piano-location-city")?.value || 'Unknown',
+            verified: false,
+            created_by: null // Will be set in the authentication check
           };
+          
+          // Log all form data for debugging
+          console.log('Form submission started');
+          logFormData(formData);
+          
+          // Check for authentication using the exposed auth utilities
+          try {
+            // Use the auth utilities exposed on the window with our helper function
+            const { auth, profile } = await ensureAuthUtilities();
+            
+            // Get the current session
+            const session = await auth.getSession();
+            
+            if (!session) {
+              window.worldPianosGlobals.toastManager.showToast("You must be logged in to add a piano.", "error");
+              throw new Error('Authentication required');
+            }
+            
+            // Get user ID for tracking who created the piano
+            const userId = session.user.id;
+            
+            // Set the user ID on the pianoData object
+            pianoData.created_by = userId;
+            
+            // Check if admin for certain operations
+            const isAdmin = await profile.isAdmin(userId);
+            
+            // Additional admin-only fields
+            if (isAdmin) {
+              pianoData.verified = formData.get('verified') === 'true';
+            }
+          } catch (error) {
+            console.error('Authentication error:', error);
+            window.worldPianosGlobals.toastManager.showToast("Authentication error. Please try logging in again. You may need to refresh the page.", "error");
+            throw new Error('Authentication error');
+          }
           
           // Validate all required fields are present
           const requiredFields = ['id', 'name', 'location', 'type', 'condition', 'access', 'category', 'country', 'city'];
@@ -479,7 +443,7 @@ const displayInModal = isModal || propsIsModal;
           
           if (missingFields.length > 0) {
             console.error('Missing required fields:', missingFields);
-            showStatus("error", `Missing required fields: ${missingFields.join(', ')}`);
+            window.worldPianosGlobals.toastManager.showToast("Missing required fields: " + missingFields.join(', '), "error");
             throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
           }
           
@@ -489,7 +453,7 @@ const displayInModal = isModal || propsIsModal;
               isNaN(pianoData.coordinates[0]) ||
               isNaN(pianoData.coordinates[1])) {
             console.error('Invalid coordinates:', pianoData.coordinates);
-            showStatus("error", "Invalid coordinates. Please select a location using the map.");
+            window.worldPianosGlobals.toastManager.showToast("Invalid coordinates. Please select a location using the map.", "error");
             throw new Error('Invalid coordinates');
           }
           
@@ -529,108 +493,94 @@ const displayInModal = isModal || propsIsModal;
             }
           }
           
-          // Create piano in database
-          console.log('Calling createPiano with data:', JSON.stringify(pianoData));
-          let newPiano;
-          try {
-            newPiano = await createPiano(pianoData);
-            console.log('Piano created successfully:', newPiano);
-            
-            if (!newPiano || !newPiano.id) {
-              console.error('Piano created but no ID returned');
-              throw new Error('Piano created but no ID returned');
-            }
-          } catch (createError) {
-            console.error('Error in createPiano:', createError);
-            
-            // Check for specific error types
-            if (createError.message && createError.message.includes('permission')) {
-              showStatus("error", "Permission denied. You may need to log in or check your access rights.");
-            } else if (createError.message && createError.message.includes('network')) {
-              showStatus("error", "Network error. Please check your internet connection.");
-            } else {
-              showStatus("error", `Error creating piano: ${createError.message || 'Unknown error'}`);
-            }
-            throw createError;
-          }
+          // Insert the piano data into the database
+          const { data: insertedPiano, error } = await supabase
+            .from('pianos')
+            .insert([
+              {
+                name: pianoData.name,
+                type: pianoData.type,
+                location: pianoData.location,
+                coordinates: pianoData.coordinates,
+                condition: pianoData.condition,
+                access: pianoData.access,
+                category: pianoData.category.toLowerCase(),
+                last_maintained: pianoData.last_maintained,
+                notes: pianoData.description,
+                created_by: pianoData.created_by,
+                verified: pianoData.verified
+              }
+            ])
+            .select();
           
-          // If we have an image, create a piano_media entry
-          if (imageUrl && newPiano && newPiano.id) {
-            const { data: mediaData, error: mediaError } = await supabase
-              .from('piano_media')
-              .insert({
-                piano_id: newPiano.id,
-                media_type: 'image',
-                url: imageUrl,
-                description: `Primary image for ${newPiano.name}`
-              });
-              
-            if (mediaError) {
+          if (error) throw error;
+          
+          console.log('Piano created successfully:', insertedPiano);
+          
+          // If we have an image and piano data, store it
+          if (imageUrl && insertedPiano && insertedPiano.length > 0) {
+            try {
+              // Create a piano_media entry
+              const { data: mediaData, error: mediaError } = await supabase
+                .from('piano_media')
+                .insert({
+                  piano_id: insertedPiano[0].id,
+                  media_type: 'image',
+                  url: imageUrl,
+                  description: `Primary image for ${insertedPiano[0].name}`
+                });
+                
+              if (mediaError) {
+                console.error('Error creating piano media entry:', mediaError);
+              } else {
+                console.log('Piano media entry created:', mediaData);
+              }
+            } catch (mediaError) {
               console.error('Error creating piano media entry:', mediaError);
-            } else {
-              console.log('Piano media entry created:', mediaData);
+              // Continue even if media creation fails
             }
           }
           
-          // Show success status
-          showStatus("success", "Piano added successfully!");
+          // Show success toast
+          showToast("Piano added successfully!", "success");
           
           // Reset form
           form.reset();
+          
+          // Reset the image preview
           if (imagePreview) {
-            imagePreview.classList.add("hidden");
+            imagePreview.classList.add('hidden');
           }
           
-          // Handle different behaviors based on whether it's in a modal or not
+          // Close modals if they exist
           if (displayInModal) {
-            // If in a modal, notify the parent window and don't redirect
+            console.log('Closing piano modal after successful submission');
+            
+            // Find the closest parent modal
+            const pianoModal = document.getElementById('piano-modal');
+            if (pianoModal && 'close' in pianoModal) {
+              // Close the modal
+              pianoModal.close();
+            }
+            
+            // Notify the parent window if in a modal
             if (window.parent && window.parent !== window) {
-              // Send a message to the parent window
               window.parent.postMessage({
                 type: 'piano-added',
-                pianoId: newPiano.id,
-                pianoName: newPiano.name
+                pianoId: insertedPiano[0].id,
+                pianoName: insertedPiano[0].name
               }, '*');
-              
-              // Show a success message
-              const successMessage = `
-                <div class="bg-success text-success-content p-4 rounded-lg shadow-lg">
-                  <h3 class="font-bold text-lg">Success!</h3>
-                  <p>Piano added successfully! You can close this modal.</p>
-                </div>
-              `;
-              
-              // Create and show the message
-              const messageDiv = document.createElement('div');
-              messageDiv.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50';
-              messageDiv.innerHTML = successMessage;
-              document.body.appendChild(messageDiv);
-              
-              // Remove the message after a delay
-              setTimeout(() => {
-                messageDiv.remove();
-              }, 3000);
             }
+            
+            // Refresh the page to show the new piano
+            setTimeout(() => {
+              window.location.reload();
+            }, 1000);
           } else {
-            // If not in a modal, show popup and redirect
-            const successMessage = `
-              <div class="bg-success text-success-content p-4 rounded-lg shadow-lg">
-                <h3 class="font-bold text-lg">Success!</h3>
-                <p>Piano added successfully! Thank you for your contribution.</p>
-                <p class="mt-2">Redirecting to piano details page...</p>
-              </div>
-            `;
-            
-            // Create and show the popup
-            const popup = document.createElement('div');
-            popup.className = 'fixed top-0 left-0 w-full h-full flex items-center justify-center bg-black bg-opacity-50 z-50';
-            popup.innerHTML = successMessage;
-            document.body.appendChild(popup);
-            
             // Redirect to piano details page after a short delay
             setTimeout(() => {
-              window.location.href = `/pianos/${newPiano.id}`;
-            }, 2000);
+              window.location.href = `/pianos/${insertedPiano[0].id}`;
+            }, 1500);
           }
         } catch (error) {
           // Show detailed error message
@@ -650,11 +600,13 @@ const displayInModal = isModal || propsIsModal;
               errorMessage = "Validation error. Please check your form inputs.";
             } else if (error.message.includes('bucket')) {
               errorMessage = "Error with image storage. Please try again or skip adding an image.";
+            } else if (error.message.includes('already created')) {
+              errorMessage = "A piano was already submitted in this session.";
             }
           }
           
-          // Show the error message
-          showStatus("error", errorMessage);
+          // Show the error message as a toast
+          window.worldPianosGlobals.toastManager.showToast(errorMessage, "error");
           
           // Log detailed error information to console
           console.error("Detailed error:", {
@@ -674,25 +626,6 @@ const displayInModal = isModal || propsIsModal;
       });
     }
     
-    // Helper function to show status messages
-    function showStatus(type, message) {
-      if (formStatus) {
-        formStatus.textContent = message;
-        formStatus.classList.remove("hidden", "alert-success", "alert-error");
-        formStatus.classList.add(type === "success" ? "alert-success" : "alert-error");
-        
-        // Scroll to status message
-        formStatus.scrollIntoView({ behavior: "smooth", block: "nearest" });
-        
-        // Hide message after 5 seconds if it's a success message
-        if (type === "success") {
-          setTimeout(() => {
-            formStatus.classList.add("hidden");
-          }, 5000);
-        }
-      }
-    }
-    
     // Helper function to log form data (for debugging)
     function logFormData(formData) {
       const formDataObj = {};
@@ -703,41 +636,3 @@ const displayInModal = isModal || propsIsModal;
     }
   });
 </script>
-
-<style>
-  /* Mapbox Geocoder styles */
-  .mapboxgl-ctrl-geocoder {
-    box-shadow: none !important;
-    border: 1px solid hsl(var(--bc) / 0.2) !important;
-    border-radius: 0.5rem !important;
-    background-color: hsl(var(--b1)) !important;
-    color: hsl(var(--bc)) !important;
-    font-family: inherit !important;
-    width: 100% !important;
-    min-height: 2.5rem !important;
-  }
-
-  .mapboxgl-ctrl-geocoder .suggestions {
-    background-color: hsl(var(--b1)) !important;
-    border: 1px solid hsl(var(--bc) / 0.2) !important;
-    border-radius: 0.5rem !important;
-    margin-top: 0.5rem !important;
-  }
-
-  .mapboxgl-ctrl-geocoder .suggestions .suggestion {
-    padding: 0.5rem 1rem !important;
-    color: hsl(var(--bc)) !important;
-  }
-
-  .mapboxgl-ctrl-geocoder .suggestions .suggestion.active {
-    background-color: hsl(var(--b2)) !important;
-  }
-
-  .mapboxgl-ctrl-geocoder .suggestions .suggestion:hover {
-    background-color: hsl(var(--b2)) !important;
-  }
-
-  .mapboxgl-ctrl-geocoder .suggestions .suggestion .address {
-    color: hsl(var(--bc) / 0.7) !important;
-  }
-</style>
