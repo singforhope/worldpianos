@@ -7,21 +7,21 @@ import { auth, profile } from "../../utils/auth";
 const authRequiredClass = 'auth-required';
 
 // Enhanced authentication check with detailed logging
-console.log('Profile page: Checking authentication...');
+console.log('User Events page: Checking authentication...');
 const authenticated = await auth.isAuthenticated();
-console.log('Profile page: Authentication result:', authenticated);
+console.log('User Events page: Authentication result:', authenticated);
 
 // Get current user with detailed logging
-console.log('Profile page: Getting current user...');
+console.log('User Events page: Getting current user...');
 const user = await auth.getCurrentUser();
-console.log('Profile page: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
+console.log('User Events page: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
 
 // For server-side rendering, we'll set a flag but not redirect immediately
 // Client-side JS will handle the redirect if needed
 let authFailed = false;
 
 if (!authenticated || !user) {
-    console.log('Profile page: Not authenticated on server-side');
+    console.log('User Events page: Not authenticated on server-side');
     authFailed = true;
     // We'll add a special class that client-side JS can detect
     // But we won't redirect immediately to allow client-side auth to take precedence
@@ -29,51 +29,31 @@ if (!authenticated || !user) {
 
 // Initialize variables
 let userProfile = null;
-let userPianos = [];
 let userEvents = [];
 
 // Only fetch data if user is authenticated
 if (user && !authFailed) {
     // Get user profile
-    console.log('Profile page: Getting user profile for ID:', user.id);
+    console.log('User Events page: Getting user profile for ID:', user.id);
     userProfile = await profile.getUserProfile(user.id);
-    console.log('Profile page: Profile retrieved:', userProfile ? 'Success' : 'Not found');
+    console.log('User Events page: Profile retrieved:', userProfile ? 'Success' : 'Not found');
     
     // Create profile if it doesn't exist
     if (!userProfile) {
-        console.log('Profile page: Creating profile for user:', user.id);
+        console.log('User Events page: Creating profile for user:', user.id);
         const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
         const { data, error } = await profile.createUserProfile(user.id, displayName);
         
         if (error) {
-            console.error('Profile page: Error creating profile:', error);
+            console.error('User Events page: Error creating profile:', error);
         } else if (data) {
-            console.log('Profile page: Profile created successfully');
+            console.log('User Events page: Profile created successfully');
             userProfile = Array.isArray(data) ? data[0] : data;
         }
     }
     
-    // Get user's pianos with error handling
-    console.log('Profile page: Fetching user pianos...');
-    try {
-        const { data: pianos, error: pianosError } = await supabase
-            .from('pianos')
-            .select('*')
-            .eq('created_by', user.id)
-            .order('created_at', { ascending: false });
-            
-        if (pianosError) {
-            console.error('Error fetching pianos:', pianosError);
-        } else {
-            userPianos = pianos || [];
-            console.log(`Profile page: Retrieved ${userPianos.length} pianos`);
-        }
-    } catch (err) {
-        console.error('Exception fetching pianos:', err);
-    }
-    
     // Get user's events with error handling
-    console.log('Profile page: Fetching user events...');
+    console.log('User Events page: Fetching user events...');
     try {
         const { data: events, error: eventsError } = await supabase
             .from('events')
@@ -85,38 +65,40 @@ if (user && !authFailed) {
             console.error('Error fetching events:', eventsError);
         } else {
             userEvents = events || [];
-            console.log(`Profile page: Retrieved ${userEvents.length} events`);
+            console.log(`User Events page: Retrieved ${userEvents.length} events`);
         }
     } catch (err) {
         console.error('Exception fetching events:', err);
     }
     
-    console.log('Profile page: Rendering profile for user:', user.id);
+    console.log('User Events page: Rendering events for user:', user.id);
 }
+
 // Define body classes for authentication state
 const bodyClasses = [
     authRequiredClass,
     authFailed ? 'auth-required-not-authenticated' : 'auth-required-authenticated'
 ].join(' ');
 ---
+
 <MainLayout bodyClasses={bodyClasses}>
     <div class="container mx-auto px-4 py-8">
         <div class="text-sm breadcrumbs mb-6">
             <ul>
                 <li><a href="/">Home</a></li>
                 <li><a href="/user/dashboard">User Dashboard</a></li>
-                <li>Edit Profile</li>
+                <li>My Events</li>
             </ul>
         </div>
         
         <!-- Loading state that will be hidden when auth check completes -->
         <div id="loading-state" class="flex flex-col items-center justify-center py-12">
             <div class="loading loading-spinner loading-lg"></div>
-            <p class="mt-4 text-lg">Loading your profile...</p>
+            <p class="mt-4 text-lg">Loading your events...</p>
         </div>
         
-        <!-- Profile content that will be shown when auth check completes -->
-        <div id="profile-content" class="hidden">
+        <!-- Dashboard content that will be shown when auth check completes -->
+        <div id="events-content" class="hidden">
             <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
                 <!-- Sidebar -->
                 <div class="lg:col-span-1">
@@ -144,7 +126,7 @@ const bodyClasses = [
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="/user/profile" class="active">
+                                    <a href="/user/profile">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
                                         </svg>
@@ -160,7 +142,7 @@ const bodyClasses = [
                                     </a>
                                 </li>
                                 <li>
-                                    <a href="/user/events">
+                                    <a href="/user/events" class="active">
                                         <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                             <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
                                         </svg>
@@ -200,63 +182,74 @@ const bodyClasses = [
                 
                 <!-- Main Content -->
                 <div class="lg:col-span-3">
-                    <h1 class="text-3xl font-bold mb-8">Edit Your Profile</h1>
+                    <div class="flex justify-between items-center mb-8">
+                        <h1 class="text-3xl font-bold">My Events</h1>
+                        <a href="/events/add" class="btn btn-primary">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Event
+                        </a>
+                    </div>
                     
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
-                            <form id="profile-form" class="space-y-4">
-                                <div class="form-control">
-                                    <label class="label">
-                                        <span class="label-text">Display Name</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="display-name"
-                                        name="display_name"
-                                        class="input input-bordered"
-                                        value={userProfile?.display_name || ''}
-                                    />
+                    <div id="events-list">
+                        {userEvents && userEvents.length > 0 ? (
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                {userEvents.map((event) => (
+                                    <div class="card bg-base-100 shadow-xl">
+                                        <div class="card-body">
+                                            <h2 class="card-title">{event.name}</h2>
+                                            <div class="flex flex-col gap-1 mt-2">
+                                                <div class="flex items-center gap-2">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                    </svg>
+                                                    <span>{event.date}</span>
+                                                </div>
+                                                <div class="flex items-center gap-2">
+                                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/70" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                    </svg>
+                                                    <span>{event.location}</span>
+                                                </div>
+                                            </div>
+                                            <div class="flex items-center gap-2 mt-2">
+                                                <span class={`badge ${event.status === 'upcoming' ? 'badge-primary' : event.status === 'ongoing' ? 'badge-success' : 'badge-secondary'}`}>
+                                                    {event.status}
+                                                </span>
+                                            </div>
+                                            <p class="mt-4">{event.description?.substring(0, 100)}{event.description?.length > 100 ? '...' : ''}</p>
+                                            <div class="card-actions justify-end mt-4">
+                                                <a href={`/events/${event.id}`} class="btn btn-primary btn-sm">View Details</a>
+                                                <a href={`/events/edit/${event.id}`} class="btn btn-outline btn-sm">Edit</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div class="card bg-base-100 shadow-xl">
+                                <div class="card-body">
+                                    <div class="alert">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        <span>You haven't created any events yet.</span>
+                                    </div>
+                                    <div class="flex justify-center mt-4">
+                                        <a href="/events/add" class="btn btn-primary">
+                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                            </svg>
+                                            Create Your First Event
+                                        </a>
+                                    </div>
                                 </div>
-                                
-                                <div class="form-control">
-                                    <label class="label">
-                                        <span class="label-text">Bio</span>
-                                    </label>
-                                    <textarea
-                                        id="bio"
-                                        name="bio"
-                                        class="textarea textarea-bordered h-24"
-                                    >{userProfile?.bio || ''}</textarea>
-                                </div>
-                                
-                                <div class="form-control">
-                                    <label class="label">
-                                        <span class="label-text">Avatar URL</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="avatar-url"
-                                        name="avatar_url"
-                                        class="input input-bordered"
-                                        value={userProfile?.avatar_url || ''}
-                                    />
-                                    <label class="label">
-                                        <span class="label-text-alt">Enter a URL to an image</span>
-                                    </label>
-                                </div>
-                                
-                                <div id="status-message" class="mt-4 text-sm hidden"></div>
-                                
-                                <div class="form-control mt-6">
-                                    <button type="submit" id="save-profile" class="btn btn-primary">Save Profile</button>
-                                </div>
-                            </form>
-                        </div>
+                            </div>
+                        )}
                     </div>
                 </div>
             </div>
         </div>
-    </div>
     </div>
 </MainLayout>
 
@@ -266,7 +259,7 @@ const bodyClasses = [
     document.addEventListener('DOMContentLoaded', async () => {
         // Get loading and content elements
         const loadingState = document.getElementById('loading-state');
-        const profileContent = document.getElementById('profile-content');
+        const eventsContent = document.getElementById('events-content');
         
         // Check if user is authenticated on client-side
         const authenticated = await auth.isAuthenticated();
@@ -274,33 +267,33 @@ const bodyClasses = [
         
         // Redirect if not authenticated
         if (!authenticated || !user) {
-            console.log('Profile page: Not authenticated on client-side, redirecting to login');
+            console.log('User Events page: Not authenticated on client-side, redirecting to login');
             // Store the current URL to redirect back after login
             auth.setReturnUrl(window.location.pathname);
-            window.location.href = '/auth?error=You must be logged in to view your profile';
+            window.location.href = '/auth?error=You must be logged in to view your events';
             return;
         }
         
-        console.log('Profile page (client): User authenticated:', user.id);
+        console.log('User Events page (client): User authenticated:', user.id);
         
         // Check if profile exists and create if needed
         let userProfile = await profile.getUserProfile(user.id);
         
         if (!userProfile) {
-            console.log('Profile page (client): Creating profile for user:', user.id);
+            console.log('User Events page (client): Creating profile for user:', user.id);
             const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
             const { data, error } = await profile.createUserProfile(user.id, displayName);
             
             if (error) {
-                console.error('Profile page (client): Error creating profile:', error);
+                console.error('User Events page (client): Error creating profile:', error);
             } else if (data) {
-                console.log('Profile page (client): Profile created successfully');
+                console.log('User Events page (client): Profile created successfully');
                 userProfile = Array.isArray(data) ? data[0] : data;
                 // Reload the page to show the new profile
                 window.location.reload();
             }
         } else {
-            console.log('Profile page (client): User profile found:', userProfile.display_name);
+            console.log('User Events page (client): User profile found:', userProfile.display_name);
             
             // Update the UI with the user's data
             const nameElement = document.getElementById('sidebar-name');
@@ -315,70 +308,13 @@ const bodyClasses = [
                 emailElement.textContent = user.email || 'No email available';
             }
             
-            // Update form fields
-            const displayNameInput = document.getElementById('display-name') as HTMLInputElement;
-            const bioTextarea = document.getElementById('bio') as HTMLTextAreaElement;
-            const avatarUrlInput = document.getElementById('avatar-url') as HTMLInputElement;
-            
-            if (displayNameInput) displayNameInput.value = userProfile.display_name || '';
-            if (bioTextarea) bioTextarea.value = userProfile.bio || '';
-            if (avatarUrlInput) avatarUrlInput.value = userProfile.avatar_url || '';
-            
-            // Update avatar
             if (avatarImg && userProfile.avatar_url) {
                 avatarImg.src = userProfile.avatar_url;
             }
             
-            // Hide loading state and show profile content
+            // Hide loading state and show events content
             if (loadingState) loadingState.classList.add('hidden');
-            if (profileContent) profileContent.classList.remove('hidden');
-        }
-        
-        // Profile form submission
-        const profileForm = document.getElementById('profile-form') as HTMLFormElement;
-        const saveProfileBtn = document.getElementById('save-profile') as HTMLButtonElement;
-        
-        if (profileForm && saveProfileBtn) {
-            profileForm.addEventListener('submit', async (e) => {
-                e.preventDefault();
-                
-                saveProfileBtn.disabled = true;
-                saveProfileBtn.textContent = 'Saving...';
-                
-                const formData = new FormData(profileForm);
-                const profileData = {
-                    display_name: formData.get('display_name'),
-                    bio: formData.get('bio'),
-                    avatar_url: formData.get('avatar_url')
-                };
-                
-                try {
-                    // Get current user
-                    const currentUser = await auth.getCurrentUser();
-                    if (!currentUser) {
-                        throw new Error('Not authenticated');
-                    }
-                    
-                    // Update profile
-                    const { error } = await profile.updateUserProfile(currentUser.id, profileData);
-                    
-                    if (error) {
-                        throw error;
-                    }
-                    
-                    showStatus('success', 'Profile updated successfully!');
-                    
-                    // Reload page after a short delay
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
-                } catch (error: any) {
-                    console.error('Error updating profile:', error);
-                    showStatus('error', 'Error updating profile: ' + (error.message || 'Unknown error'));
-                    saveProfileBtn.disabled = false;
-                    saveProfileBtn.textContent = 'Save Profile';
-                }
-            });
+            if (eventsContent) eventsContent.classList.remove('hidden');
         }
         
         // Setup logout button
@@ -392,16 +328,6 @@ const bodyClasses = [
                 }
                 window.location.href = '/';
             });
-        }
-        
-        // Function to show status messages
-        function showStatus(type: 'error' | 'success', message: string) {
-            const statusEl = document.getElementById('status-message');
-            if (statusEl) {
-                statusEl.textContent = message;
-                statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
-                statusEl.classList.remove('hidden');
-            }
         }
     });
 </script>
