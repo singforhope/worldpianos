@@ -1,10 +1,10 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
-import { isAuthenticated, getCurrentUser } from "../../utils/authUtils";
+import { auth } from "../../utils/auth";
 
 // Check if user is authenticated
-const authenticated = await isAuthenticated();
-const user = await getCurrentUser();
+const authenticated = await auth.isAuthenticated();
+const user = await auth.getCurrentUser();
 
 // Redirect if not authenticated
 if (!authenticated || !user) {
@@ -221,163 +221,183 @@ if (!authenticated || !user) {
 </MainLayout>
 
 <script>
-    // @ts-nocheck
-    import { createClient } from '@supabase/supabase-js';
-    
-    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
+    import { auth } from '../../utils/auth';
     
     document.addEventListener('DOMContentLoaded', () => {
         // Tab switching
         const tabs = {
             password: {
-                tab: document.getElementById('password-tab'),
-                content: document.getElementById('password-content')
+                tab: document.getElementById('password-tab') as HTMLElement,
+                content: document.getElementById('password-content') as HTMLElement
             },
             notifications: {
-                tab: document.getElementById('notifications-tab'),
-                content: document.getElementById('notifications-content')
+                tab: document.getElementById('notifications-tab') as HTMLElement,
+                content: document.getElementById('notifications-content') as HTMLElement
             },
             privacy: {
-                tab: document.getElementById('privacy-tab'),
-                content: document.getElementById('privacy-content')
+                tab: document.getElementById('privacy-tab') as HTMLElement,
+                content: document.getElementById('privacy-content') as HTMLElement
             },
             account: {
-                tab: document.getElementById('account-tab'),
-                content: document.getElementById('account-content')
+                tab: document.getElementById('account-tab') as HTMLElement,
+                content: document.getElementById('account-content') as HTMLElement
             }
         };
         
         // Function to switch tabs
-        function switchTab(tabName) {
+        function switchTab(tabName: keyof typeof tabs) {
             // Hide all content
             Object.values(tabs).forEach(({ tab, content }) => {
-                tab.classList.remove('active');
-                content.classList.add('hidden');
+                if (tab && content) {
+                    tab.classList.remove('active');
+                    content.classList.add('hidden');
+                }
             });
             
             // Show selected tab
-            tabs[tabName].tab.classList.add('active');
-            tabs[tabName].content.classList.remove('hidden');
+            const selectedTab = tabs[tabName];
+            if (selectedTab.tab && selectedTab.content) {
+                selectedTab.tab.classList.add('active');
+                selectedTab.content.classList.remove('hidden');
+            }
         }
         
         // Add click event listeners to tabs
         Object.entries(tabs).forEach(([name, { tab }]) => {
-            tab.addEventListener('click', () => switchTab(name));
+            if (tab) {
+                tab.addEventListener('click', () => switchTab(name as keyof typeof tabs));
+            }
         });
         
         // Password form submission
-        const passwordForm = document.getElementById('password-form');
-        const savePasswordBtn = document.getElementById('save-password');
+        const passwordForm = document.getElementById('password-form') as HTMLFormElement;
+        const savePasswordBtn = document.getElementById('save-password') as HTMLButtonElement;
         
-        passwordForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const currentPassword = document.getElementById('current-password').value;
-            const newPassword = document.getElementById('new-password').value;
-            const confirmPassword = document.getElementById('confirm-password').value;
-            
-            if (!currentPassword || !newPassword || !confirmPassword) {
-                showStatus('password', 'error', 'Please fill in all fields');
-                return;
-            }
-            
-            if (newPassword.length < 6) {
-                showStatus('password', 'error', 'New password must be at least 6 characters');
-                return;
-            }
-            
-            if (newPassword !== confirmPassword) {
-                showStatus('password', 'error', 'New passwords do not match');
-                return;
-            }
-            
-            savePasswordBtn.disabled = true;
-            savePasswordBtn.textContent = 'Updating...';
-            
-            try {
-                // Sign in with current password to verify
-                const { error: signInError } = await supabase.auth.signInWithPassword({
-                    email: (await supabase.auth.getUser()).data.user.email,
-                    password: currentPassword
-                });
+        if (passwordForm && savePasswordBtn) {
+            passwordForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
                 
-                if (signInError) {
-                    throw new Error('Current password is incorrect');
+                const currentPasswordInput = document.getElementById('current-password') as HTMLInputElement;
+                const newPasswordInput = document.getElementById('new-password') as HTMLInputElement;
+                const confirmPasswordInput = document.getElementById('confirm-password') as HTMLInputElement;
+                
+                const currentPassword = currentPasswordInput?.value || '';
+                const newPassword = newPasswordInput?.value || '';
+                const confirmPassword = confirmPasswordInput?.value || '';
+                
+                if (!currentPassword || !newPassword || !confirmPassword) {
+                    showStatus('password', 'error', 'Please fill in all fields');
+                    return;
                 }
                 
-                // Update password
-                const { error: updateError } = await supabase.auth.updateUser({
-                    password: newPassword
-                });
-                
-                if (updateError) {
-                    throw updateError;
+                if (newPassword.length < 6) {
+                    showStatus('password', 'error', 'New password must be at least 6 characters');
+                    return;
                 }
                 
-                showStatus('password', 'success', 'Password updated successfully!');
-                passwordForm.reset();
-            } catch (error) {
-                console.error('Error updating password:', error);
-                showStatus('password', 'error', error.message || 'Error updating password');
-            } finally {
-                savePasswordBtn.disabled = false;
-                savePasswordBtn.textContent = 'Update Password';
-            }
-        });
+                if (newPassword !== confirmPassword) {
+                    showStatus('password', 'error', 'New passwords do not match');
+                    return;
+                }
+                
+                savePasswordBtn.disabled = true;
+                savePasswordBtn.textContent = 'Updating...';
+                
+                try {
+                    // Get current user
+                    const user = await auth.getCurrentUser();
+                    if (!user) {
+                        throw new Error('Not authenticated');
+                    }
+                    
+                    // Sign in with current password to verify
+                    const { error: signInError } = await auth.signInWithPassword(
+                        user.email || '',
+                        currentPassword
+                    );
+                    
+                    if (signInError) {
+                        throw new Error('Current password is incorrect');
+                    }
+                    
+                    // Update password
+                    const { error: updateError } = await auth.updatePassword(newPassword);
+                    
+                    if (updateError) {
+                        throw updateError;
+                    }
+                    
+                    showStatus('password', 'success', 'Password updated successfully!');
+                    passwordForm.reset();
+                } catch (error: any) {
+                    console.error('Error updating password:', error);
+                    showStatus('password', 'error', error.message || 'Error updating password');
+                } finally {
+                    savePasswordBtn.disabled = false;
+                    savePasswordBtn.textContent = 'Update Password';
+                }
+            });
+        }
         
         // Notifications form submission
-        const notificationsForm = document.getElementById('notifications-form');
-        const saveNotificationsBtn = document.getElementById('save-notifications');
+        const notificationsForm = document.getElementById('notifications-form') as HTMLFormElement;
+        const saveNotificationsBtn = document.getElementById('save-notifications') as HTMLButtonElement;
         
-        notificationsForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            saveNotificationsBtn.disabled = true;
-            saveNotificationsBtn.textContent = 'Saving...';
-            
-            // Simulate saving
-            setTimeout(() => {
-                showStatus('notifications', 'success', 'Notification preferences saved!');
-                saveNotificationsBtn.disabled = false;
-                saveNotificationsBtn.textContent = 'Save Preferences';
-            }, 1000);
-        });
+        if (notificationsForm && saveNotificationsBtn) {
+            notificationsForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                saveNotificationsBtn.disabled = true;
+                saveNotificationsBtn.textContent = 'Saving...';
+                
+                // Simulate saving
+                setTimeout(() => {
+                    showStatus('notifications', 'success', 'Notification preferences saved!');
+                    saveNotificationsBtn.disabled = false;
+                    saveNotificationsBtn.textContent = 'Save Preferences';
+                }, 1000);
+            });
+        }
         
         // Privacy form submission
-        const privacyForm = document.getElementById('privacy-form');
-        const savePrivacyBtn = document.getElementById('save-privacy');
+        const privacyForm = document.getElementById('privacy-form') as HTMLFormElement;
+        const savePrivacyBtn = document.getElementById('save-privacy') as HTMLButtonElement;
         
-        privacyForm.addEventListener('submit', (e) => {
-            e.preventDefault();
-            
-            savePrivacyBtn.disabled = true;
-            savePrivacyBtn.textContent = 'Saving...';
-            
-            // Simulate saving
-            setTimeout(() => {
-                showStatus('privacy', 'success', 'Privacy settings saved!');
-                savePrivacyBtn.disabled = false;
-                savePrivacyBtn.textContent = 'Save Privacy Settings';
-            }, 1000);
-        });
+        if (privacyForm && savePrivacyBtn) {
+            privacyForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                savePrivacyBtn.disabled = true;
+                savePrivacyBtn.textContent = 'Saving...';
+                
+                // Simulate saving
+                setTimeout(() => {
+                    showStatus('privacy', 'success', 'Privacy settings saved!');
+                    savePrivacyBtn.disabled = false;
+                    savePrivacyBtn.textContent = 'Save Privacy Settings';
+                }, 1000);
+            });
+        }
         
         // Delete account
-        const deleteAccountBtn = document.getElementById('delete-account');
+        const deleteAccountBtn = document.getElementById('delete-account') as HTMLButtonElement;
         
-        deleteAccountBtn.addEventListener('click', () => {
-            if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
-                alert('This feature is not yet implemented.');
-            }
-        });
+        if (deleteAccountBtn) {
+            deleteAccountBtn.addEventListener('click', () => {
+                if (confirm('Are you sure you want to delete your account? This action cannot be undone.')) {
+                    alert('This feature is not yet implemented.');
+                }
+            });
+        }
         
         // Function to show status messages
-        function showStatus(formName, type, message) {
+        function showStatus(formName: string, type: 'error' | 'success', message: string) {
             const statusEl = document.getElementById(`${formName}-status`);
-            statusEl.textContent = message;
-            statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
-            statusEl.classList.remove('hidden');
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
+                statusEl.classList.remove('hidden');
+            }
         }
     });
 </script>

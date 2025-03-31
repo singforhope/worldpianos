@@ -4,17 +4,33 @@ import Results from "../search/Results.astro";
 import Location from "../search/Location.astro";
 import { Image } from "astro:assets";
 import logo from "../../assets/logo.png";
-import { isAuthenticated, getCurrentUser, getUserProfile } from "../../utils/authUtils";
+import { auth, profile } from "../../utils/auth";
 
-// Get authentication status and user data
-const authenticated = await isAuthenticated();
-const user = await getCurrentUser();
+// Check if we're in a browser environment
+const isBrowser = typeof window !== 'undefined';
+
+// Enhanced authentication check with detailed logging
+console.log('Header: Checking authentication...');
+const authenticated = await auth.isAuthenticated();
+console.log('Header: Authentication result:', authenticated);
+
+// Get current user with detailed logging
+console.log('Header: Getting current user...');
+const user = await auth.getCurrentUser();
+console.log('Header: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
 
 // Get user profile if authenticated
-let profile = null;
+let userProfile = null;
 if (user) {
-  profile = await getUserProfile(user.id);
+  console.log('Header: Getting user profile for ID:', user.id);
+  userProfile = await profile.getUserProfile(user.id);
+  console.log('Header: Profile retrieved:', userProfile ? 'Success' : 'Not found');
 }
+
+// Add classes to help client-side JS identify auth state
+const bodyClasses = [];
+if (authenticated) bodyClasses.push('server-authenticated');
+else bodyClasses.push('server-not-authenticated');
 const currentPath = Astro.url.pathname;
 const searchQuery = Astro.url.searchParams.get("q") || "";
 
@@ -88,7 +104,6 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         Add Piano
                     </button>
                 </li>
-                <!-- Add Event option removed -->
             </ul>
         </div>
         <!-- Logo -->
@@ -206,22 +221,21 @@ const isActive = (path: string) => currentPath.startsWith(path);
             </svg>
             Add Piano
         </button>
-        
-        <!-- Add Event Button removed -->
 
-        {
-            !authenticated ? (
-                <div class="flex items-center gap-2">
-                    <a href="/auth" class="btn btn-primary btn-sm">
-                        Login or Sign Up
-                    </a>
-                </div>
-            ) : (
-                <div class="dropdown dropdown-end ml-2">
+        <div id="auth-container">
+            {
+                !authenticated ? (
+                    <div class="flex items-center gap-2">
+                        <a href="/auth" class="btn btn-primary btn-sm">
+                            Login or Sign Up
+                        </a>
+                    </div>
+                ) : (
+                    <div class="dropdown dropdown-end ml-2">
                     <label tabindex="0" class="btn btn-ghost btn-circle avatar">
                         <div class="w-10 rounded-full">
                             <img
-                                src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.display_name || 'User'}`}
+                                src={userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}`}
                                 alt="User avatar"
                             />
                         </div>
@@ -231,7 +245,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52"
                     >
                         <li class="menu-title">
-                            <span>{profile?.display_name || user?.email?.split('@')[0] || 'User'}</span>
+                            <span>{userProfile?.display_name || user?.email?.split('@')[0] || 'User'}</span>
                         </li>
                         <li>
                             <a href="/user/profile">
@@ -277,7 +291,7 @@ const isActive = (path: string) => currentPath.startsWith(path);
                                 Settings
                             </a>
                         </li>
-                        {profile?.role === 'admin' && (
+                        {userProfile?.role === 'admin' && (
                             <li>
                                 <a href="/admin/dashboard">
                                     <svg
@@ -338,8 +352,9 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         </li>
                     </ul>
                 </div>
-            )
-        }
+                )
+            }
+        </div>
     </div>
 </header>
 
@@ -497,27 +512,162 @@ const isActive = (path: string) => currentPath.startsWith(path);
 </script>
 
 <script>
-    // @ts-nocheck
-    import { createClient } from '@supabase/supabase-js';
+    import { auth, profile } from '../../utils/auth';
     
-    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    
-    // Handle logout
-    document.addEventListener('DOMContentLoaded', () => {
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Check if user is authenticated on client-side
+        const authenticated = await auth.isAuthenticated();
+        const user = await auth.getCurrentUser();
+        
+        if (authenticated && user) {
+            console.log('Header (client): User authenticated:', user.id);
+            
+            // Get user profile
+            const userProfile = await profile.getUserProfile(user.id);
+            
+            // Replace the auth container content with the user dropdown
+            const authContainer = document.getElementById('auth-container');
+            
+            if (authContainer) {
+                console.log('Header (client): Auth container found, replacing content');
                 
-                try {
-                    await supabase.auth.signOut();
-                    window.location.href = '/';
-                } catch (error) {
-                    console.error('Error signing out:', error);
+                // Create the user dropdown HTML
+                const avatarUrl = userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}`;
+                const displayName = userProfile?.display_name || user.email?.split('@')[0] || 'User';
+                
+                authContainer.innerHTML = `
+                    <div class="dropdown dropdown-end ml-2">
+                        <label tabindex="0" class="btn btn-ghost btn-circle avatar">
+                            <div class="w-10 rounded-full">
+                                <img src="${avatarUrl}" alt="User avatar" />
+                            </div>
+                        </label>
+                        <ul tabindex="0" class="menu menu-sm dropdown-content mt-3 z-[1] p-2 shadow bg-base-100 rounded-box w-52">
+                            <li>
+                                <a href="/user/profile" class="justify-between">
+                                    Profile
+                                    <span class="badge">${displayName}</span>
+                                </a>
+                            </li>
+                            <li><a href="/user/settings">Settings</a></li>
+                            ${userProfile?.role === 'admin' ?
+                                `<li>
+                                    <a href="/admin/dashboard">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" />
+                                        </svg>
+                                        Admin Dashboard
+                                    </a>
+                                </li>`
+                            : ''}
+                            <li>
+                                <a id="theme-toggle">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                    </svg>
+                                    <span class="theme-text">Dark Mode</span>
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#" id="logout-btn">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    </svg>
+                                    Logout
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                `;
+                
+                console.log('Header (client): Auth container content replaced');
+                
+                // Setup logout button
+                const logoutBtn = document.getElementById('logout-btn');
+                if (logoutBtn) {
+                    logoutBtn.addEventListener('click', async (e) => {
+                        e.preventDefault();
+                        const { error } = await auth.signOut();
+                        if (error) {
+                            console.error('Error signing out:', error);
+                        }
+                        window.location.href = '/';
+                    });
                 }
+                
+                // Setup theme toggle
+                const themeToggle = document.getElementById("theme-toggle");
+                const themeText = themeToggle?.querySelector(".theme-text");
+                const html = document.documentElement;
+
+                if (themeToggle && themeText) {
+                    // Toggle theme on click
+                    themeToggle.addEventListener("click", () => {
+                        const currentTheme = html.getAttribute("data-theme");
+                        const newTheme = currentTheme === "light" ? "dark" : "light";
+
+                        // Update theme
+                        html.setAttribute("data-theme", newTheme);
+                        localStorage.setItem("theme", newTheme);
+
+                        // Update text
+                        themeText.textContent =
+                            newTheme === "light" ? "Dark Mode" : "Light Mode";
+                    });
+
+                    // Update text based on current theme
+                    const currentTheme = localStorage.getItem("theme") || "light";
+                    html.setAttribute("data-theme", currentTheme);
+                    themeText.textContent =
+                        currentTheme === "light" ? "Dark Mode" : "Light Mode";
+                }
+            }
+            
+            // Setup logout button
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    const { error } = await auth.signOut();
+                    if (error) {
+                        console.error('Error signing out:', error);
+                    }
+                    window.location.href = '/';
+                });
+            }
+        }
+    });
+</script>
+
+<script>
+    // Initialize theme from localStorage for non-authenticated users
+    document.addEventListener('DOMContentLoaded', () => {
+        const html = document.documentElement;
+        const currentTheme = localStorage.getItem("theme") || "light";
+        html.setAttribute("data-theme", currentTheme);
+        
+        // Setup theme toggle for non-authenticated users
+        const themeToggle = document.getElementById("theme-toggle");
+        const themeText = themeToggle?.querySelector(".theme-text");
+        
+        if (themeToggle && themeText) {
+            // Toggle theme on click
+            themeToggle.addEventListener("click", () => {
+                const currentTheme = html.getAttribute("data-theme");
+                const newTheme = currentTheme === "light" ? "dark" : "light";
+                
+                // Update theme
+                html.setAttribute("data-theme", newTheme);
+                localStorage.setItem("theme", newTheme);
+                
+                // Update text
+                themeText.textContent =
+                    newTheme === "light" ? "Dark Mode" : "Light Mode";
             });
+            
+            // Update text based on current theme
+            themeText.textContent =
+                currentTheme === "light" ? "Dark Mode" : "Light Mode";
         }
     });
 </script>

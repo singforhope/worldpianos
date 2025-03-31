@@ -10,64 +10,68 @@ import MainLayout from "../layouts/MainLayout.astro";
 </MainLayout>
 
 <script>
-  // @ts-nocheck
-  import { createClient } from '@supabase/supabase-js';
-  
-  const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-  const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-  const supabase = createClient(supabaseUrl, supabaseAnonKey);
+  import { auth, profile } from '../utils/auth';
   
   // Handle the auth callback
   async function handleAuthCallback() {
-    const { data, error } = await supabase.auth.getSession();
-    
-    if (error) {
-      console.error('Auth error:', error);
-      window.location.href = '/auth?error=Authentication failed';
-      return;
-    }
-    
-    if (data.session) {
-      // Check if user profile exists
-      const { data: profileData, error: profileError } = await supabase
-        .from('user_profiles')
-        .select('*')
-        .eq('id', data.session.user.id)
-        .single();
+    try {
+      // Get the current session
+      const session = await auth.getSession();
       
-      if (profileError && profileError.code !== 'PGRST116') {
-        console.error('Profile error:', profileError);
+      if (!session) {
+        console.error('Auth callback: No session found');
+        window.location.href = '/auth?error=No session found';
+        return;
       }
       
-      // Create profile if it doesn't exist
-      if (!profileData) {
-        // Get user metadata
-        const metadata = data.session.user.user_metadata || {};
-        const displayName = metadata.display_name || data.session.user.email?.split('@')[0] || 'User';
+      const user = session.user;
+      
+      // Check if user profile exists and create if needed
+      if (user) {
+        const userProfile = await profile.getUserProfile(user.id);
         
-        const { error: insertError } = await supabase
-          .from('user_profiles')
-          .insert({
-            id: data.session.user.id,
-            display_name: displayName,
-            role: 'user', // Default role
-            created_at: new Date().toISOString(),
-            updated_at: new Date().toISOString()
-          });
+        if (!userProfile) {
+          console.log('Auth callback: Creating profile for user:', user.id);
           
-        if (insertError) {
-          console.error('Error creating profile:', insertError);
-        } else {
-          console.log('User profile created successfully in auth-callback');
+          // Get user metadata
+          const metadata = user.user_metadata || {};
+          const displayName = metadata.display_name || user.email?.split('@')[0] || 'User';
+          
+          // Create profile via API
+          try {
+            const result = await profile.createUserProfileViaApi(user.id, displayName);
+            
+            if (!result.success) {
+              console.error('Auth callback: Error creating profile via API:', result.error);
+              // Continue with redirect despite error
+            } else {
+              console.log('Auth callback: User profile created successfully via API');
+            }
+          } catch (apiError) {
+            console.error('Auth callback: API call error:', apiError);
+            // Continue with redirect despite error
+          }
         }
       }
       
-      // Redirect to home or previous page
-      const returnTo = localStorage.getItem('returnTo') || '/';
-      localStorage.removeItem('returnTo');
-      window.location.href = returnTo;
-    } else {
-      window.location.href = '/auth?error=No session found';
+      // Log successful authentication
+      console.log('Auth callback successful, session established:', {
+        userId: user?.id,
+        hasSession: !!session,
+        expiresAt: session?.expires_at
+      });
+      
+      // Redirect to the return URL
+      const returnTo = auth.getReturnUrl();
+      console.log('Redirecting to:', returnTo);
+      
+      // Add a slight delay to ensure session is established
+      setTimeout(() => {
+        window.location.href = returnTo;
+      }, 1000);
+    } catch (error) {
+      console.error('Auth callback error:', error);
+      window.location.href = '/auth?error=Authentication failed';
     }
   }
   

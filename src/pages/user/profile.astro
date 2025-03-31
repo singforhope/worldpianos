@@ -1,40 +1,117 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
 import { supabase } from "../../utils/supabase";
-import { isAuthenticated, getCurrentUser, getUserProfile } from "../../utils/authUtils";
+import { auth, profile } from "../../utils/auth";
 
-// Check if user is authenticated
-const authenticated = await isAuthenticated();
-const user = await getCurrentUser();
+// Add a class to the body to indicate this is an auth-required page
+const authRequiredClass = 'auth-required';
 
-// Redirect if not authenticated
+// Enhanced authentication check with detailed logging
+console.log('Profile page: Checking authentication...');
+const authenticated = await auth.isAuthenticated();
+console.log('Profile page: Authentication result:', authenticated);
+
+// Get current user with detailed logging
+console.log('Profile page: Getting current user...');
+const user = await auth.getCurrentUser();
+console.log('Profile page: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
+
+// For server-side rendering, we'll set a flag but not redirect immediately
+// Client-side JS will handle the redirect if needed
+let authFailed = false;
+
 if (!authenticated || !user) {
-    return Astro.redirect('/auth?error=You must be logged in to view your profile');
+    console.log('Profile page: Not authenticated on server-side');
+    authFailed = true;
+    // We'll add a special class that client-side JS can detect
+    // But we won't redirect immediately to allow client-side auth to take precedence
 }
 
-// Get user profile
-const profile = await getUserProfile(user.id);
+// Initialize variables
+let userProfile = null;
+let userPianos = [];
+let userEvents = [];
 
-// Get user's pianos
-const { data: userPianos } = await supabase
-    .from('pianos')
-    .select('*')
-    .eq('created_by', user.id)
-    .order('created_at', { ascending: false });
-
-// Get user's events
-const { data: userEvents } = await supabase
-    .from('events')
-    .select('*')
-    .eq('created_by', user.id)
-    .order('created_at', { ascending: false });
+// Only fetch data if user is authenticated
+if (user && !authFailed) {
+    // Get user profile
+    console.log('Profile page: Getting user profile for ID:', user.id);
+    userProfile = await profile.getUserProfile(user.id);
+    console.log('Profile page: Profile retrieved:', userProfile ? 'Success' : 'Not found');
+    
+    // Create profile if it doesn't exist
+    if (!userProfile) {
+        console.log('Profile page: Creating profile for user:', user.id);
+        const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+        const { data, error } = await profile.createUserProfile(user.id, displayName);
+        
+        if (error) {
+            console.error('Profile page: Error creating profile:', error);
+        } else if (data) {
+            console.log('Profile page: Profile created successfully');
+            userProfile = Array.isArray(data) ? data[0] : data;
+        }
+    }
+    
+    // Get user's pianos with error handling
+    console.log('Profile page: Fetching user pianos...');
+    try {
+        const { data: pianos, error: pianosError } = await supabase
+            .from('pianos')
+            .select('*')
+            .eq('created_by', user.id)
+            .order('created_at', { ascending: false });
+            
+        if (pianosError) {
+            console.error('Error fetching pianos:', pianosError);
+        } else {
+            userPianos = pianos || [];
+            console.log(`Profile page: Retrieved ${userPianos.length} pianos`);
+        }
+    } catch (err) {
+        console.error('Exception fetching pianos:', err);
+    }
+    
+    // Get user's events with error handling
+    console.log('Profile page: Fetching user events...');
+    try {
+        const { data: events, error: eventsError } = await supabase
+            .from('events')
+            .select('*')
+            .eq('created_by', user.id)
+            .order('created_at', { ascending: false });
+            
+        if (eventsError) {
+            console.error('Error fetching events:', eventsError);
+        } else {
+            userEvents = events || [];
+            console.log(`Profile page: Retrieved ${userEvents.length} events`);
+        }
+    } catch (err) {
+        console.error('Exception fetching events:', err);
+    }
+    
+    console.log('Profile page: Rendering profile for user:', user.id);
+}
+// Define body classes for authentication state
+const bodyClasses = [
+    authRequiredClass,
+    authFailed ? 'auth-required-not-authenticated' : 'auth-required-authenticated'
+].join(' ');
 ---
 
-<MainLayout>
+<MainLayout bodyClasses={bodyClasses}>
     <div class="container mx-auto px-4 py-8">
-        <h1 class="text-3xl font-bold mb-8">Your Profile</h1>
-        
-        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <h1 class="text-3xl font-bold mb-8">Your Profile</h1>
+            
+            <!-- Loading state that will be hidden when auth check completes -->
+            <div id="loading-state" class="flex flex-col items-center justify-center py-12">
+                <div class="loading loading-spinner loading-lg"></div>
+                <p class="mt-4 text-lg">Loading your profile...</p>
+            </div>
+            
+            <!-- Profile content that will be shown when auth check completes -->
+            <div id="profile-content" class="grid grid-cols-1 lg:grid-cols-3 gap-8 hidden">
             <!-- Profile Information -->
             <div class="lg:col-span-1">
                 <div class="card bg-base-100 shadow-xl">
@@ -42,12 +119,12 @@ const { data: userEvents } = await supabase
                         <div class="flex flex-col items-center mb-6">
                             <div class="avatar mb-4">
                                 <div class="w-24 rounded-full">
-                                    <img src={profile?.avatar_url || `https://ui-avatars.com/api/?name=${profile?.display_name || 'User'}`} alt="User avatar" />
+                                    <img src={userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}`} alt="User avatar" />
                                 </div>
                             </div>
-                            <h2 class="card-title text-2xl">{profile?.display_name || user.email?.split('@')[0]}</h2>
-                            <p class="text-base-content/70">{user.email}</p>
-                            {profile?.role === 'admin' && (
+                            <h2 class="card-title text-2xl">{userProfile?.display_name || user?.email?.split('@')[0] || 'User'}</h2>
+                            <p class="text-base-content/70">{user?.email || 'No email available'}</p>
+                            {userProfile?.role === 'admin' && (
                                 <div class="badge badge-primary mt-2">Admin</div>
                             )}
                         </div>
@@ -64,7 +141,7 @@ const { data: userEvents } = await supabase
                                     id="display-name"
                                     name="display_name"
                                     class="input input-bordered"
-                                    value={profile?.display_name || ''}
+                                    value={userProfile?.display_name || ''}
                                 />
                             </div>
                             
@@ -76,7 +153,7 @@ const { data: userEvents } = await supabase
                                     id="bio"
                                     name="bio"
                                     class="textarea textarea-bordered h-24"
-                                >{profile?.bio || ''}</textarea>
+                                >{userProfile?.bio || ''}</textarea>
                             </div>
                             
                             <div class="form-control">
@@ -88,7 +165,7 @@ const { data: userEvents } = await supabase
                                     id="avatar-url"
                                     name="avatar_url"
                                     class="input input-bordered"
-                                    value={profile?.avatar_url || ''}
+                                    value={userProfile?.avatar_url || ''}
                                 />
                                 <label class="label">
                                     <span class="label-text-alt">Enter a URL to an image</span>
@@ -173,88 +250,156 @@ const { data: userEvents } = await supabase
 </MainLayout>
 
 <script>
-    // @ts-nocheck
-    import { createClient } from '@supabase/supabase-js';
+    import { auth, profile } from '../../utils/auth';
     
-    const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-    const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-    const supabase = createClient(supabaseUrl, supabaseAnonKey);
-    
-    document.addEventListener('DOMContentLoaded', () => {
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Get loading and content elements
+        const loadingState = document.getElementById('loading-state');
+        const profileContent = document.getElementById('profile-content');
+        
+        // Check if user is authenticated on client-side
+        const authenticated = await auth.isAuthenticated();
+        const user = await auth.getCurrentUser();
+        
+        // Redirect if not authenticated
+        if (!authenticated || !user) {
+            console.log('Profile page: Not authenticated on client-side, redirecting to login');
+            // Store the current URL to redirect back after login
+            auth.setReturnUrl(window.location.pathname);
+            window.location.href = '/auth?error=You must be logged in to view your profile';
+            return;
+        }
+        
+        console.log('Profile page (client): User authenticated:', user.id);
+        
+        // Check if profile exists and create if needed
+        let userProfile = await profile.getUserProfile(user.id);
+        
+        if (!userProfile) {
+            console.log('Profile page (client): Creating profile for user:', user.id);
+            const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+            const { data, error } = await profile.createUserProfile(user.id, displayName);
+            
+            if (error) {
+                console.error('Profile page (client): Error creating profile:', error);
+            } else if (data) {
+                console.log('Profile page (client): Profile created successfully');
+                userProfile = Array.isArray(data) ? data[0] : data;
+                // Reload the page to show the new profile
+                window.location.reload();
+            }
+        } else {
+            console.log('Profile page (client): User profile found:', userProfile.display_name);
+            
+            // Update the UI with the user's data since server-side rendering might show placeholder data
+            const titleElement = document.querySelector('.card-title.text-2xl');
+            const emailElement = document.querySelector('.text-base-content\\/70');
+            
+            if (titleElement) {
+                titleElement.textContent = userProfile.display_name || user.email?.split('@')[0] || 'User';
+            }
+            
+            if (emailElement) {
+                emailElement.textContent = user.email || 'No email available';
+            }
+            
+            // Update form fields
+            const displayNameInput = document.getElementById('display-name') as HTMLInputElement;
+            const bioTextarea = document.getElementById('bio') as HTMLTextAreaElement;
+            const avatarUrlInput = document.getElementById('avatar-url') as HTMLInputElement;
+            
+            if (displayNameInput) displayNameInput.value = userProfile.display_name || '';
+            if (bioTextarea) bioTextarea.value = userProfile.bio || '';
+            if (avatarUrlInput) avatarUrlInput.value = userProfile.avatar_url || '';
+            
+            // Update avatar
+            const avatarImg = document.querySelector('.avatar img') as HTMLImageElement;
+            if (avatarImg && userProfile.avatar_url) {
+                avatarImg.src = userProfile.avatar_url;
+            }
+            
+            // Hide loading state and show profile content
+            if (loadingState) loadingState.classList.add('hidden');
+            if (profileContent) profileContent.classList.remove('hidden');
+        }
+        
         // Tab switching
-        const pianosTab = document.getElementById('pianos-tab');
-        const eventsTab = document.getElementById('events-tab');
-        const pianosContent = document.getElementById('pianos-content');
-        const eventsContent = document.getElementById('events-content');
+        const pianosTab = document.getElementById('pianos-tab') as HTMLElement;
+        const eventsTab = document.getElementById('events-tab') as HTMLElement;
+        const pianosContent = document.getElementById('pianos-content') as HTMLElement;
+        const eventsContent = document.getElementById('events-content') as HTMLElement;
         
-        pianosTab.addEventListener('click', () => {
-            pianosTab.classList.add('tab-active');
-            eventsTab.classList.remove('tab-active');
-            pianosContent.classList.remove('hidden');
-            eventsContent.classList.add('hidden');
-        });
-        
-        eventsTab.addEventListener('click', () => {
-            eventsTab.classList.add('tab-active');
-            pianosTab.classList.remove('tab-active');
-            eventsContent.classList.remove('hidden');
-            pianosContent.classList.add('hidden');
-        });
+        if (pianosTab && eventsTab && pianosContent && eventsContent) {
+            pianosTab.addEventListener('click', () => {
+                pianosTab.classList.add('tab-active');
+                eventsTab.classList.remove('tab-active');
+                pianosContent.classList.remove('hidden');
+                eventsContent.classList.add('hidden');
+            });
+            
+            eventsTab.addEventListener('click', () => {
+                eventsTab.classList.add('tab-active');
+                pianosTab.classList.remove('tab-active');
+                eventsContent.classList.remove('hidden');
+                pianosContent.classList.add('hidden');
+            });
+        }
         
         // Profile form submission
-        const profileForm = document.getElementById('profile-form');
-        const saveProfileBtn = document.getElementById('save-profile');
+        const profileForm = document.getElementById('profile-form') as HTMLFormElement;
+        const saveProfileBtn = document.getElementById('save-profile') as HTMLButtonElement;
         
-        profileForm.addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            saveProfileBtn.disabled = true;
-            saveProfileBtn.textContent = 'Saving...';
-            
-            const formData = new FormData(profileForm);
-            const profileData = {
-                display_name: formData.get('display_name'),
-                bio: formData.get('bio'),
-                avatar_url: formData.get('avatar_url')
-            };
-            
-            try {
-                // Get current user
-                const { data: { session } } = await supabase.auth.getSession();
-                if (!session) {
-                    throw new Error('Not authenticated');
+        if (profileForm && saveProfileBtn) {
+            profileForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                saveProfileBtn.disabled = true;
+                saveProfileBtn.textContent = 'Saving...';
+                
+                const formData = new FormData(profileForm);
+                const profileData = {
+                    display_name: formData.get('display_name'),
+                    bio: formData.get('bio'),
+                    avatar_url: formData.get('avatar_url')
+                };
+                
+                try {
+                    // Get current user
+                    const currentUser = await auth.getCurrentUser();
+                    if (!currentUser) {
+                        throw new Error('Not authenticated');
+                    }
+                    
+                    // Update profile
+                    const { error } = await profile.updateUserProfile(currentUser.id, profileData);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    showStatus('success', 'Profile updated successfully!');
+                    
+                    // Reload page after a short delay
+                    setTimeout(() => {
+                        window.location.reload();
+                    }, 1500);
+                } catch (error: any) {
+                    console.error('Error updating profile:', error);
+                    showStatus('error', 'Error updating profile: ' + (error.message || 'Unknown error'));
+                    saveProfileBtn.disabled = false;
+                    saveProfileBtn.textContent = 'Save Profile';
                 }
-                
-                // Update profile
-                const { error } = await supabase
-                    .from('user_profiles')
-                    .update(profileData)
-                    .eq('id', session.user.id);
-                
-                if (error) {
-                    throw error;
-                }
-                
-                showStatus('success', 'Profile updated successfully!');
-                
-                // Reload page after a short delay
-                setTimeout(() => {
-                    window.location.reload();
-                }, 1500);
-            } catch (error) {
-                console.error('Error updating profile:', error);
-                showStatus('error', 'Error updating profile: ' + (error.message || 'Unknown error'));
-                saveProfileBtn.disabled = false;
-                saveProfileBtn.textContent = 'Save Profile';
-            }
-        });
+            });
+        }
         
         // Function to show status messages
-        function showStatus(type, message) {
+        function showStatus(type: 'error' | 'success', message: string) {
             const statusEl = document.getElementById('status-message');
-            statusEl.textContent = message;
-            statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
-            statusEl.classList.remove('hidden');
+            if (statusEl) {
+                statusEl.textContent = message;
+                statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
+                statusEl.classList.remove('hidden');
+            }
         }
     });
 </script>

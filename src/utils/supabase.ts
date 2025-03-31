@@ -1,6 +1,5 @@
-import { createClient } from '@supabase/supabase-js';
+// Re-export the supabase client from auth.ts
+import { supabase as supabaseClient } from './auth';
 
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-
-export const supabase = createClient(supabaseUrl, supabaseAnonKey);
+// Export the supabase client
+export const supabase = supabaseClient;

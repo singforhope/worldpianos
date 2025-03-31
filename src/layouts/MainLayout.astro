@@ -7,6 +7,14 @@ import EventForm from "../components/community/EventForm.astro";
 import ReportForm from "../components/piano/ReportForm.astro";
 import ReportEventForm from "../components/community/ReportEventForm.astro";
 
+// Define interface for component props
+interface Props {
+    bodyClasses?: string;
+}
+
+// Get props with defaults
+const { bodyClasses = '' } = Astro.props;
+
 // Check if this is a full-screen page
 const isFullScreen = Astro.url.pathname === "/map";
 ---
@@ -16,7 +24,7 @@ const isFullScreen = Astro.url.pathname === "/map";
         <title>Worldpianos</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     </head>
-    <body>
+    <body class={`${isFullScreen ? 'fullscreen' : ''} ${Astro.props.bodyClasses || ''}`}>
             <Header />
             <main class={`${isFullScreen ? "" : "w-full"}`}>
                 <slot />
@@ -118,6 +126,123 @@ const isFullScreen = Astro.url.pathname === "/map";
 
     // Listen for system theme changes but don't automatically apply them
     // User must explicitly choose theme via the toggle
+</script>
+
+<!-- Client-side authentication verification -->
+<script is:inline>
+    // Ensure this script only runs in the browser
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        document.addEventListener('DOMContentLoaded', async () => {
+            console.log('Client-side auth check: Initializing...');
+            
+            try {
+                // Dynamically import Supabase to avoid server-side issues
+                const { createClient } = await import('@supabase/supabase-js');
+                
+                // Get environment variables
+                const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
+                const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+                
+                if (!supabaseUrl || !supabaseAnonKey) {
+                    console.error('Client-side auth check: Missing Supabase environment variables');
+                    return;
+                }
+                
+                // Create Supabase client with browser-specific storage
+                const supabase = createClient(supabaseUrl, supabaseAnonKey, {
+                    auth: {
+                        persistSession: true,
+                        autoRefreshToken: true,
+                        storageKey: 'worldpianos-auth',
+                        storage: {
+                            getItem: (key) => {
+                                try {
+                                    const storedValue = localStorage.getItem(key);
+                                    return storedValue ? JSON.parse(storedValue) : null;
+                                } catch (error) {
+                                    console.error('Client-side auth check: Error getting from storage', error);
+                                    return null;
+                                }
+                            },
+                            setItem: (key, value) => {
+                                try {
+                                    localStorage.setItem(key, JSON.stringify(value));
+                                } catch (error) {
+                                    console.error('Client-side auth check: Error setting to storage', error);
+                                }
+                            },
+                            removeItem: (key) => {
+                                try {
+                                    localStorage.removeItem(key);
+                                } catch (error) {
+                                    console.error('Client-side auth check: Error removing from storage', error);
+                                }
+                            }
+                        }
+                    },
+                    global: {
+                        headers: {
+                            'Content-Type': 'application/json',
+                            'Accept': 'application/json',
+                        },
+                    },
+                });
+                
+                // Check authentication on page load
+                const { data, error } = await supabase.auth.getSession();
+                
+                if (error) {
+                    console.error('Client-side auth check: Error getting session', error);
+                    return;
+                }
+                
+                if (data.session) {
+                    console.log('Client-side auth check: Authenticated as', data.session.user.id);
+                    document.body.classList.add('authenticated');
+                    
+                    // If on a page that requires auth but server rendered as not authenticated, reload
+                    if (window.location.pathname.startsWith('/user/') &&
+                        document.body.classList.contains('auth-required-not-authenticated')) {
+                        console.log('Client-side auth check: Detected auth mismatch, reloading...');
+                        window.location.reload();
+                    }
+                    
+                    // Update UI elements that depend on authentication
+                    document.querySelectorAll('.auth-only').forEach(el => {
+                        el.classList.remove('hidden');
+                    });
+                    
+                    document.querySelectorAll('.guest-only').forEach(el => {
+                        el.classList.add('hidden');
+                    });
+                } else {
+                    console.log('Client-side auth check: Not authenticated');
+                    document.body.classList.add('not-authenticated');
+                    
+                    // If on a page that requires auth, redirect to login
+                    if (window.location.pathname.startsWith('/user/') &&
+                        !document.body.classList.contains('auth-bypass')) {
+                        console.log('Client-side auth check: Unauthorized access to protected page, redirecting...');
+                        localStorage.setItem('returnTo', window.location.pathname);
+                        window.location.href = '/auth?error=Session expired';
+                    }
+                    
+                    // Update UI elements that depend on authentication
+                    document.querySelectorAll('.auth-only').forEach(el => {
+                        el.classList.add('hidden');
+                    });
+                    
+                    document.querySelectorAll('.guest-only').forEach(el => {
+                        el.classList.remove('hidden');
+                    });
+                }
+            } catch (err) {
+                console.error('Client-side auth check: Exception', err);
+            }
+        });
+    } else {
+        console.log('Skipping client-side auth check in server environment');
+    }
 </script>
 
 <script is:inline>
