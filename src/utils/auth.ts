@@ -24,12 +24,21 @@ interface StorageInterface {
 }
 
 // Create Supabase client with appropriate configuration
+// Create Supabase client with appropriate configuration
+console.log('Initializing Supabase client with URL:', supabaseUrl);
+console.log('Anon key present:', !!supabaseAnonKey);
+
+// Configure Supabase client to allow public access to certain tables
+// This is important for operations like fetching pianos and events
+// which should be accessible without authentication
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
     persistSession: isBrowser,
     autoRefreshToken: isBrowser,
     storageKey: 'worldpianos-auth',
     detectSessionInUrl: isBrowser,
+    // Don't throw errors for unauthenticated requests
+    flowType: 'implicit',
     storage: isBrowser ? {
       getItem: (key: string) => {
         try {

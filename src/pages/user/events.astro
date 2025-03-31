@@ -2,26 +2,22 @@
 import MainLayout from "../../layouts/MainLayout.astro";
 import { supabase } from "../../utils/supabase";
 import { auth, profile } from "../../utils/auth";
+import EventForm from "../../components/community/EventForm.astro";
 
 // Add a class to the body to indicate this is an auth-required page
 const authRequiredClass = 'auth-required';
 
-// Enhanced authentication check with detailed logging
-console.log('User Events page: Checking authentication...');
+// Authentication check
 const authenticated = await auth.isAuthenticated();
-console.log('User Events page: Authentication result:', authenticated);
 
-// Get current user with detailed logging
-console.log('User Events page: Getting current user...');
+// Get current user
 const user = await auth.getCurrentUser();
-console.log('User Events page: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
 
 // For server-side rendering, we'll set a flag but not redirect immediately
 // Client-side JS will handle the redirect if needed
 let authFailed = false;
 
 if (!authenticated || !user) {
-    console.log('User Events page: Not authenticated on server-side');
     authFailed = true;
     // We'll add a special class that client-side JS can detect
     // But we won't redirect immediately to allow client-side auth to take precedence
@@ -34,26 +30,19 @@ let userEvents = [];
 // Only fetch data if user is authenticated
 if (user && !authFailed) {
     // Get user profile
-    console.log('User Events page: Getting user profile for ID:', user.id);
     userProfile = await profile.getUserProfile(user.id);
-    console.log('User Events page: Profile retrieved:', userProfile ? 'Success' : 'Not found');
     
     // Create profile if it doesn't exist
     if (!userProfile) {
-        console.log('User Events page: Creating profile for user:', user.id);
         const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
         const { data, error } = await profile.createUserProfile(user.id, displayName);
         
-        if (error) {
-            console.error('User Events page: Error creating profile:', error);
-        } else if (data) {
-            console.log('User Events page: Profile created successfully');
+        if (data) {
             userProfile = Array.isArray(data) ? data[0] : data;
         }
     }
     
     // Get user's events with error handling
-    console.log('User Events page: Fetching user events...');
     try {
         const { data: events, error: eventsError } = await supabase
             .from('events')
@@ -61,17 +50,12 @@ if (user && !authFailed) {
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });
             
-        if (eventsError) {
-            console.error('Error fetching events:', eventsError);
-        } else {
+        if (!eventsError) {
             userEvents = events || [];
-            console.log(`User Events page: Retrieved ${userEvents.length} events`);
         }
     } catch (err) {
-        console.error('Exception fetching events:', err);
+        // Handle error silently
     }
-    
-    console.log('User Events page: Rendering events for user:', user.id);
 }
 
 // Define body classes for authentication state
@@ -184,12 +168,12 @@ const bodyClasses = [
                 <div class="lg:col-span-3">
                     <div class="flex justify-between items-center mb-8">
                         <h1 class="text-3xl font-bold">My Events</h1>
-                        <a href="/events/add" class="btn btn-primary">
+                        <button class="btn btn-primary" onclick="document.getElementById('event-modal').showModal()">
                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                             </svg>
                             Add Event
-                        </a>
+                        </button>
                     </div>
                     
                     <div id="events-list">
@@ -236,12 +220,12 @@ const bodyClasses = [
                                         <span>You haven't created any events yet.</span>
                                     </div>
                                     <div class="flex justify-center mt-4">
-                                        <a href="/events/add" class="btn btn-primary">
+                                        <button class="btn btn-primary" onclick="document.getElementById('event-modal').showModal()">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                             </svg>
                                             Create Your First Event
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -251,10 +235,62 @@ const bodyClasses = [
             </div>
         </div>
     </div>
+    
+    <!-- Event Modal -->
+    <dialog id="event-modal" class="modal">
+        <div class="modal-box w-11/12 max-w-6xl h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg">Add a New Event</h3>
+                <form method="dialog">
+                    <button class="btn btn-sm btn-outline absolute right-4 top-4 shadow-md">Close(Esc)</button>
+                </form>
+            </div>
+            <div class="divider mt-0 mb-4"></div>
+            <div class="py-2">
+                <div class="container mx-auto px-4">
+                    <div class="mx-auto">
+                        <EventForm isModal={true} />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script>
+        // Add event listener for the close button
+        document.addEventListener('DOMContentLoaded', () => {
+            const closeButtons = document.querySelectorAll('.modal form[method="dialog"] button');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const modal = document.getElementById('event-modal') as HTMLDialogElement;
+                    if (modal) {
+                        modal.close();
+                    }
+                });
+            });
+        });
+    </script>
 </MainLayout>
 
 <script>
     import { auth, profile } from '../../utils/auth';
+    
+    // Listen for messages from the iframe
+    window.addEventListener('message', function(event) {
+        // Handle event added message
+        if (event.data && event.data.type === 'event-added') {
+            // Close the modal
+            const eventModal = document.getElementById('event-modal') as HTMLDialogElement;
+            if (eventModal) eventModal.close();
+            // Show a success message
+            alert(`Event "${event.data.eventName}" added successfully!`);
+            // Reload the page to show the new event
+            window.location.reload();
+        }
+    });
     
     document.addEventListener('DOMContentLoaded', async () => {
         // Get loading and content elements
@@ -267,34 +303,31 @@ const bodyClasses = [
         
         // Redirect if not authenticated
         if (!authenticated || !user) {
-            console.log('User Events page: Not authenticated on client-side, redirecting to login');
+            // Redirect to login page
             // Store the current URL to redirect back after login
             auth.setReturnUrl(window.location.pathname);
             window.location.href = '/auth?error=You must be logged in to view your events';
             return;
         }
         
-        console.log('User Events page (client): User authenticated:', user.id);
-        
+        // User is authenticated
         // Check if profile exists and create if needed
         let userProfile = await profile.getUserProfile(user.id);
         
         if (!userProfile) {
-            console.log('User Events page (client): Creating profile for user:', user.id);
+            // Creating profile for user
             const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
             const { data, error } = await profile.createUserProfile(user.id, displayName);
             
             if (error) {
-                console.error('User Events page (client): Error creating profile:', error);
+                // Error creating profile
             } else if (data) {
-                console.log('User Events page (client): Profile created successfully');
+                // Profile created successfully
                 userProfile = Array.isArray(data) ? data[0] : data;
                 // Reload the page to show the new profile
                 window.location.reload();
             }
         } else {
-            console.log('User Events page (client): User profile found:', userProfile.display_name);
-            
             // Update the UI with the user's data
             const nameElement = document.getElementById('sidebar-name');
             const emailElement = document.getElementById('sidebar-email');
@@ -322,10 +355,7 @@ const bodyClasses = [
         if (logoutBtn) {
             logoutBtn.addEventListener('click', async (e) => {
                 e.preventDefault();
-                const { error } = await auth.signOut();
-                if (error) {
-                    console.error('Error signing out:', error);
-                }
+                await auth.signOut();
                 window.location.href = '/';
             });
         }

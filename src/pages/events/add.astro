@@ -2,38 +2,64 @@
 import MainLayout from "../../layouts/MainLayout.astro";
 import EventForm from "../../components/community/EventForm.astro";
 
-// TEMPORARY: For development only - this bypasses authentication
-const DEVELOPMENT_MODE = true; // Set to false in production
-const SERVICE_ROLE_KEY = import.meta.env.SUPABASE_SERVICE_ROLE_KEY || '';
+// Authentication is now properly implemented
+const DEVELOPMENT_MODE = false; // No longer bypassing authentication
+const SERVICE_ROLE_KEY = ''; // Not using service role key anymore
+
+// Check if this page is being displayed in a modal
+const isModal = Astro.url.searchParams.get('modal') === 'true';
 ---
 
-<MainLayout>
-  <div class="container mx-auto px-4 py-8">
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold">Add a New Event</h1>
+{isModal ? (
+  <div class="container mx-auto px-4 py-4">
+    <div class="mb-4">
+      <h1 class="text-2xl font-bold">Add a New Event</h1>
       <p class="text-base-content/70 mt-2">
         Submit information about an event related to a public piano.
       </p>
     </div>
     
-    <div class="max-w-2xl mx-auto">
+    <div class="mx-auto">
       <EventForm
         formTitle="Add a New Event"
         contactEmail="it@singforhope.org"
+        isModal={true}
       />
       
-      <div class="mt-8 text-sm text-base-content/70">
-        <p>
-          * Required fields
-        </p>
-        <p class="mt-2">
-          By submitting this form, you're helping to grow our community of piano events.
-          Our team will review your submission and may contact you for additional information.
-        </p>
+      <div class="mt-4 text-sm text-base-content/70">
+        <p>* Required fields</p>
       </div>
     </div>
   </div>
-</MainLayout>
+) : (
+  <MainLayout>
+    <div class="container mx-auto px-4 py-8">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold">Add a New Event</h1>
+        <p class="text-base-content/70 mt-2">
+          Submit information about an event related to a public piano.
+        </p>
+      </div>
+      
+      <div class="max-w-2xl mx-auto">
+        <EventForm
+          formTitle="Add a New Event"
+          contactEmail="it@singforhope.org"
+        />
+        
+        <div class="mt-8 text-sm text-base-content/70">
+          <p>
+            * Required fields
+          </p>
+          <p class="mt-2">
+            By submitting this form, you're helping to grow our community of piano events.
+            Our team will review your submission and may contact you for additional information.
+          </p>
+        </div>
+      </div>
+    </div>
+  </MainLayout>
+)}
 
 <style>
   /* Add any page-specific styles here */

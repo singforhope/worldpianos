@@ -692,3 +692,25 @@ const isActive = (path: string) => currentPath.startsWith(path);
         animation: fadeInDown 0.2s ease-out forwards;
     }
 </style>
+
+<script>
+    // Handle Add Piano button click
+    document.addEventListener('DOMContentLoaded', () => {
+        const addPianoBtn = document.getElementById('open-piano-modal');
+        
+        if (addPianoBtn) {
+            addPianoBtn.addEventListener('click', () => {
+                // Find the add-piano-modal in the DOM
+                const pianoModal = document.getElementById('piano-modal') as HTMLDialogElement;
+                
+                if (pianoModal) {
+                    // Open the modal
+                    pianoModal.showModal();
+                } else {
+                    // If modal doesn't exist in the current page, redirect to the add piano page
+                    window.location.href = '/pianos/add';
+                }
+            });
+        }
+    });
+</script>

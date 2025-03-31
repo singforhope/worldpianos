@@ -2,26 +2,22 @@
 import MainLayout from "../../layouts/MainLayout.astro";
 import { supabase } from "../../utils/supabase";
 import { auth, profile } from "../../utils/auth";
+import PianoForm from "../../components/piano/PianoForm.astro";
 
 // Add a class to the body to indicate this is an auth-required page
 const authRequiredClass = 'auth-required';
 
-// Enhanced authentication check with detailed logging
-console.log('User Pianos page: Checking authentication...');
+// Authentication check
 const authenticated = await auth.isAuthenticated();
-console.log('User Pianos page: Authentication result:', authenticated);
 
-// Get current user with detailed logging
-console.log('User Pianos page: Getting current user...');
+// Get current user
 const user = await auth.getCurrentUser();
-console.log('User Pianos page: User retrieved:', user ? `ID: ${user.id}` : 'No user found');
 
 // For server-side rendering, we'll set a flag but not redirect immediately
 // Client-side JS will handle the redirect if needed
 let authFailed = false;
 
 if (!authenticated || !user) {
-    console.log('User Pianos page: Not authenticated on server-side');
     authFailed = true;
     // We'll add a special class that client-side JS can detect
     // But we won't redirect immediately to allow client-side auth to take precedence
@@ -34,26 +30,19 @@ let userPianos = [];
 // Only fetch data if user is authenticated
 if (user && !authFailed) {
     // Get user profile
-    console.log('User Pianos page: Getting user profile for ID:', user.id);
     userProfile = await profile.getUserProfile(user.id);
-    console.log('User Pianos page: Profile retrieved:', userProfile ? 'Success' : 'Not found');
     
     // Create profile if it doesn't exist
     if (!userProfile) {
-        console.log('User Pianos page: Creating profile for user:', user.id);
         const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
         const { data, error } = await profile.createUserProfile(user.id, displayName);
         
-        if (error) {
-            console.error('User Pianos page: Error creating profile:', error);
-        } else if (data) {
-            console.log('User Pianos page: Profile created successfully');
+        if (data) {
             userProfile = Array.isArray(data) ? data[0] : data;
         }
     }
     
     // Get user's pianos with error handling
-    console.log('User Pianos page: Fetching user pianos...');
     try {
         const { data: pianos, error: pianosError } = await supabase
             .from('pianos')
@@ -61,17 +50,16 @@ if (user && !authFailed) {
             .eq('created_by', user.id)
             .order('created_at', { ascending: false });
             
-        if (pianosError) {
-            console.error('Error fetching pianos:', pianosError);
-        } else {
+        if (!pianosError) {
             userPianos = pianos || [];
-            console.log(`User Pianos page: Retrieved ${userPianos.length} pianos`);
+        } else {
+            // Set empty array on error
+            userPianos = [];
         }
     } catch (err) {
-        console.error('Exception fetching pianos:', err);
+        // Set empty array on exception
+        userPianos = [];
     }
-    
-    console.log('User Pianos page: Rendering pianos for user:', user.id);
 }
 
 // Define body classes for authentication state
@@ -184,12 +172,33 @@ const bodyClasses = [
                 <div class="lg:col-span-3">
                     <div class="flex justify-between items-center mb-8">
                         <h1 class="text-3xl font-bold">My Pianos</h1>
-                        <a href="/pianos/add" class="btn btn-primary">
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                            </svg>
-                            Add Piano
-                        </a>
+                        <div class="flex">
+                            <!-- This button is hidden as we're using the one from the header -->
+                            <div class="hidden">
+                                <button id="page-piano-modal-btn" class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M12 4v16m8-8H4"></path>
+                                    </svg>
+                                    Add Piano
+                                </button>
+                            </div>
+                            <button class="btn btn-primary" onclick="document.getElementById('piano-modal').showModal()">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                </svg>
+                                Add Piano
+                            </button>
+                        </div>
                     </div>
                     
                     <div id="pianos-list">
@@ -225,12 +234,12 @@ const bodyClasses = [
                                         <span>You haven't added any pianos yet.</span>
                                     </div>
                                     <div class="flex justify-center mt-4">
-                                        <a href="/pianos/add" class="btn btn-primary">
+                                        <button class="btn btn-primary" onclick="document.getElementById('piano-modal').showModal()">
                                             <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                                 <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
                                             </svg>
                                             Add Your First Piano
-                                        </a>
+                                        </button>
                                     </div>
                                 </div>
                             </div>
@@ -240,83 +249,142 @@ const bodyClasses = [
             </div>
         </div>
     </div>
+    
+    <!-- Piano Modal -->
+    <dialog id="piano-modal" class="modal">
+        <div class="modal-box w-11/12 max-w-6xl h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg">Add a New Piano</h3>
+                <form method="dialog">
+                    <button class="btn btn-sm btn-outline absolute right-4 top-4 shadow-md">Close(Esc)</button>
+                </form>
+            </div>
+            <div class="divider mt-0 mb-4"></div>
+            <div class="py-2">
+                <div class="container mx-auto px-4">
+                    <div class="mx-auto">
+                        <PianoForm isModal={true} />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script>
+        // Add event listeners for the modal buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            // Close button event listener
+            const closeButtons = document.querySelectorAll('.modal form[method="dialog"] button');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const modal = document.getElementById('piano-modal') as HTMLDialogElement;
+                    if (modal) {
+                        modal.close();
+                    }
+                });
+            });
+            
+            // The open button is handled by the Header component
+            // We don't need to add an event listener here
+        });
+    </script>
 </MainLayout>
 
 <script>
     import { auth, profile } from '../../utils/auth';
     
-    document.addEventListener('DOMContentLoaded', async () => {
-        // Get loading and content elements
-        const loadingState = document.getElementById('loading-state');
-        const pianosContent = document.getElementById('pianos-content');
-        
-        // Check if user is authenticated on client-side
-        const authenticated = await auth.isAuthenticated();
-        const user = await auth.getCurrentUser();
-        
-        // Redirect if not authenticated
-        if (!authenticated || !user) {
-            console.log('User Pianos page: Not authenticated on client-side, redirecting to login');
-            // Store the current URL to redirect back after login
-            auth.setReturnUrl(window.location.pathname);
-            window.location.href = '/auth?error=You must be logged in to view your pianos';
-            return;
+    // Listen for messages from the iframe
+    window.addEventListener('message', function(event) {
+        // Handle piano added message
+        if (event.data && event.data.type === 'piano-added') {
+            // Close the modal
+            const pianoModal = document.getElementById('piano-modal') as HTMLDialogElement;
+            if (pianoModal) pianoModal.close();
+            // Show a success message
+            alert(`Piano "${event.data.pianoName}" added successfully!`);
+            // Reload the page to show the new piano
+            window.location.reload();
         }
-        
-        console.log('User Pianos page (client): User authenticated:', user.id);
-        
-        // Check if profile exists and create if needed
-        let userProfile = await profile.getUserProfile(user.id);
-        
-        if (!userProfile) {
-            console.log('User Pianos page (client): Creating profile for user:', user.id);
-            const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
-            const { data, error } = await profile.createUserProfile(user.id, displayName);
+    });
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            // Get loading and content elements
+            const loadingState = document.getElementById('loading-state');
+            const pianosContent = document.getElementById('pianos-content');
             
-            if (error) {
-                console.error('User Pianos page (client): Error creating profile:', error);
-            } else if (data) {
-                console.log('User Pianos page (client): Profile created successfully');
-                userProfile = Array.isArray(data) ? data[0] : data;
-                // Reload the page to show the new profile
-                window.location.reload();
-            }
-        } else {
-            console.log('User Pianos page (client): User profile found:', userProfile.display_name);
+            // Check if user is authenticated on client-side
+            const authenticated = await auth.isAuthenticated();
+            const user = await auth.getCurrentUser();
             
-            // Update the UI with the user's data
-            const nameElement = document.getElementById('sidebar-name');
-            const emailElement = document.getElementById('sidebar-email');
-            const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
-            
-            if (nameElement) {
-                nameElement.textContent = userProfile.display_name || user.email?.split('@')[0] || 'User';
+            // Redirect if not authenticated
+            if (!authenticated || !user) {
+                // Store the current URL to redirect back after login
+                auth.setReturnUrl(window.location.pathname);
+                window.location.href = '/auth?error=You must be logged in to view your pianos';
+                return;
             }
             
-            if (emailElement) {
-                emailElement.textContent = user.email || 'No email available';
+            try {
+                // Check if profile exists and create if needed
+                let userProfile = await profile.getUserProfile(user.id);
+                
+                if (!userProfile) {
+                    const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+                    const { data, error } = await profile.createUserProfile(user.id, displayName);
+                    
+                    if (data) {
+                        userProfile = Array.isArray(data) ? data[0] : data;
+                        // Reload the page to show the new profile
+                        window.location.reload();
+                    }
+                } else {
+                    // Update the UI with the user's data
+                    const nameElement = document.getElementById('sidebar-name');
+                    const emailElement = document.getElementById('sidebar-email');
+                    const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
+                    
+                    if (nameElement) {
+                        nameElement.textContent = userProfile.display_name || user.email?.split('@')[0] || 'User';
+                    }
+                    
+                    if (emailElement) {
+                        emailElement.textContent = user.email || 'No email available';
+                    }
+                    
+                    if (avatarImg && userProfile.avatar_url) {
+                        avatarImg.src = userProfile.avatar_url;
+                    }
+                    
+                    // Hide loading state and show pianos content
+                    if (loadingState) loadingState.classList.add('hidden');
+                    if (pianosContent) pianosContent.classList.remove('hidden');
+                }
+            } catch (profileError) {
+                // Show pianos content even if profile fetch fails
+                if (loadingState) loadingState.classList.add('hidden');
+                if (pianosContent) pianosContent.classList.remove('hidden');
             }
             
-            if (avatarImg && userProfile.avatar_url) {
-                avatarImg.src = userProfile.avatar_url;
+            // Setup logout button
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    await auth.signOut();
+                    window.location.href = '/';
+                });
             }
+        } catch (error) {
+            // Fallback error handling - ensure UI is not stuck in loading state
+            const loadingState = document.getElementById('loading-state');
+            const pianosContent = document.getElementById('pianos-content');
             
-            // Hide loading state and show pianos content
             if (loadingState) loadingState.classList.add('hidden');
             if (pianosContent) pianosContent.classList.remove('hidden');
-        }
-        
-        // Setup logout button
-        const logoutBtn = document.getElementById('logout-btn');
-        if (logoutBtn) {
-            logoutBtn.addEventListener('click', async (e) => {
-                e.preventDefault();
-                const { error } = await auth.signOut();
-                if (error) {
-                    console.error('Error signing out:', error);
-                }
-                window.location.href = '/';
-            });
         }
     });
 </script>

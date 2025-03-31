@@ -212,7 +212,7 @@ const serializedEvents = JSON.stringify(formattedEvents);
     </div>
 
     <!-- Hidden element to pass event data to client-side JavaScript -->
-    <script id="event-data" type="application/json">{serializedEvents}</script>
+    <script id="event-data" type="application/json">{JSON.stringify(formattedEvents)}</script>
 </MainLayout>
 
 <script>

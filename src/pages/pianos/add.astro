@@ -1,32 +1,54 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
 import PianoForm from "../../components/piano/PianoForm.astro";
+
+// Check if this page is being displayed in a modal
+const isModal = Astro.url.searchParams.get('modal') === 'true';
 ---
 
-<MainLayout>
-  <div class="container mx-auto px-4 py-8">
-    <div class="mb-6">
-      <h1 class="text-3xl font-bold">Add a New Piano</h1>
+{isModal ? (
+  <div class="container mx-auto px-4 py-4">
+    <div class="mb-4">
+      <h1 class="text-2xl font-bold">Add a New Piano</h1>
       <p class="text-base-content/70 mt-2">
         Submit information about a public piano to add it to our database.
       </p>
     </div>
     
-    <div class="max-w-2xl mx-auto">
-      <PianoForm />
+    <div class="mx-auto">
+      <PianoForm isModal={true} />
       
-      <div class="mt-8 text-sm text-base-content/70">
-        <p>
-          * Required fields
+      <div class="mt-4 text-sm text-base-content/70">
+        <p>* Required fields</p>
+      </div>
+    </div>
+  </div>
+) : (
+  <MainLayout>
+    <div class="container mx-auto px-4 py-8">
+      <div class="mb-6">
+        <h1 class="text-3xl font-bold">Add a New Piano</h1>
+        <p class="text-base-content/70 mt-2">
+          Submit information about a public piano to add it to our database.
+        </p>
+      </div>
+      
+      <div class="max-w-2xl mx-auto">
+        <PianoForm />
+        
+        <div class="mt-8 text-sm text-base-content/70">
+          <p>
+            * Required fields
         </p>
         <p class="mt-2">
           By submitting this form, you're helping to grow our community of public pianos.
           Our team will review your submission and may contact you for additional information.
-        </p>
+          </p>
+        </div>
       </div>
     </div>
-  </div>
-</MainLayout>
+  </MainLayout>
+)}
 
 <style>
   /* Add any page-specific styles here */

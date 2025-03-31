@@ -10,18 +10,31 @@ const {
 ---
 
 <script is:inline>
-  // @ts-nocheck
+  // We can't use import statements in inline scripts
+  // Instead, we'll use the global supabaseClient that's set by SupabaseClient.astro
+  let supabase;
+  
+  // Function to initialize the service when Supabase is ready
+  function initEventService() {
+    if (window.supabaseClient) {
+      console.log('EventService: Supabase client found');
+      supabase = window.supabaseClient;
+    } else {
+      console.log('EventService: Waiting for Supabase client...');
+      // Wait for the supabase-ready event
+      window.addEventListener('supabase-ready', function() {
+        console.log('EventService: Supabase client is now ready');
+        supabase = window.supabaseClient;
+      });
+    }
+  }
+  
+  // Initialize the service
+  initEventService();
+  
   // Client-side implementation of createEvent function
   async function createEvent(eventData) {
     console.log('Creating event with data:', eventData);
-    
-    // Get Supabase client using our helper function
-    const supabase = await getSupabaseClient();
-    
-    // Log Supabase client details for debugging
-    console.log('Supabase client details:', {
-      usingDevelopmentMode: window.developmentMode
-    });
     
     try {
       // Check if we can connect to Supabase
@@ -33,13 +46,11 @@ const {
       }
       console.log('Supabase connection test successful, result:', healthCheck);
       
-      // Insert the event data with explicit headers for debugging
+      // Insert the event data
       console.log('Inserting event data...');
       const { data, error } = await supabase
         .from('events')
-        .insert(eventData, { 
-          returning: 'representation'  // Ensure we get the created record back
-        })
+        .insert(eventData)
         .select();
       
       if (error) {
@@ -80,46 +91,13 @@ const {
     }
   }
   
-  // Helper function to get Supabase client
-  async function getSupabaseClient() {
-    // First try to get it from the global variable (simplest approach)
-    if (window.supabaseClient) {
-      console.log('Got Supabase client from global variable');
-      return window.supabaseClient;
-    }
-    
-    // If still not available, try to initialize it
-    if (typeof window.supabase !== 'undefined' &&
-        typeof window.supabaseUrl !== 'undefined' &&
-        typeof window.supabaseAnonKey !== 'undefined') {
-      try {
-        const client = window.supabase.createClient(
-          window.supabaseUrl,
-          window.developmentMode && window.serviceRoleKey ? window.serviceRoleKey : window.supabaseAnonKey
-        );
-        console.log('Created new Supabase client as last resort');
-        
-        // Store it globally for future use
-        window.supabaseClient = client;
-        return client;
-      } catch (initError) {
-        console.error('Failed to initialize Supabase client as last resort:', initError);
-      }
-    }
-    
-    // If we get here, we couldn't get a client
-    console.error('Supabase client is not initialized');
-    throw new Error('Supabase client is not initialized');
-  }
+  // No longer need the getSupabaseClient helper function as we're importing the client directly
 
   // Function to upload an image to Supabase storage
   async function uploadEventImage(imageFile, eventName) {
     if (!imageFile || imageFile.size === 0) {
       return null;
     }
-    
-    // Get Supabase client using our helper function
-    const supabase = await getSupabaseClient();
     
     console.log('Uploading image:', imageFile.name);
     
@@ -167,9 +145,6 @@ const {
       return null;
     }
     
-    // Get Supabase client using our helper function
-    const supabase = await getSupabaseClient();
-    
     const { data: mediaData, error: mediaError } = await supabase
       .from('event_media')
       .insert({
@@ -192,7 +167,7 @@ const {
   function logFormData(formData) {
     const formDataObj = {};
     formData.forEach((value, key) => {
-      formDataObj[key] = value instanceof File ? `File: ${value.name}` : value;
+      formDataObj[key] = value instanceof File ? `File: ${value.name}` : String(value);
     });
     console.log("Form data:", formDataObj);
   }

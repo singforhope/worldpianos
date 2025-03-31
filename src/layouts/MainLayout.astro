@@ -132,64 +132,19 @@ const isFullScreen = Astro.url.pathname === "/map";
 <script is:inline>
     // Ensure this script only runs in the browser
     if (typeof window !== 'undefined' && typeof document !== 'undefined') {
-        document.addEventListener('DOMContentLoaded', async () => {
+        // Function to check authentication
+        async function checkAuth() {
             console.log('Client-side auth check: Initializing...');
             
             try {
-                // Dynamically import Supabase to avoid server-side issues
-                const { createClient } = await import('@supabase/supabase-js');
-                
-                // Get environment variables
-                const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-                const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-                
-                if (!supabaseUrl || !supabaseAnonKey) {
-                    console.error('Client-side auth check: Missing Supabase environment variables');
+                // Use the global supabaseClient that's set by SupabaseClient.astro
+                if (!window.supabaseClient) {
+                    console.error('Client-side auth check: Supabase client not initialized');
                     return;
                 }
                 
-                // Create Supabase client with browser-specific storage
-                const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-                    auth: {
-                        persistSession: true,
-                        autoRefreshToken: true,
-                        storageKey: 'worldpianos-auth',
-                        storage: {
-                            getItem: (key) => {
-                                try {
-                                    const storedValue = localStorage.getItem(key);
-                                    return storedValue ? JSON.parse(storedValue) : null;
-                                } catch (error) {
-                                    console.error('Client-side auth check: Error getting from storage', error);
-                                    return null;
-                                }
-                            },
-                            setItem: (key, value) => {
-                                try {
-                                    localStorage.setItem(key, JSON.stringify(value));
-                                } catch (error) {
-                                    console.error('Client-side auth check: Error setting to storage', error);
-                                }
-                            },
-                            removeItem: (key) => {
-                                try {
-                                    localStorage.removeItem(key);
-                                } catch (error) {
-                                    console.error('Client-side auth check: Error removing from storage', error);
-                                }
-                            }
-                        }
-                    },
-                    global: {
-                        headers: {
-                            'Content-Type': 'application/json',
-                            'Accept': 'application/json',
-                        },
-                    },
-                });
-                
                 // Check authentication on page load
-                const { data, error } = await supabase.auth.getSession();
+                const { data, error } = await window.supabaseClient.auth.getSession();
                 
                 if (error) {
                     console.error('Client-side auth check: Error getting session', error);
@@ -236,10 +191,22 @@ const isFullScreen = Astro.url.pathname === "/map";
                         el.classList.remove('hidden');
                     });
                 }
+                
+                // Mark the body as auth-ready
+                document.body.classList.add('auth-ready');
             } catch (err) {
                 console.error('Client-side auth check: Exception', err);
             }
-        });
+        }
+        
+        // Check if Supabase is already available
+        if (window.supabaseClient) {
+            checkAuth();
+        } else {
+            // Wait for the supabase-ready event
+            console.log('Client-side auth check: Waiting for Supabase client...');
+            window.addEventListener('supabase-ready', checkAuth);
+        }
     } else {
         console.log('Skipping client-side auth check in server environment');
     }
