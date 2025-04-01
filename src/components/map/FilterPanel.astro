@@ -1,0 +1,377 @@
+---
+// FilterPanel.astro - Component for filtering map markers
+import type { Piano } from "../../utils/dataService";
+
+interface Props {
+  pianos: Piano[];
+}
+
+const { pianos } = Astro.props;
+
+// Extract unique values for filter options
+const countries = [...new Set(pianos.map(piano => piano.country))].sort();
+const cities = [...new Set(pianos.map(piano => piano.city))].sort();
+const types = [...new Set(pianos.map(piano => piano.type))].sort();
+const conditions = [...new Set(pianos.map(piano => piano.condition))].sort();
+const categories = [...new Set(pianos.map(piano => piano.category))].sort();
+---
+
+<div class="filter-panel bg-base-100 rounded-lg shadow-lg">
+  <!-- Filter Panel Header with Toggle -->
+  <div class="filter-header p-3 flex justify-between items-center cursor-pointer" id="filter-toggle">
+    <div class="flex items-center gap-2">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4a1 1 0 011-1h16a1 1 0 011 1v2.586a1 1 0 01-.293.707l-6.414 6.414a1 1 0 00-.293.707V17l-4 4v-6.586a1 1 0 00-.293-.707L3.293 7.293A1 1 0 013 6.586V4z" />
+      </svg>
+      <h3 class="text-lg font-bold">Filter Pianos</h3>
+    </div>
+    <div class="badge badge-primary" id="filter-count">0</div>
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 chevron-icon" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+    </svg>
+  </div>
+  
+  <!-- Filter Panel Content (Collapsible) -->
+  <div class="filter-content p-4 border-t border-base-300" id="filter-content">
+    <!-- Quick Filter Tabs -->
+    <div class="tabs tabs-boxed mb-4">
+      <a class="tab quick-filter active" data-filters='{"category":null,"type":null,"condition":null,"country":null,"city":null}'>All</a>
+      <a class="tab quick-filter" data-filters='{"category":"airport","type":null,"condition":null,"country":null,"city":null}'>Airports</a>
+      <a class="tab quick-filter" data-filters='{"category":"city","type":null,"condition":null,"country":null,"city":null}'>Cities</a>
+    </div>
+    
+    <!-- Category Filter -->
+    <div class="collapse collapse-arrow mb-2 border border-base-300 bg-base-200">
+      <input type="checkbox" />
+      <div class="collapse-title font-medium">
+        Category
+      </div>
+      <div class="collapse-content">
+        <div class="flex flex-wrap gap-2" id="category-filters">
+          <button class="btn btn-xs btn-outline btn-primary category-filter active" data-value="all">All</button>
+          {categories.map(category => (
+            <button class="btn btn-xs btn-outline category-filter" data-value={category}>{category}</button>
+          ))}
+        </div>
+      </div>
+    </div>
+    
+    <!-- Piano Type Filter -->
+    <div class="collapse collapse-arrow mb-2 border border-base-300 bg-base-200">
+      <input type="checkbox" />
+      <div class="collapse-title font-medium">
+        Piano Type
+      </div>
+      <div class="collapse-content">
+        <select class="select select-bordered w-full select-sm" id="type-filter">
+          <option value="all">All Types</option>
+          {types.map(type => (
+            <option value={type}>{type}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+    
+    <!-- Condition Filter -->
+    <div class="collapse collapse-arrow mb-2 border border-base-300 bg-base-200">
+      <input type="checkbox" />
+      <div class="collapse-title font-medium">
+        Condition
+      </div>
+      <div class="collapse-content">
+        <select class="select select-bordered w-full select-sm" id="condition-filter">
+          <option value="all">All Conditions</option>
+          {conditions.map(condition => (
+            <option value={condition}>{condition}</option>
+          ))}
+        </select>
+      </div>
+    </div>
+    
+    <!-- Location Filters -->
+    <div class="collapse collapse-arrow mb-2 border border-base-300 bg-base-200">
+      <input type="checkbox" />
+      <div class="collapse-title font-medium">
+        Location
+      </div>
+      <div class="collapse-content">
+        <div class="mb-2">
+          <label class="label label-text text-xs">Country</label>
+          <select class="select select-bordered w-full select-sm" id="country-filter">
+            <option value="all">All Countries</option>
+            {countries.map(country => (
+              <option value={country}>{country}</option>
+            ))}
+          </select>
+        </div>
+        
+        <div>
+          <label class="label label-text text-xs">City</label>
+          <select class="select select-bordered w-full select-sm" id="city-filter">
+            <option value="all">All Cities</option>
+            {cities.map(city => (
+              <option value={city}>{city}</option>
+            ))}
+          </select>
+        </div>
+      </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="flex justify-between mt-4 gap-2">
+      <button class="btn btn-sm btn-outline flex-1" id="reset-filters">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
+        </svg>
+        Reset
+      </button>
+      <button class="btn btn-sm btn-primary flex-1" id="apply-filters">
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7" />
+        </svg>
+        Apply
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+  // Filter panel functionality
+  document.addEventListener('DOMContentLoaded', () => {
+    // Get DOM elements
+    const filterToggle = document.getElementById('filter-toggle');
+    const filterContent = document.getElementById('filter-content');
+    const filterCount = document.getElementById('filter-count');
+    const chevronIcon = document.querySelector('.chevron-icon');
+    const categoryButtons = document.querySelectorAll('.category-filter');
+    const quickFilters = document.querySelectorAll('.quick-filter');
+    const typeFilter = document.getElementById('type-filter');
+    const conditionFilter = document.getElementById('condition-filter');
+    const countryFilter = document.getElementById('country-filter');
+    const cityFilter = document.getElementById('city-filter');
+    const resetButton = document.getElementById('reset-filters');
+    const applyButton = document.getElementById('apply-filters');
+    
+    // Toggle filter panel visibility
+    filterToggle?.addEventListener('click', () => {
+      filterContent?.classList.toggle('hidden');
+      chevronIcon?.classList.toggle('rotate-180');
+    });
+    
+    // Set up category button toggling
+    categoryButtons.forEach(button => {
+      button.addEventListener('click', () => {
+        // Remove active class from all buttons
+        categoryButtons.forEach(btn => btn.classList.remove('active'));
+        // Add active class to clicked button
+        button.classList.add('active');
+      });
+    });
+    
+    // Set up quick filter tabs
+    quickFilters.forEach(tab => {
+      tab.addEventListener('click', () => {
+        // Remove active class from all tabs
+        quickFilters.forEach(t => t.classList.remove('active'));
+        // Add active class to clicked tab
+        tab.classList.add('active');
+        
+        try {
+          // Apply the predefined filters
+          const filterData = JSON.parse(tab.getAttribute('data-filters') || '{}');
+          
+          // Update UI to match the selected filters
+          updateFilterUI(filterData);
+          
+          // Apply the filters
+          applyFilters(filterData);
+        } catch (error) {
+          console.error('Error parsing quick filter data:', error);
+        }
+      });
+    });
+    
+    // Reset filters
+    resetButton?.addEventListener('click', () => {
+      // Reset quick filter tabs
+      quickFilters.forEach(tab => {
+        tab.classList.remove('active');
+        if (tab.textContent === 'All') {
+          tab.classList.add('active');
+        }
+      });
+      
+      // Reset category buttons
+      categoryButtons.forEach(btn => {
+        btn.classList.remove('active');
+        if (btn.getAttribute('data-value') === 'all') {
+          btn.classList.add('active');
+        }
+      });
+      
+      // Reset select elements
+      if (typeFilter) (typeFilter as HTMLSelectElement).value = 'all';
+      if (conditionFilter) (conditionFilter as HTMLSelectElement).value = 'all';
+      if (countryFilter) (countryFilter as HTMLSelectElement).value = 'all';
+      if (cityFilter) (cityFilter as HTMLSelectElement).value = 'all';
+      
+      // Apply the reset filters
+      applyFilters();
+      
+      // Update filter count
+      updateFilterCount(0);
+    });
+    
+    // Apply filters
+    applyButton?.addEventListener('click', () => applyFilters());
+    
+    // Update filter UI based on filter data
+    function updateFilterUI(filterData: any) {
+      // Update category buttons
+      if (filterData.category) {
+        categoryButtons.forEach(btn => {
+          btn.classList.remove('active');
+          if (btn.getAttribute('data-value') === filterData.category) {
+            btn.classList.add('active');
+          }
+        });
+      } else {
+        categoryButtons.forEach(btn => {
+          btn.classList.remove('active');
+          if (btn.getAttribute('data-value') === 'all') {
+            btn.classList.add('active');
+          }
+        });
+      }
+      
+      // Update select elements
+      if (typeFilter) (typeFilter as HTMLSelectElement).value = filterData.type || 'all';
+      if (conditionFilter) (conditionFilter as HTMLSelectElement).value = filterData.condition || 'all';
+      if (countryFilter) (countryFilter as HTMLSelectElement).value = filterData.country || 'all';
+      if (cityFilter) (cityFilter as HTMLSelectElement).value = filterData.city || 'all';
+    }
+    
+    // Update the filter count badge
+    function updateFilterCount(count: number) {
+      if (filterCount) {
+        filterCount.textContent = count.toString();
+        if (count > 0) {
+          filterCount.classList.add('badge-accent');
+        } else {
+          filterCount.classList.remove('badge-accent');
+        }
+      }
+    }
+    
+    function applyFilters(customFilters?: any) {
+      // Get selected values or use custom filters if provided
+      const filters = customFilters || {
+        category: document.querySelector('.category-filter.active')?.getAttribute('data-value') === 'all'
+          ? null
+          : document.querySelector('.category-filter.active')?.getAttribute('data-value'),
+        type: (typeFilter as HTMLSelectElement)?.value === 'all'
+          ? null
+          : (typeFilter as HTMLSelectElement)?.value,
+        condition: (conditionFilter as HTMLSelectElement)?.value === 'all'
+          ? null
+          : (conditionFilter as HTMLSelectElement)?.value,
+        country: (countryFilter as HTMLSelectElement)?.value === 'all'
+          ? null
+          : (countryFilter as HTMLSelectElement)?.value,
+        city: (cityFilter as HTMLSelectElement)?.value === 'all'
+          ? null
+          : (cityFilter as HTMLSelectElement)?.value
+      };
+      
+      // Count active filters
+      const activeFilterCount = Object.values(filters).filter(Boolean).length;
+      updateFilterCount(activeFilterCount);
+      
+      // Dispatch custom event with filter data
+      const filterEvent = new CustomEvent('filtersChanged', {
+        detail: filters
+      });
+      
+      window.dispatchEvent(filterEvent);
+    }
+    
+    // Initialize with filter panel expanded on desktop, collapsed on mobile
+    if (window.innerWidth < 768) {
+      filterContent?.classList.add('hidden');
+    }
+    
+    // Initialize filter count
+    updateFilterCount(0);
+  });
+</script>
+
+<style>
+  .filter-panel {
+    width: 320px;
+    max-height: calc(100vh - 120px);
+    position: absolute;
+    top: 80px;
+    right: 10px;
+    z-index: 10;
+    transition: all 0.3s ease;
+  }
+  
+  .filter-header {
+    border-bottom: 1px solid transparent;
+    transition: border-color 0.3s ease;
+  }
+  
+  .filter-content {
+    max-height: calc(100vh - 200px);
+    overflow-y: auto;
+    scrollbar-width: thin;
+  }
+  
+  .filter-content.hidden {
+    display: none;
+  }
+  
+  .chevron-icon {
+    transition: transform 0.3s ease;
+  }
+  
+  .chevron-icon.rotate-180 {
+    transform: rotate(180deg);
+  }
+  
+  .category-filter.active,
+  .quick-filter.active {
+    background-color: hsl(var(--p));
+    color: hsl(var(--pc));
+  }
+  
+  /* Custom scrollbar for webkit browsers */
+  .filter-content::-webkit-scrollbar {
+    width: 6px;
+  }
+  
+  .filter-content::-webkit-scrollbar-track {
+    background: hsl(var(--b2));
+    border-radius: 10px;
+  }
+  
+  .filter-content::-webkit-scrollbar-thumb {
+    background: hsl(var(--p) / 0.5);
+    border-radius: 10px;
+  }
+  
+  .filter-content::-webkit-scrollbar-thumb:hover {
+    background: hsl(var(--p) / 0.8);
+  }
+  
+  @media (max-width: 768px) {
+    .filter-panel {
+      width: calc(100% - 20px);
+      max-height: 80vh;
+    }
+    
+    .filter-content {
+      max-height: 60vh;
+    }
+  }
+</style>

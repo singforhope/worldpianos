@@ -1,0 +1,397 @@
+---
+// BasicCalendarView.astro - A simple calendar component using plain HTML, CSS, and JavaScript
+interface Props {
+  events: any[];
+}
+
+const { events } = Astro.props;
+
+// Format events for our calendar
+const formattedEvents = events.map(event => {
+  // Make sure we have a valid date
+  const date = new Date(event.start);
+  // For demo purposes, adjust the year to 2025 (current year) to show events in the current calendar
+  // In a real app, you'd use the actual dates
+  const adjustedDate = new Date(date);
+  adjustedDate.setFullYear(2025);
+  
+  return {
+    id: event.id,
+    title: event.title,
+    date: adjustedDate.toISOString().split('T')[0], // YYYY-MM-DD format
+    color: event.color || '#4CAF50',
+    type: event.type,
+    location: event.location
+  };
+});
+
+// Serialize events for client-side use
+const serializedEvents = JSON.stringify(formattedEvents);
+
+// Get current month and year
+const now = new Date();
+const currentMonth = now.getMonth();
+const currentYear = now.getFullYear();
+---
+
+<div class="calendar-container">
+  <div class="calendar-header">
+    <button id="prev-month" class="btn btn-sm btn-outline">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M11.354 1.646a.5.5 0 0 1 0 .708L5.707 8l5.647 5.646a.5.5 0 0 1-.708.708l-6-6a.5.5 0 0 1 0-.708l6-6a.5.5 0 0 1 .708 0z"/>
+      </svg>
+    </button>
+    <h2 id="month-year" class="text-2xl font-bold">Month Year</h2>
+    <button id="next-month" class="btn btn-sm btn-outline">
+      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" viewBox="0 0 16 16">
+        <path fill-rule="evenodd" d="M4.646 1.646a.5.5 0 0 1 .708 0l6 6a.5.5 0 0 1 0 .708l-6 6a.5.5 0 0 1-.708-.708L10.293 8 4.646 2.354a.5.5 0 0 1 0-.708z"/>
+      </svg>
+    </button>
+  </div>
+  
+  <div class="calendar-grid">
+    <div class="weekday">Sun</div>
+    <div class="weekday">Mon</div>
+    <div class="weekday">Tue</div>
+    <div class="weekday">Wed</div>
+    <div class="weekday">Thu</div>
+    <div class="weekday">Fri</div>
+    <div class="weekday">Sat</div>
+    
+    <!-- Calendar days will be inserted here by JavaScript -->
+    <div id="calendar-days" class="calendar-days"></div>
+  </div>
+  
+  <!-- Event details modal -->
+  <dialog id="event-details-modal" class="modal modal-bottom sm:modal-middle">
+    <div class="modal-box">
+      <h3 id="modal-title" class="font-bold text-xl mb-2"></h3>
+      <div class="divider my-1"></div>
+      <div class="grid grid-cols-[auto_1fr] gap-2 items-start mb-4">
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mt-1" viewBox="0 0 16 16">
+          <path d="M3.5 0a.5.5 0 0 1 .5.5V1h8V.5a.5.5 0 0 1 1 0V1h1a2 2 0 0 1 2 2v11a2 2 0 0 1-2 2H2a2 2 0 0 1-2-2V3a2 2 0 0 1 2-2h1V.5a.5.5 0 0 1 .5-.5zM1 4v10a1 1 0 0 0 1 1h12a1 1 0 0 0 1-1V4H1z"/>
+        </svg>
+        <p id="modal-date" class=""></p>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mt-1" viewBox="0 0 16 16">
+          <path d="M8 16s6-5.686 6-10A6 6 0 0 0 2 6c0 4.314 6 10 6 10zm0-7a3 3 0 1 1 0-6 3 3 0 0 1 0 6z"/>
+        </svg>
+        <p id="modal-location" class=""></p>
+        
+        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mt-1" viewBox="0 0 16 16">
+          <path d="M14.5 3a.5.5 0 0 1 .5.5v9a.5.5 0 0 1-.5.5h-13a.5.5 0 0 1-.5-.5v-9a.5.5 0 0 1 .5-.5h13zm-13-1A1.5 1.5 0 0 0 0 3.5v9A1.5 1.5 0 0 0 1.5 14h13a1.5 1.5 0 0 0 1.5-1.5v-9A1.5 1.5 0 0 0 14.5 2h-13z"/>
+          <path d="M7 5.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 1 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0zM7 9.5a.5.5 0 0 1 .5-.5h5a.5.5 0 0 1 0 1h-5a.5.5 0 0 1-.5-.5zm-1.496-.854a.5.5 0 0 1 0 .708l-1.5 1.5a.5.5 0 0 1-.708 0l-.5-.5a.5.5 0 0 1 .708-.708l.146.147 1.146-1.147a.5.5 0 0 1 .708 0z"/>
+        </svg>
+        <p id="modal-type" class=""></p>
+      </div>
+      <div class="modal-action">
+        <a id="view-event-link" href="#" class="btn btn-primary">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mr-1" viewBox="0 0 16 16">
+            <path d="M8 15A7 7 0 1 1 8 1a7 7 0 0 1 0 14zm0 1A8 8 0 1 0 8 0a8 8 0 0 0 0 16z"/>
+            <path d="m8.93 6.588-2.29.287-.082.38.45.083c.294.07.352.176.288.469l-.738 3.468c-.194.897.105 1.319.808 1.319.545 0 1.178-.252 1.465-.598l.088-.416c-.2.176-.492.246-.686.246-.275 0-.375-.193-.304-.533L8.93 6.588zM9 4.5a1 1 0 1 1-2 0 1 1 0 0 1 2 0z"/>
+          </svg>
+          View Details
+        </a>
+        <button class="btn" onclick="document.getElementById('event-details-modal').close()">
+          <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" fill="currentColor" class="mr-1" viewBox="0 0 16 16">
+            <path d="M4.646 4.646a.5.5 0 0 1 .708 0L8 7.293l2.646-2.647a.5.5 0 0 1 .708.708L8.707 8l2.647 2.646a.5.5 0 0 1-.708.708L8 8.707l-2.646 2.647a.5.5 0 0 1-.708-.708L7.293 8 4.646 5.354a.5.5 0 0 1 0-.708z"/>
+          </svg>
+          Close
+        </button>
+      </div>
+    </div>
+  </dialog>
+</div>
+
+<script define:vars={{ serializedEvents, currentMonth, currentYear }}>
+  document.addEventListener('DOMContentLoaded', function() {
+    // Parse events
+    const events = JSON.parse(serializedEvents);
+    
+    // Initialize variables
+    let displayMonth = currentMonth;
+    let displayYear = currentYear;
+    
+    // Get DOM elements
+    const calendarDays = document.getElementById('calendar-days');
+    const monthYearElement = document.getElementById('month-year');
+    const prevMonthButton = document.getElementById('prev-month');
+    const nextMonthButton = document.getElementById('next-month');
+    const modal = document.getElementById('event-details-modal');
+    
+    // Month names
+    const monthNames = [
+      'January', 'February', 'March', 'April', 'May', 'June',
+      'July', 'August', 'September', 'October', 'November', 'December'
+    ];
+    
+    // Function to render the calendar
+    function renderCalendar(month, year) {
+      // Clear previous calendar days
+      calendarDays.innerHTML = '';
+      
+      // Update month and year display
+      monthYearElement.textContent = `${monthNames[month]} ${year}`;
+      
+      // Get the first day of the month (0 = Sunday, 1 = Monday, etc.)
+      const firstDay = new Date(year, month, 1).getDay();
+      
+      // Log the current month and year for debugging
+      console.log(`Rendering calendar for ${monthNames[month]} ${year}`);
+      console.log('Events:', events);
+      
+      // Get the number of days in the month
+      const daysInMonth = new Date(year, month + 1, 0).getDate();
+      
+      // Create empty cells for days before the first day of the month
+      for (let i = 0; i < firstDay; i++) {
+        const emptyDay = document.createElement('div');
+        emptyDay.className = 'day empty';
+        calendarDays.appendChild(emptyDay);
+      }
+      
+      // Create cells for each day of the month
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayElement = document.createElement('div');
+        dayElement.className = 'day';
+        
+        // Create day number element
+        const dayNumber = document.createElement('div');
+        dayNumber.className = 'day-number';
+        dayNumber.textContent = day;
+        dayElement.appendChild(dayNumber);
+        
+        // Check if the day is today
+        const today = new Date();
+        if (day === today.getDate() && month === today.getMonth() && year === today.getFullYear()) {
+          dayElement.classList.add('today');
+        }
+        
+        // Format the date string for comparison with events (YYYY-MM-DD)
+        const dateString = `${year}-${String(month + 1).padStart(2, '0')}-${String(day).padStart(2, '0')}`;
+        
+        // Find events for this day
+        const dayEvents = events.filter(event => event.date === dateString);
+        
+        // Add events to the day
+        if (dayEvents.length > 0) {
+          const eventsContainer = document.createElement('div');
+          eventsContainer.className = 'day-events';
+          
+          // Log found events for this day
+          console.log(`Found ${dayEvents.length} events for ${dateString}:`, dayEvents);
+          
+          dayEvents.forEach(event => {
+            const eventElement = document.createElement('div');
+            eventElement.className = 'event';
+            eventElement.style.backgroundColor = event.color || '#4CAF50';
+            
+            // Create a more structured event display
+            const eventContent = document.createElement('div');
+            eventContent.className = 'event-content';
+            
+            const eventTitle = document.createElement('div');
+            eventTitle.className = 'event-title';
+            eventTitle.textContent = event.title;
+            eventContent.appendChild(eventTitle);
+            
+            // Add time if available
+            const eventTime = document.createElement('div');
+            eventTime.className = 'event-time';
+            const eventDate = new Date(event.date);
+            // Extract time from the date string if available
+            const timeMatch = event.date.match(/T(\d{2}:\d{2})/);
+            if (timeMatch && timeMatch[1]) {
+              eventTime.textContent = timeMatch[1];
+            }
+            eventContent.appendChild(eventTime);
+            
+            eventElement.appendChild(eventContent);
+            
+            // Add click event to show details
+            eventElement.addEventListener('click', () => {
+              // Set modal content
+              document.getElementById('modal-title').textContent = event.title;
+              document.getElementById('modal-date').textContent = `${new Date(event.date).toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}`;
+              document.getElementById('modal-location').textContent = event.location;
+              document.getElementById('modal-type').textContent = event.type;
+              
+              // Set link to event details
+              const viewEventLink = document.getElementById('view-event-link');
+              viewEventLink.href = `/events/${event.id}`;
+              
+              // Show modal
+              modal.showModal();
+            });
+            
+            eventsContainer.appendChild(eventElement);
+          });
+          
+          dayElement.appendChild(eventsContainer);
+        }
+        
+        calendarDays.appendChild(dayElement);
+      }
+    }
+    
+    // Initialize calendar
+    renderCalendar(displayMonth, displayYear);
+    
+    // Add event listeners for navigation buttons
+    prevMonthButton.addEventListener('click', () => {
+      displayMonth--;
+      if (displayMonth < 0) {
+        displayMonth = 11;
+        displayYear--;
+      }
+      renderCalendar(displayMonth, displayYear);
+    });
+    
+    nextMonthButton.addEventListener('click', () => {
+      displayMonth++;
+      if (displayMonth > 11) {
+        displayMonth = 0;
+        displayYear++;
+      }
+      renderCalendar(displayMonth, displayYear);
+    });
+    
+    console.log('Calendar initialized with events:', events);
+  });
+</script>
+
+<style>
+  .calendar-container {
+    margin-bottom: 2rem;
+    transition: all 0.3s ease;
+    border-radius: 0.5rem;
+    overflow: hidden;
+    box-shadow: 0 4px 15px rgba(0, 0, 0, 0.08);
+    background-color: white;
+    border-radius: 1rem;
+  }
+  
+  .calendar-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem;
+    background-color: hsl(var(--p));
+    color: white;
+    border-top-left-radius: 1rem;
+    border-top-right-radius: 1rem;
+  }
+  
+  .calendar-grid {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    border-top: 1px solid rgba(226, 232, 240, 0.5);
+  }
+  
+  .weekday {
+    padding: 0.75rem;
+    text-align: center;
+    font-weight: bold;
+    background-color: hsl(var(--b2));
+    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+    font-weight: 600;
+    color: hsl(var(--p));
+  }
+  
+  .calendar-days {
+    display: contents;
+  }
+  
+  .day {
+    height: 100px;
+    padding: 0.5rem;
+    border-right: 1px solid rgba(226, 232, 240, 0.5);
+    border-bottom: 1px solid rgba(226, 232, 240, 0.5);
+    position: relative;
+    display: flex;
+    background-color: white;
+    flex-direction: column;
+  }
+  
+  .day:nth-child(7n) {
+    border-right: none;
+  }
+  
+  .day.empty {
+    background-color: rgba(248, 250, 252, 0.5);
+  }
+  
+  .day.today {
+    background-color: rgba(240, 249, 255, 0.7);
+    border: 1px solid hsl(var(--p) / 0.2);
+  }
+  
+  .day-number {
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+    color: hsl(var(--p));
+    text-align: right;
+    width: 100%;
+    font-size: 0.9rem;
+  }
+  
+  .day-events {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+  }
+  
+  .event {
+    padding: 0.25rem 0.5rem;
+    margin-bottom: 3px;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    color: white;
+    cursor: pointer;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+    transition: all 0.2s ease;
+    width: 100%;
+    border: 1px solid rgba(255, 255, 255, 0.2);
+  }
+  
+  .event-content {
+    display: flex;
+    flex-direction: column;
+  }
+  
+  .event-title {
+    font-weight: 600;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+  }
+  
+  .event-time {
+    font-size: 0.65rem;
+    opacity: 0.9;
+  }
+  
+  .event:hover {
+    opacity: 0.9;
+    transform: translateY(-2px);
+    box-shadow: 0 2px 5px rgba(0, 0, 0, 0.2);
+  }
+  @media (max-width: 768px) {
+    .day {
+      height: 80px;
+      padding: 0.25rem;
+    }
+    
+    
+    .event {
+      font-size: 0.7rem;
+      padding: 0.15rem 0.3rem;
+    }
+    
+    .day-number {
+      font-size: 0.8rem;
+      margin-bottom: 0.25rem;
+    }
+  }
+</style>

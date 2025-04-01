@@ -2,11 +2,36 @@
 // MapControls.astro - Component for map controls and functionality
 ---
 
+<div class="map-controls absolute top-4 left-4 z-10 flex flex-col gap-2">
+  <!-- User Location Button -->
+  <button id="user-location-btn" class="btn btn-circle btn-primary">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  </button>
+  
+  <!-- Map Style Switcher -->
+  <div class="dropdown dropdown-right">
+    <label tabindex="0" class="btn btn-circle btn-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+      </svg>
+    </label>
+    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+      <li><a id="style-streets" class="active">Streets</a></li>
+      <li><a id="style-satellite">Satellite</a></li>
+      <li><a id="style-light">Light</a></li>
+      <li><a id="style-dark">Dark</a></li>
+    </ul>
+  </div>
+</div>
+
 <script>
   import mapboxgl from "mapbox-gl";
-  import { 
-    createAirportMarker, 
-    createCityMarker, 
+  import {
+    createAirportMarker,
+    createCityMarker,
     createPianoPopup,
     calculateDistance,
     type MapPiano
@@ -66,9 +91,11 @@
       defaultZoom
     );
 
+    // Use the global mapStyles object
+
     const map = new mapboxgl.Map({
       container: "map",
-      style: "mapbox://styles/mapbox/navigation-day-v1",
+      style: mapStyles.streets,
       center: defaultCenter,
       zoom: defaultZoom,
       minZoom: 1.5,
@@ -77,46 +104,280 @@
 
     // Add navigation controls
     map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    
+    // Store markers for filtering
+    const markers: { marker: mapboxgl.Marker; piano: MapPiano }[] = [];
+    
+    // Initialize clustering
+    let clusterEnabled = true; // Default to enabled
 
     // Wait for map to load before adding markers
     map.on("load", () => {
       console.log("Map loaded, adding markers...");
-
-      // Add piano markers
-      pianoData.forEach((piano) => {
-        console.log(
-          "Adding marker for piano:",
-          piano.name,
-          "at coordinates:",
-          piano.coordinates,
-          "category:",
-          piano.category
-        );
-
-        // Create a custom popup
-        const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
-          createPianoPopup(piano)
-        );
-
-        // Create and add the marker with appropriate icon based on category
-        const markerElement = piano.category === "airport"
-          ? createAirportMarker().cloneNode(true) as HTMLElement
-          : createCityMarker().cloneNode(true) as HTMLElement;
-
-        const marker = new mapboxgl.Marker({
-          element: markerElement,
-          anchor: "center",
-          scale: 0.5, // Use the same scale for both types
-        })
-          .setLngLat(piano.coordinates)
-          .setPopup(popup)
-          .addTo(map);
-
-        // If this is the target piano, open its popup
-        if (targetPiano && piano.id === targetPiano.id) {
-          marker.togglePopup();
+      
+      // Add cluster source and layer
+      map.addSource('piano-clusters', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: []
+        },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50
+      });
+      
+      // Add cluster circles
+      map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'piano-clusters',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            'hsl(var(--p) / 0.6)',  // Small clusters
+            10,
+            'hsl(var(--p) / 0.7)',  // Medium clusters
+            30,
+            'hsl(var(--p) / 0.8)'   // Large clusters
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            20,   // Radius for small clusters
+            10,   // Threshold
+            25,   // Radius for medium clusters
+            30,   // Threshold
+            30    // Radius for large clusters
+          ],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'white'
         }
       });
+      
+      // Add cluster count labels
+      map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'piano-clusters',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 14
+        },
+        paint: {
+          'text-color': 'white'
+        }
+      });
+      
+      // Add unclustered point layer
+      map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'piano-clusters',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': 'hsl(var(--p))',
+          'circle-radius': 6,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'white'
+        }
+      });
+      
+      // Handle cluster click
+      map.on('click', 'clusters', (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        if (!features || features.length === 0) return;
+        
+        const clusterId = features[0].properties?.cluster_id;
+        if (!clusterId) return;
+        
+        (map.getSource('piano-clusters') as mapboxgl.GeoJSONSource).getClusterExpansionZoom(
+          clusterId,
+          (err, zoom) => {
+            if (err) return;
+            
+            if (zoom) {
+              map.easeTo({
+                center: (features[0].geometry as GeoJSON.Point).coordinates as [number, number],
+                zoom: zoom
+              });
+            }
+          }
+        );
+      });
+      
+      // Change cursor on hover
+      map.on('mouseenter', 'clusters', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      
+      map.on('mouseleave', 'clusters', () => {
+        map.getCanvas().style.cursor = '';
+      });
+      
+      // Handle unclustered point click
+      map.on('click', 'unclustered-point', (e) => {
+        if (!e.features || e.features.length === 0) return;
+        
+        const feature = e.features[0];
+        const coordinates = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+        const properties = feature.properties;
+        
+        if (properties && properties.pianoData) {
+          // Create popup
+          new mapboxgl.Popup()
+            .setLngLat(coordinates)
+            .setHTML(createPianoPopup(JSON.parse(properties.pianoData)))
+            .addTo(map);
+        }
+      });
+      
+      // Change cursor on hover for unclustered points
+      map.on('mouseenter', 'unclustered-point', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      
+      map.on('mouseleave', 'unclustered-point', () => {
+        map.getCanvas().style.cursor = '';
+      });
+
+      // Function to add piano markers
+      function addPianoMarkers(pianos: MapPiano[]) {
+        // Clear existing markers
+        markers.forEach(({ marker }) => marker.remove());
+        markers.length = 0;
+        
+        // Add new markers
+        pianos.forEach((piano) => {
+          console.log(
+            "Adding marker for piano:",
+            piano.name,
+            "at coordinates:",
+            piano.coordinates,
+            "category:",
+            piano.category
+          );
+
+          // Create a custom popup
+          const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+            createPianoPopup(piano)
+          );
+
+          // Create and add the marker with appropriate icon based on category
+          const markerElement = piano.category === "airport"
+            ? createAirportMarker().cloneNode(true) as HTMLElement
+            : createCityMarker().cloneNode(true) as HTMLElement;
+
+          const marker = new mapboxgl.Marker({
+            element: markerElement,
+            anchor: "center",
+            scale: 0.5, // Use the same scale for both types
+          })
+            .setLngLat(piano.coordinates)
+            .setPopup(popup)
+            .addTo(map);
+
+          // Store the marker and piano data for filtering
+          markers.push({ marker, piano });
+
+          // If this is the target piano, open its popup
+          if (targetPiano && piano.id === targetPiano.id) {
+            marker.togglePopup();
+          }
+        });
+      }
+      
+      // Function to update cluster data
+      function updateClusterData(pianos: MapPiano[]) {
+        // Convert pianos to GeoJSON features
+        const features = pianos.map(piano => ({
+          type: 'Feature' as const,
+          geometry: {
+            type: 'Point' as const,
+            coordinates: piano.coordinates
+          },
+          properties: {
+            id: piano.id,
+            name: piano.name,
+            category: piano.category,
+            pianoData: JSON.stringify(piano) // Store all piano data for popup
+          }
+        }));
+        
+        // Update the cluster source data
+        (map.getSource('piano-clusters') as mapboxgl.GeoJSONSource).setData({
+          type: 'FeatureCollection',
+          features
+        });
+      }
+      
+      // Toggle clustering function
+      function toggleClustering(enabled: boolean) {
+        clusterEnabled = enabled;
+        
+        // Show/hide appropriate layers
+        const markerVisibility = enabled ? 'none' : 'visible';
+        const clusterVisibility = enabled ? 'visible' : 'none';
+        
+        // Update individual markers
+        markers.forEach(({ marker }) => {
+          const markerElement = marker.getElement();
+          markerElement.style.display = markerVisibility;
+        });
+        
+        // Update cluster layers
+        ['clusters', 'cluster-count', 'unclustered-point'].forEach(layer => {
+          map.setLayoutProperty(layer, 'visibility', clusterVisibility);
+        });
+      }
+      
+      // Add cluster toggle button to the map
+      const clusterToggleButton = document.createElement('button');
+      clusterToggleButton.className = 'cluster-toggle-btn';
+      clusterToggleButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+        </svg>
+      `;
+      clusterToggleButton.title = 'Toggle Clustering';
+      
+      // Create a custom control class
+      class ClusterToggleControl {
+        private _container!: HTMLElement; // Using definite assignment assertion
+        
+        onAdd(map: mapboxgl.Map): HTMLElement {
+          this._container = document.createElement('div');
+          this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+          this._container.appendChild(clusterToggleButton);
+          return this._container;
+        }
+        
+        onRemove(): void {
+          this._container.parentNode?.removeChild(this._container);
+        }
+      }
+      
+      // Add the custom control to the map
+      map.addControl(new ClusterToggleControl(), 'top-right');
+      
+      // Toggle clustering when button is clicked
+      clusterToggleButton.addEventListener('click', () => {
+        toggleClustering(!clusterEnabled);
+        clusterToggleButton.classList.toggle('active');
+      });
+      
+      // Add all piano markers initially
+      addPianoMarkers(pianoData);
+      
+      // Update cluster data
+      updateClusterData(pianoData);
+      
+      // Initialize with clustering enabled
+      toggleClustering(true);
 
       // Function to draw lines to nearest pianos
       function drawNearestPianoLines(userLat: number, userLng: number): void {
@@ -216,6 +477,33 @@
         // Update the nearest piano lines
         drawNearestPianoLines(lat, lng);
       }) as EventListener);
+      
+      // Listen for filter changes
+      window.addEventListener("filtersChanged", ((e: CustomEvent) => {
+        const filters = e.detail;
+        console.log("Filters changed:", filters);
+        
+        // Filter pianos based on selected criteria
+        const filteredPianos = pianoData.filter(piano => {
+          // Check each filter criteria
+          if (filters.category && piano.category !== filters.category) return false;
+          if (filters.type && piano.type !== filters.type) return false;
+          if (filters.condition && piano.condition !== filters.condition) return false;
+          if (filters.country && piano.country !== filters.country) return false;
+          if (filters.city && piano.city !== filters.city) return false;
+          
+          // Piano passed all filters
+          return true;
+        });
+        
+        console.log(`Filtered from ${pianoData.length} to ${filteredPianos.length} pianos`);
+        
+        // Update markers with filtered pianos
+        addPianoMarkers(filteredPianos);
+        
+        // Update cluster data with filtered pianos
+        updateClusterData(filteredPianos);
+      }) as EventListener);
     });
 
     // Add error handling for map load
@@ -224,8 +512,98 @@
     });
   };
 
+  // Map style options (defined globally for access in event listeners)
+  const mapStyles = {
+    streets: "mapbox://styles/mapbox/streets-v12",
+    satellite: "mapbox://styles/mapbox/satellite-streets-v12",
+    light: "mapbox://styles/mapbox/light-v11",
+    dark: "mapbox://styles/mapbox/dark-v11"
+  };
+
   // Initialize map when DOM is loaded
-  document.addEventListener("DOMContentLoaded", initializeMap);
+  document.addEventListener("DOMContentLoaded", () => {
+    initializeMap();
+    
+    // Set up map style switcher
+    document.querySelectorAll('[id^="style-"]').forEach(element => {
+      element.addEventListener('click', (e) => {
+        const styleId = (e.currentTarget as HTMLElement).id.replace('style-', '');
+        const mapElement = document.getElementById('map');
+        const mapInstance = (mapElement as any).__mapboxgl;
+        
+        if (mapInstance && styleId in mapStyles) {
+          // Update map style
+          mapInstance.setStyle(mapStyles[styleId as keyof typeof mapStyles]);
+          
+          // Update active class
+          document.querySelectorAll('[id^="style-"]').forEach(el => {
+            el.classList.remove('active');
+          });
+          (e.currentTarget as HTMLElement).classList.add('active');
+        }
+      });
+    });
+    
+    // Set up user location button
+    const locationButton = document.getElementById('user-location-btn');
+    locationButton?.addEventListener('click', () => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            
+            // Save coordinates to localStorage
+            localStorage.setItem(
+              'userCoordinates',
+              JSON.stringify({ lat: latitude, lng: longitude })
+            );
+            
+            // Dispatch location change event
+            const locationEvent = new CustomEvent('locationChanged', {
+              detail: { lat: latitude, lng: longitude }
+            });
+            window.dispatchEvent(locationEvent);
+            
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-top toast-center';
+            toast.innerHTML = `
+              <div class="alert alert-success">
+                <span>Location updated successfully!</span>
+              </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            
+            // Show error toast
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-top toast-center';
+            toast.innerHTML = `
+              <div class="alert alert-error">
+                <span>Could not get your location. ${error.message}</span>
+              </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          }
+        );
+      } else {
+        // Show error toast if geolocation not supported
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-center';
+        toast.innerHTML = `
+          <div class="alert alert-error">
+            <span>Geolocation is not supported by your browser.</span>
+          </div>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+    });
+  });
 </script>
 
 <style>
@@ -255,5 +633,43 @@
     border: none !important;
     padding: 0.5rem !important;
     color: hsl(var(--bc)) !important;
+  }
+  
+  /* Map control styles */
+  .map-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  /* Style for active map style */
+  .dropdown-content a.active {
+    background-color: hsl(var(--p) / 0.2);
+    color: hsl(var(--p));
+  }
+  
+  /* Cluster toggle button */
+  .cluster-toggle-btn {
+    background: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px;
+    margin: 5px;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .cluster-toggle-btn.active {
+    background: hsl(var(--p));
+    color: white;
+  }
+  
+  .cluster-toggle-btn:hover {
+    background: hsl(var(--p) / 0.2);
   }
 </style>

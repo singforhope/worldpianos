@@ -2,6 +2,7 @@
 import MainLayout from "../layouts/MainLayout.astro";
 import MapContainer from "../components/map/MapContainer.astro";
 import MapControls from "../components/map/MapControls.astro";
+import FilterPanel from "../components/map/FilterPanel.astro";
 import { getAllPianos } from "../utils/dataService";
 import type { Piano } from "../utils/dataService";
 
@@ -19,6 +20,9 @@ try {
 ---
 
 <MainLayout>
-  <MapContainer pianos={pianos} pianoId={pianoId} error={error} />
-  <MapControls />
+  <div class="relative">
+    <MapContainer pianos={pianos} pianoId={pianoId} error={error} />
+    <MapControls />
+    <FilterPanel pianos={pianos} />
+  </div>
 </MainLayout>
