@@ -1,6 +1,5 @@
 ---
-// Import Supabase client and dataService functions
-import { supabase } from '../../utils/supabase';
+// Import dataService functions
 import { getAllPianos } from '../../utils/dataService';
 
 // Import our custom components
@@ -10,9 +9,7 @@ import ImageUploader from './ImageUploader.astro';
 import FormStatusMessage from './FormStatusMessage.astro';
 import EventService from './EventService.astro';
 
-// Authentication is now properly implemented
-const DEVELOPMENT_MODE = false; // No longer bypassing authentication
-const SERVICE_ROLE_KEY = ''; // Not using service role key anymore
+// Authentication is properly implemented
 
 // Check if the form is being displayed in a modal
 const isModal = Astro.url.searchParams.get('modal') === 'true';
@@ -32,15 +29,6 @@ const displayInModal = isModal || propsIsModal;
 const pianos = await getAllPianos();
 ---
 
-{DEVELOPMENT_MODE && (
-  <div class="alert alert-warning mb-4">
-    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-    <div>
-      <h3 class="font-bold">Development Mode</h3>
-      <div class="text-xs">Authentication is bypassed. This should NOT be used in production!</div>
-    </div>
-  </div>
-)}
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
@@ -149,10 +137,10 @@ const pianos = await getAllPianos();
 <!-- No external libraries needed for simple success message -->
 
 <!-- Include the Supabase client -->
-<SupabaseClient developmentMode={DEVELOPMENT_MODE} serviceRoleKey={SERVICE_ROLE_KEY} />
+<SupabaseClient />
 
 <!-- Include the Event Service -->
-<EventService developmentMode={DEVELOPMENT_MODE} />
+<EventService />
 
 <!-- Add Toastify CSS -->
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
@@ -179,8 +167,17 @@ const pianos = await getAllPianos();
 
 <!-- Auth utilities script -->
 <script>
-  // Import auth and profile directly (not dynamically)
+  // Import auth, profile, and form utilities
   import { auth, profile } from '../../utils/auth';
+  import {
+    generateUniqueId,
+    uploadImage,
+    createMediaEntry,
+    checkAuthentication,
+    handleFormError,
+    showToast,
+    logFormData
+  } from '../../utils/formUtils';
   
   // Add TypeScript declaration to extend window interface
   interface WindowWithAuth extends Window {
@@ -194,10 +191,7 @@ const pianos = await getAllPianos();
   (window as WindowWithAuth).worldPianosAuth = { auth, profile };
 </script>
 
-<script define:vars={{ DEVELOPMENT_MODE, displayInModal }}>
-  // Make development mode available globally
-  window.developmentMode = DEVELOPMENT_MODE;
-  
+<script define:vars={{ displayInModal }}>
   // Create global static flags to prevent duplicate submissions
   if (typeof window !== 'undefined') {
     // Initialize global flags if they don't exist
@@ -390,7 +384,7 @@ const pianos = await getAllPianos();
           console.log('Location coordinates:', { lat, lng });
           
           // Generate a unique ID for the event
-          const uniqueId = `event_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          const uniqueId = generateUniqueId('event');
           console.log('Generated unique ID:', uniqueId);
           
           const eventData = {
@@ -410,36 +404,23 @@ const pianos = await getAllPianos();
             created_by: null // Will be set in the authentication check
           };
           
-          // Check for authentication using the exposed auth utilities
-          try {
-            // Use the auth utilities exposed on the window with our helper function
-            const { auth, profile } = await ensureAuthUtilities();
-            
-            // Get the current session
-            const session = await auth.getSession();
-            
-            if (!session) {
-              showStatus("error", "You must be logged in to add an event.");
-              throw new Error('Authentication required');
-            }
-            
-            // Get user ID for tracking who created the event
-            const userId = session.user.id;
-            
-            // Set the user ID on the eventData object
-            eventData.created_by = userId;
-            
-            // Check if admin for certain operations
-            const isAdmin = await profile.isAdmin(userId);
-            
-            // Additional admin-only fields
-            if (isAdmin) {
-              eventData.verified = true;
-            }
-          } catch (error) {
-            console.error('Authentication error:', error);
-            showStatus("error", "Authentication error. Please try logging in again. You may need to refresh the page.");
-            throw new Error('Authentication error');
+          // Check for authentication
+          const { userId, error: authError } = await checkAuthentication();
+          
+          if (authError) {
+            showStatus("error", authError);
+            throw new Error('Authentication required');
+          }
+          
+          // Set the user ID on the eventData object
+          eventData.created_by = userId;
+          
+          // Check if admin for certain operations
+          const isAdmin = await profile.isAdmin(userId);
+          
+          // Additional admin-only fields
+          if (isAdmin) {
+            eventData.verified = true;
           }
           
           // Validate all required fields are present
@@ -474,33 +455,10 @@ const pianos = await getAllPianos();
           const imageFile = formData.get('eventPicture');
           let imageUrl = null;
           
-          if (imageFile && imageFile.size > 0) {
-            console.log('Uploading image:', imageFile.name);
-            
-            // Generate a unique file name
-            const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            
-            try {
-              // Upload to Supabase Storage
-              const { data: uploadData, error: uploadError } = await window.supabaseClient.storage
-                .from('event-images')
-                .upload(fileName, imageFile);
-                
-              if (uploadError) {
-                console.error('Error uploading image:', uploadError);
-                throw uploadError;
-              }
-              
-              // Get public URL
-              const { data: urlData } = window.supabaseClient.storage
-                .from('event-images')
-                .getPublicUrl(fileName);
-                
-              imageUrl = urlData.publicUrl;
+          if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+            imageUrl = await uploadImage(imageFile, 'event-images', `Image for event ${eventData.name}`);
+            if (imageUrl) {
               console.log('Image uploaded successfully:', imageUrl);
-            } catch (error) {
-              console.error('Error handling image upload:', error);
-              // Continue with event creation even if image upload fails
             }
           }
           
@@ -539,24 +497,15 @@ const pianos = await getAllPianos();
             
             // If we have an image, create an event_media entry
             if (imageUrl && data && data[0] && data[0].id) {
-              try {
-                const { data: mediaData, error: mediaError } = await window.supabaseClient
-                  .from('event_media')
-                  .insert({
-                    event_id: data[0].id,
-                    media_type: 'image',
-                    url: imageUrl,
-                    description: `Primary image for ${eventData.name}`
-                  });
-                  
-                if (mediaError) {
-                  console.error('Error creating event media entry:', mediaError);
-                } else {
-                  console.log('Event media entry created:', mediaData);
-                }
-              } catch (mediaError) {
-                console.error('Error creating event media entry:', mediaError);
-                // Continue even if media creation fails
+              const mediaEntry = await createMediaEntry(
+                'event_media',
+                data[0].id,
+                imageUrl,
+                `Primary image for ${eventData.name}`
+              );
+              
+              if (mediaEntry) {
+                console.log('Event media entry created:', mediaEntry);
               }
             }
             
@@ -598,10 +547,30 @@ const pianos = await getAllPianos();
                 window.showToast(`Event "${data[0].name}" added successfully!`, 'success');
               }
               
-              // Redirect to event details page after a short delay
-              setTimeout(() => {
-                window.location.href = `/events/${data[0].id}`;
-              }, 1500);
+              // Check if the event details page exists before redirecting
+              const eventDetailsUrl = `/events/${data[0].id}`;
+              
+              if (window.checkUrlExists) {
+                window.checkUrlExists(eventDetailsUrl, (exists) => {
+                  if (exists) {
+                    // Redirect to event details page after a short delay
+                    setTimeout(() => {
+                      window.location.href = eventDetailsUrl;
+                    }, 1500);
+                  } else {
+                    // If the page doesn't exist, redirect to the events list page
+                    console.warn(`Event details page ${eventDetailsUrl} does not exist, redirecting to events list`);
+                    setTimeout(() => {
+                      window.location.href = '/events';
+                    }, 1500);
+                  }
+                });
+              } else {
+                // Fallback if checkUrlExists is not available
+                setTimeout(() => {
+                  window.location.href = eventDetailsUrl;
+                }, 1500);
+              }
             }
           } catch (error) {
             console.error('Error creating event:', error);
@@ -618,27 +587,9 @@ const pianos = await getAllPianos();
             }
           }
         } catch (error) {
-          // Show detailed error message
+          // Handle and show error message
           console.error("Form submission error:", error);
-          
-          let errorMessage = "There was an error submitting the form. Please try again.";
-          
-          // Provide more specific error messages based on the error type
-          if (error.message) {
-            if (error.message.includes('Location not selected')) {
-              errorMessage = "Please select a location using the map.";
-            } else if (error.message.includes('permission') || error.message.includes('access')) {
-              errorMessage = "Permission denied. You may need to log in or check your access rights.";
-            } else if (error.message.includes('network') || error.message.includes('connection')) {
-              errorMessage = "Network error. Please check your internet connection.";
-            } else if (error.message.includes('validation')) {
-              errorMessage = "Validation error. Please check your form inputs.";
-            } else if (error.message.includes('bucket')) {
-              errorMessage = "Error with image storage. Please try again or skip adding an image.";
-            }
-          }
-          
-          // Show the error message
+          const errorMessage = handleFormError(error);
           showStatus("error", errorMessage);
           
           // Log detailed error information to console

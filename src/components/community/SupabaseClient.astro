@@ -1,135 +1,31 @@
 ---
 // This component is a simple wrapper around the Supabase client
-// It doesn't need to load Supabase from a CDN because it's already
-// imported and initialized in src/utils/auth.ts
+// It exposes the already initialized Supabase client to the browser
 
 // Import the already initialized Supabase client
-import { supabase } from '../../utils/supabase';
-
-// Props for the component (kept for backward compatibility)
-interface Props {
-  developmentMode?: boolean;
-  serviceRoleKey?: string;
-}
-
-// Destructure props (not used but kept for backward compatibility)
-const {
-  developmentMode = false,
-  serviceRoleKey = ''
-} = Astro.props;
-
-// Get the Supabase URL and key from environment variables
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
+import { supabase } from '../../utils/supabaseClient';
 ---
 
 <!-- Make the Supabase client available globally -->
-<script is:inline define:vars={{ supabaseUrl, supabaseAnonKey }}>
-  // Log the environment variables for debugging
-  console.log('Supabase URL:', supabaseUrl);
-  console.log('Supabase Anon Key:', supabaseAnonKey ? 'Present' : 'Missing');
+<script>
+  // Import the Supabase client
+  import { supabase } from '../../utils/supabaseClient';
   
-  // Create Supabase client directly in the browser
-  // This ensures we don't have any module loading issues
+  // Add TypeScript declaration to extend window interface
+  interface WindowWithSupabase extends Window {
+    supabaseClient?: typeof supabase;
+    hasDispatchedSupabaseReady?: boolean;
+  }
+  
+  // Make the Supabase client available globally
   if (typeof window !== 'undefined') {
-    // Store the Supabase URL and keys globally for direct access if needed
-    window.supabaseUrl = supabaseUrl;
-    window.supabaseAnonKey = supabaseAnonKey;
+    (window as WindowWithSupabase).supabaseClient = supabase;
     
-    // Function to initialize Supabase client
-    function initSupabaseClient() {
-      console.log('Initializing Supabase client');
-      
-      // Check if Supabase is already loaded
-      if (window.supabase && supabaseUrl && supabaseAnonKey) {
-        console.log('Creating Supabase client from CDN');
-        try {
-          // Initialize the Supabase client
-          window.supabaseClient = window.supabase.createClient(supabaseUrl, supabaseAnonKey, {
-            auth: {
-              persistSession: true,
-              autoRefreshToken: true,
-              storageKey: 'worldpianos-auth',
-              flowType: 'implicit'
-            }
-          });
-          console.log('Supabase client created successfully');
-          
-          // Check if the client is working by getting the current session
-          window.supabaseClient.auth.getSession()
-            .then(({ data, error }) => {
-              if (error) {
-                console.error('Error getting session:', error);
-              } else {
-                console.log('Session check successful:', data.session ? 'User is logged in' : 'No active session');
-              }
-              
-              // Dispatch an event to notify other components that Supabase is ready
-              const event = new CustomEvent('supabase-ready');
-              window.dispatchEvent(event);
-              console.log('Dispatched supabase-ready event');
-            })
-            .catch(err => {
-              console.error('Error checking session:', err);
-              // Still dispatch the event so components can handle the error
-              const event = new CustomEvent('supabase-ready');
-              window.dispatchEvent(event);
-              console.log('Dispatched supabase-ready event (after error)');
-            });
-        } catch (err) {
-          console.error('Error creating Supabase client:', err);
-          // Dispatch the event even on failure so pages don't hang
-          const event = new CustomEvent('supabase-ready');
-          window.dispatchEvent(event);
-          console.log('Dispatched supabase-ready event (after client creation error)');
-        }
-      } else {
-        console.error('Failed to create Supabase client: missing dependencies');
-        // Dispatch the event even on failure so pages don't hang
-        const event = new CustomEvent('supabase-ready');
-        window.dispatchEvent(event);
-        console.log('Dispatched supabase-ready event (after missing dependencies)');
-      }
-    }
-    
-    // Check if we have a locally stored version first
-    if (window.supabaseClient) {
-      console.log('Supabase client already exists, dispatching ready event');
-      const event = new CustomEvent('supabase-ready');
-      window.dispatchEvent(event);
-    } else {
-      // Load the Supabase library from CDN
-      console.log('Loading Supabase from CDN');
-      const script = document.createElement('script');
-      script.src = 'https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2/dist/umd/supabase.min.js';
-      script.async = true;
-      script.onload = () => {
-        console.log('Supabase library loaded from CDN');
-        initSupabaseClient();
-      };
-      script.onerror = function() {
-        console.error('Failed to load Supabase library from CDN');
-        // Dispatch the event even on failure so pages don't hang
-        const event = new CustomEvent('supabase-ready');
-        window.dispatchEvent(event);
-        console.log('Dispatched supabase-ready event (after CDN load error)');
-      };
-      document.head.appendChild(script);
-    }
-    
-    // Set a timeout to ensure the event is fired even if something fails
-    setTimeout(() => {
-      if (!window.hasDispatchedSupabaseReady) {
-        console.warn('Forcing supabase-ready event after timeout');
-        window.hasDispatchedSupabaseReady = true;
-        const event = new CustomEvent('supabase-ready');
-        window.dispatchEvent(event);
-      }
-    }, 3000);
+    // Dispatch an event to notify other components that Supabase is ready
+    const event = new CustomEvent('supabase-ready');
+    window.dispatchEvent(event);
     
     // Track if the event has been dispatched
-    window.addEventListener('supabase-ready', () => {
-      window.hasDispatchedSupabaseReady = true;
-    });
+    (window as WindowWithSupabase).hasDispatchedSupabaseReady = true;
   }
 </script>

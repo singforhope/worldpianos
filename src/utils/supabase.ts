@@ -1,5 +1,5 @@
-// Re-export the supabase client from auth.ts
-import { supabase as supabaseClient } from './auth';
+// Re-export the supabase client from supabaseClient.ts
+import { supabase } from './supabaseClient';
 
 // Export the supabase client
-export const supabase = supabaseClient;
+export { supabase };

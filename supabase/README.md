@@ -4,8 +4,12 @@ This directory contains the necessary files for setting up and seeding the Supab
 
 ## Files
 
-- `schema.sql` - Contains the database schema (tables, functions, triggers, etc.)
-- `seed.sql` - Contains seed data for initial database population
+- `final_schema.sql` - Contains the complete database schema with UUID primary keys and storage buckets
+- `updated_seed.sql` - Contains seed data for initial database population (compatible with the new schema)
+- `storage_policies.sql` - Contains SQL to set up storage bucket policies for media files
+- `archive/schema.sql` - (Deprecated) Original schema file
+- `archive/updated_schema.sql` - (Deprecated) Intermediate schema update
+- `archive/seed.sql` - (Deprecated) Original seed file with TEXT IDs
 
 ## Setup Instructions
 
@@ -53,7 +57,7 @@ This will apply both the schema and seed files.
 Alternatively, you can apply just the schema:
 
 ```bash
-psql -h localhost -p 54322 -U postgres -d postgres -f supabase/schema.sql
+psql -h localhost -p 54322 -U postgres -d postgres -f supabase/final_schema.sql
 ```
 
 ### 5. Seed the Database
@@ -61,7 +65,7 @@ psql -h localhost -p 54322 -U postgres -d postgres -f supabase/schema.sql
 If you want to seed the database separately:
 
 ```bash
-psql -h localhost -p 54322 -U postgres -d postgres -f supabase/seed.sql
+psql -h localhost -p 54322 -U postgres -d postgres -f supabase/updated_seed.sql
 ```
 
 ## Supabase Project Setup
@@ -70,8 +74,9 @@ If you're using a hosted Supabase project:
 
 1. Go to your Supabase project dashboard
 2. Navigate to the SQL Editor
-3. Copy and paste the contents of `schema.sql` and run it
-4. Copy and paste the contents of `seed.sql` and run it
+3. Copy and paste the contents of `final_schema.sql` and run it
+4. Copy and paste the contents of `updated_seed.sql` and run it
+5. Copy and paste the contents of `storage_policies.sql` and run it to set up storage policies
 
 ## Database Structure
 
@@ -81,7 +86,7 @@ The database consists of the following main tables:
 
 Stores information about pianos:
 
-- `id` - Unique identifier for the piano
+- `id` - Unique identifier for the piano (UUID)
 - `name` - Name of the piano
 - `location` - Physical location description
 - `coordinates` - Geographic coordinates [longitude, latitude]
@@ -89,26 +94,29 @@ Stores information about pianos:
 - `type` - Type of piano (e.g., "Airport Piano", "Public Piano")
 - `condition` - Condition of the piano
 - `access` - Access information
-- `last_maintained` - Date of last maintenance
+- `last_maintained` - Date of last maintenance (TIMESTAMP WITH TIME ZONE)
 - `category` - Category (e.g., "airport", "city")
 - `airport_code` - Airport code (for airport pianos)
 - `country` - Country code
 - `city` - City name
 - `verified` - Whether the piano has been verified
+- `verification_count` - Number of verifications
+- `created_by` - User who created the piano record (UUID)
 
 ### Events
 
 Stores information about events related to pianos:
-
-- `id` - Unique identifier for the event
+- `id` - Unique identifier for the event (UUID)
 - `name` - Name of the event
 - `location` - Physical location description
 - `coordinates` - Geographic coordinates [longitude, latitude]
-- `date` - Date of the event
+- `date` - Date of the event (TIMESTAMP WITH TIME ZONE)
 - `time` - Time of the event
 - `description` - Detailed description
 - `type` - Type of event (e.g., "Festival", "Recital")
-- `piano_id` - Reference to the associated piano
+- `piano_id` - Reference to the associated piano (UUID)
+- `status` - Status of the event (e.g., "upcoming", "past")
+- `created_by` - User who created the event record (UUID)
 - `status` - Status of the event (e.g., "upcoming", "past")
 
 ## Data Migration
@@ -120,3 +128,13 @@ The seed file includes:
 - 6 events
 
 This provides a good starting point for testing and development.
+
+## Storage Buckets
+
+The schema also creates the following storage buckets:
+
+- `piano-images` - For storing piano images
+- `event-images` - For storing event images
+- `user-avatars` - For storing user profile pictures
+
+These buckets have public access policies for reading the files, but require authentication for uploading.

@@ -6,11 +6,14 @@ interface Props {
   label?: string;
 }
 
-const { 
+const {
   id = "location-picker",
   required = true,
   label = "Location"
 } = Astro.props;
+
+// Get Mapbox access token from environment variables
+const mapboxAccessToken = import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
 
 // Generate unique IDs for the form elements
 const geocoderContainerId = `${id}-geocoder-container`;
@@ -23,45 +26,71 @@ const cityInputId = `${id}-city`;
 
 <!-- Load Mapbox GL JS and Geocoder dynamically to prevent duplicates -->
 <script is:inline>
-  // Only load Mapbox libraries if they don't already exist
-  if (typeof mapboxgl === 'undefined') {
-    // Create and load Mapbox GL CSS
-    if (!document.querySelector('link[href*="mapbox-gl.css"]')) {
-      const mapboxCss = document.createElement('link');
-      mapboxCss.rel = 'stylesheet';
-      mapboxCss.href = 'https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css';
-      document.head.appendChild(mapboxCss);
-    }
+  // Use a self-executing function to avoid polluting the global scope
+  (function() {
+    // Track if we've already dispatched the mapbox-loaded event
+    let eventDispatched = false;
     
-    // Create and load Mapbox GL JS
-    if (!document.querySelector('script[src*="mapbox-gl.js"]')) {
-      const mapboxJs = document.createElement('script');
-      mapboxJs.src = 'https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js';
-      document.head.appendChild(mapboxJs);
-    }
-    
-    // Create and load Mapbox Geocoder CSS
-    if (!document.querySelector('link[href*="mapbox-gl-geocoder.css"]')) {
-      const geocoderCss = document.createElement('link');
-      geocoderCss.rel = 'stylesheet';
-      geocoderCss.href = 'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css';
-      document.head.appendChild(geocoderCss);
-    }
-    
-    // Create and load Mapbox Geocoder JS
-    if (!document.querySelector('script[src*="mapbox-gl-geocoder.min.js"]')) {
-      const geocoderJs = document.createElement('script');
-      geocoderJs.src = 'https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js';
-      geocoderJs.onload = function() {
-        // Dispatch an event when Mapbox libraries are loaded
+    // Function to dispatch the mapbox-loaded event (only once)
+    function dispatchMapboxLoadedEvent() {
+      if (!eventDispatched) {
         window.dispatchEvent(new CustomEvent('mapbox-loaded'));
-      };
-      document.head.appendChild(geocoderJs);
+        eventDispatched = true;
+      }
     }
-  } else {
-    // If Mapbox is already loaded, dispatch the event immediately
-    window.dispatchEvent(new CustomEvent('mapbox-loaded'));
-  }
+    
+    // Function to load a script if it doesn't exist
+    function loadScriptIfNeeded(src, onload) {
+      const existingScript = document.querySelector(`script[src*="${src}"]`);
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = src;
+        if (onload) script.onload = onload;
+        document.head.appendChild(script);
+        return true;
+      }
+      return false;
+    }
+    
+    // Function to load a stylesheet if it doesn't exist
+    function loadStyleIfNeeded(href) {
+      const existingLink = document.querySelector(`link[href*="${href}"]`);
+      if (!existingLink) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.appendChild(link);
+        return true;
+      }
+      return false;
+    }
+    
+    // Check if Mapbox is already loaded
+    if (typeof mapboxgl !== 'undefined' && typeof MapboxGeocoder !== 'undefined') {
+      // If already loaded, dispatch the event immediately
+      dispatchMapboxLoadedEvent();
+    } else {
+      // Load required resources
+      loadStyleIfNeeded('https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css');
+      loadStyleIfNeeded('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css');
+      
+      // Load Mapbox GL JS first
+      const mapboxJsLoaded = loadScriptIfNeeded('https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js', function() {
+        // After Mapbox GL JS is loaded, load the Geocoder
+        loadScriptIfNeeded('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js', function() {
+          // When both are loaded, dispatch the event
+          dispatchMapboxLoadedEvent();
+        });
+      });
+      
+      // If Mapbox JS was already loaded, we need to load Geocoder separately
+      if (!mapboxJsLoaded) {
+        loadScriptIfNeeded('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js', function() {
+          dispatchMapboxLoadedEvent();
+        });
+      }
+    }
+  })();
 </script>
 
 <div class="form-control w-full">
@@ -115,28 +144,42 @@ const cityInputId = `${id}-city`;
   }
 </style>
 
-<script define:vars={{ geocoderContainerId, latInputId, lngInputId, addressInputId, countryInputId, cityInputId }}>
-  // Function to initialize the geocoder once MapboxGL is loaded
-  function initializeGeocoder() {
-    console.log('Initializing geocoder for:', geocoderContainerId);
+<script define:vars={{ geocoderContainerId, latInputId, lngInputId, addressInputId, countryInputId, cityInputId, mapboxAccessToken }}>
+  // Use a self-executing function to avoid polluting the global scope
+  (function() {
+    // Cache DOM elements to avoid repeated lookups
+    let geocoderContainer, locationLat, locationLng, locationAddressInput, countryInput, cityInput;
+    let geocoderInitialized = false;
     
-    const geocoderContainer = document.getElementById(geocoderContainerId);
-    const locationLat = document.getElementById(latInputId);
-    const locationLng = document.getElementById(lngInputId);
-    const locationAddressInput = document.getElementById(addressInputId);
-    const countryInput = document.getElementById(countryInputId);
-    const cityInput = document.getElementById(cityInputId);
-    
-    // Check if container already has a geocoder input (prevent duplication)
-    if (geocoderContainer && 
-        !geocoderContainer.querySelector('.mapboxgl-ctrl-geocoder') &&
-        window.mapboxgl && window.MapboxGeocoder) {
+    // Function to initialize the geocoder once MapboxGL is loaded
+    function initializeGeocoder() {
+      // Only initialize once
+      if (geocoderInitialized) return;
       
-      console.log('Creating geocoder for:', geocoderContainerId);
+      // Get DOM elements if not already cached
+      if (!geocoderContainer) {
+        geocoderContainer = document.getElementById(geocoderContainerId);
+        locationLat = document.getElementById(latInputId);
+        locationLng = document.getElementById(lngInputId);
+        locationAddressInput = document.getElementById(addressInputId);
+        countryInput = document.getElementById(countryInputId);
+        cityInput = document.getElementById(cityInputId);
+      }
       
+      // Check if we can initialize
+      if (!geocoderContainer ||
+          geocoderContainer.querySelector('.mapboxgl-ctrl-geocoder') ||
+          !window.mapboxgl ||
+          !window.MapboxGeocoder) {
+        return;
+      }
+      
+      // Mark as initialized to prevent duplicate initialization
+      geocoderInitialized = true;
+      
+      // Create the geocoder
       const geocoder = new window.MapboxGeocoder({
-        accessToken: "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ",
-        countries: "us,ca,gb,fr,de,it,es,pt,au,nz,jp,kr,cn",
+        accessToken: mapboxAccessToken,
         language: "en",
         placeholder: "Search for a location...",
         types: "place,locality,neighborhood,address",
@@ -148,13 +191,8 @@ const cityInputId = `${id}-city`;
         mapboxgl: window.mapboxgl,
       });
       
-      // Only append if the container is empty
-      if (geocoderContainer.childElementCount === 0) {
-        geocoderContainer.appendChild(geocoder.onAdd());
-        console.log('Geocoder added to container:', geocoderContainerId);
-      } else {
-        console.log('Container already has a child element:', geocoderContainerId);
-      }
+      // Add the geocoder to the container
+      geocoderContainer.appendChild(geocoder.onAdd());
       
       // Handle geocoder result
       geocoder.on("result", (event) => {
@@ -163,8 +201,12 @@ const cityInputId = `${id}-city`;
         
         // Set hidden input values for coordinates
         if (locationLat && locationLng) {
-          locationLat.setAttribute('value', coordinates[1]); // latitude
-          locationLng.setAttribute('value', coordinates[0]); // longitude
+          locationLat.value = coordinates[1]; // latitude
+          locationLng.value = coordinates[0]; // longitude
+          
+          // Also set the attribute for form submission
+          locationLat.setAttribute('value', coordinates[1]);
+          locationLng.setAttribute('value', coordinates[0]);
         }
         
         // Store the full address
@@ -173,62 +215,44 @@ const cityInputId = `${id}-city`;
         }
         
         // Extract country and city from context
-        if (countryInput && cityInput) {
+        if (countryInput && cityInput && result.context) {
           // Find country and city from context
-          let country = '';
-          let city = '';
+          const countryContext = result.context.find(c => c.id.startsWith('country'));
+          const placeContext = result.context.find(c => c.id.startsWith('place'));
           
-          if (result.context) {
-            // Find country (usually last in context array)
-            const countryContext = result.context.find(c => c.id.startsWith('country'));
-            if (countryContext) {
-              country = countryContext.text;
-            }
-            
-            // Find city/place
-            const placeContext = result.context.find(c => c.id.startsWith('place'));
-            if (placeContext) {
-              city = placeContext.text;
-            } else if (result.place_type.includes('place')) {
-              // If the result itself is a place
-              city = result.text;
-            }
+          const country = countryContext ? countryContext.text : 'Unknown';
+          let city = 'Unknown';
+          
+          if (placeContext) {
+            city = placeContext.text;
+          } else if (result.place_type.includes('place')) {
+            city = result.text;
           }
           
           // Set values
-          countryInput.value = country || 'Unknown';
-          cityInput.value = city || 'Unknown';
-          
-          console.log('Location data extracted:', {
-            address: result.place_name,
-            country,
-            city,
-            coordinates
-          });
+          countryInput.value = country;
+          cityInput.value = city;
         }
       });
-    } else if (geocoderContainer) {
-      console.log('Geocoder already exists or dependencies missing for:', geocoderContainerId);
     }
-  }
-
-  // Wait for DOM and Mapbox to be loaded
-  document.addEventListener('DOMContentLoaded', () => {
-    // If Mapbox is already loaded, initialize the geocoder
-    if (window.mapboxgl && window.MapboxGeocoder) {
-      initializeGeocoder();
+    
+    // Single event listener for initialization
+    function setupInitialization() {
+      // Try to initialize immediately if possible
+      if (window.mapboxgl && window.MapboxGeocoder) {
+        initializeGeocoder();
+      } else {
+        // Set up a single event listener for the mapbox-loaded event
+        window.addEventListener('mapbox-loaded', initializeGeocoder, { once: true });
+      }
+    }
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupInitialization, { once: true });
     } else {
-      // Otherwise, wait for the mapbox-loaded event
-      window.addEventListener('mapbox-loaded', initializeGeocoder);
-      
-      // Failsafe: initialize after 3 seconds if the event doesn't fire
-      setTimeout(() => {
-        if (window.mapboxgl && window.MapboxGeocoder) {
-          initializeGeocoder();
-        } else {
-          console.error('Mapbox libraries not loaded after timeout');
-        }
-      }, 3000);
+      // DOM already loaded, set up initialization
+      setupInitialization();
     }
-  });
+  })();
 </script>

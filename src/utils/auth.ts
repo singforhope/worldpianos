@@ -1,79 +1,8 @@
-import { createClient, type User, type Session, type AuthError } from '@supabase/supabase-js';
+import { type User, type Session, type AuthError } from '@supabase/supabase-js';
+import { supabase } from './supabaseClient';
 
 // Environment detection
 const isBrowser = typeof window !== 'undefined';
-
-// Supabase URL and key from environment variables
-const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL;
-const supabaseAnonKey = import.meta.env.PUBLIC_SUPABASE_ANON_KEY;
-
-// Validate environment variables
-if (!supabaseUrl || !supabaseAnonKey) {
-  console.error('Missing Supabase environment variables!', {
-    hasUrl: !!supabaseUrl,
-    hasAnonKey: !!supabaseAnonKey
-  });
-  throw new Error('Supabase configuration error: Missing environment variables');
-}
-
-// Storage interface for TypeScript
-interface StorageInterface {
-  getItem(key: string): string | null | Promise<string | null>;
-  setItem(key: string, value: string): void | Promise<void>;
-  removeItem(key: string): void | Promise<void>;
-}
-
-// Create Supabase client with appropriate configuration
-// Create Supabase client with appropriate configuration
-console.log('Initializing Supabase client with URL:', supabaseUrl);
-console.log('Anon key present:', !!supabaseAnonKey);
-
-// Configure Supabase client to allow public access to certain tables
-// This is important for operations like fetching pianos and events
-// which should be accessible without authentication
-export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
-  auth: {
-    persistSession: isBrowser,
-    autoRefreshToken: isBrowser,
-    storageKey: 'worldpianos-auth',
-    detectSessionInUrl: isBrowser,
-    // Don't throw errors for unauthenticated requests
-    flowType: 'implicit',
-    storage: isBrowser ? {
-      getItem: (key: string) => {
-        try {
-          const storedValue = localStorage.getItem(key);
-          return storedValue ? JSON.parse(storedValue) : null;
-        } catch (error) {
-          console.error('Error getting auth from storage:', error);
-          return null;
-        }
-      },
-      setItem: (key: string, value: string) => {
-        try {
-          localStorage.setItem(key, JSON.stringify(value));
-        } catch (error) {
-          console.error('Error setting auth to storage:', error);
-        }
-      },
-      removeItem: (key: string) => {
-        try {
-          localStorage.removeItem(key);
-        } catch (error) {
-          console.error('Error removing auth from storage:', error);
-        }
-      },
-    } : undefined,
-  },
-  global: {
-    headers: {
-      'Content-Type': 'application/json',
-      'Accept': 'application/json',
-    },
-  },
-});
-
-// Supabase client initialization
 
 /**
  * Authentication service class
@@ -86,14 +15,8 @@ class AuthService {
     try {
       // In server-side rendering, we can't reliably check auth
       if (!isBrowser) {
-        console.log('isAuthenticated called server-side, returning false');
         return false;
       }
-      
-      // Use the global supabaseClient if available, otherwise fall back to the imported one
-      const client = (window as any).supabaseClient || supabase;
-      
-      console.log('Auth check using client:', client ? 'Available' : 'Not available');
       
       // First, check localStorage directly for session data
       try {
@@ -105,31 +28,23 @@ class AuthService {
             const expiresAt = new Date(parsedSession.expires_at * 1000);
             // Check if the token is not expired (with 60 seconds buffer)
             if (expiresAt > new Date(Date.now() + 60000)) {
-              console.log('Found valid session in localStorage');
               return true;
-            } else {
-              console.log('Found expired session in localStorage');
             }
           }
         }
       } catch (e) {
-        console.warn('Error checking localStorage for session:', e);
+        // Silent fail for storage errors
       }
       
       // If localStorage check failed or returned false, try the Supabase API
-      const { data, error } = await client.auth.getSession();
+      const { data, error } = await supabase.auth.getSession();
       
       if (error) {
-        console.error('Error getting session:', error);
         return false;
       }
       
-      const isAuthenticated = !!data.session;
-      console.log('Auth check result from API:', isAuthenticated ? 'Authenticated' : 'Not authenticated');
-      
-      return isAuthenticated;
+      return !!data.session;
     } catch (err) {
-      console.error('Exception in isAuthenticated:', err);
       // In case of errors, default to not authenticated for security
       return false;
     }
@@ -145,19 +60,11 @@ class AuthService {
         return null;
       }
       
-      // Use the global supabaseClient if available, otherwise fall back to the imported one
-      const client = (window as any).supabaseClient || supabase;
-      
-      console.log('Get user using client:', client ? 'Available' : 'Not available');
-      
-      const { data, error } = await client.auth.getUser();
+      const { data, error } = await supabase.auth.getUser();
       
       if (error) {
-        console.error('Error getting user:', error);
         return null;
       }
-      
-      console.log('User retrieved:', data.user ? 'Found' : 'Not found');
       
       return data.user;
     } catch (err) {
@@ -195,21 +102,10 @@ class AuthService {
     error: AuthError | null;
   }> {
     try {
-      // Use the global supabaseClient if available, otherwise fall back to the imported one
-      const client = (window as any).supabaseClient || supabase;
-      
-      console.log('Sign in using client:', client ? 'Available' : 'Not available');
-      
-      const { data, error } = await client.auth.signInWithPassword({
+      const { data, error } = await supabase.auth.signInWithPassword({
         email,
         password
       });
-      
-      if (error) {
-        console.error('Error signing in:', error);
-      } else {
-        console.log('Sign in successful:', data.user ? 'User found' : 'No user');
-      }
       
       return {
         user: data?.user || null,

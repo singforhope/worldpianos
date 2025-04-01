@@ -1,159 +1,134 @@
-import { supabase } from './supabase';
+import { supabase } from './supabaseClient';
+import {
+  handleDataServiceError,
+  handleSingleResult,
+  handleArrayResult,
+  handleFirstResult
+} from './dataServiceUtils';
 
 // Types
 export type Piano = {
-  id: string;
+  id: string; // UUID string in the database
   name: string;
   location: string;
-  coordinates: number[];
-  description: string;
+  coordinates: number[]; // [longitude, latitude] - NUMERIC[] in the database
+  description?: string;
   type: string;
   condition: string;
   access: string;
-  last_maintained?: string;
+  last_maintained?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
   category: string;
   airport_code?: string;
   country: string;
   city: string;
-  created_at?: string;
-  updated_at?: string;
-  created_by?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  updated_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  created_by?: string; // UUID string in the database
   verified?: boolean;
   verification_count?: number;
 };
 
 export type Event = {
-  id: string;
+  id: string; // UUID string in the database
   name: string;
   location: string;
-  coordinates: number[];
-  date: string;
+  coordinates: number[]; // [longitude, latitude] - NUMERIC[] in the database
+  date: Date | string; // TIMESTAMP WITH TIME ZONE in the database
   time: string;
   description: string;
   type: string;
-  piano_id: string;
-  created_at?: string;
-  updated_at?: string;
-  created_by?: string;
+  piano_id: string; // UUID string in the database
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  updated_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  created_by?: string; // UUID string in the database
   status?: string;
   pianos?: Piano; // For joined queries
 };
 
 export type UserProfile = {
-  id: string;
+  id: string; // UUID string in the database
   display_name?: string;
   bio?: string;
   avatar_url?: string;
   role?: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  updated_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
 };
 
 export type PianoReport = {
-  id: string;
-  piano_id: string;
-  user_id?: string;
+  id: string; // UUID string in the database
+  piano_id: string; // UUID string in the database
+  user_id?: string; // UUID string in the database
   issue_type: string;
   description: string;
   status?: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  updated_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
 };
 
 export type EventReport = {
-  id: string;
-  event_id: string;
-  user_id?: string;
+  id: string; // UUID string in the database
+  event_id: string; // UUID string in the database
+  user_id?: string; // UUID string in the database
   issue_type: string;
   description: string;
   status?: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  updated_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
 };
 
 export type PianoMedia = {
-  id: string;
-  piano_id: string;
-  user_id?: string;
+  id: string; // UUID string in the database
+  piano_id: string; // UUID string in the database
+  user_id?: string; // UUID string in the database
   media_type: string;
   url: string;
   description?: string;
-  created_at?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
 };
 
 export type EventMedia = {
-  id: string;
-  event_id: string;
-  user_id?: string;
+  id: string; // UUID string in the database
+  event_id: string; // UUID string in the database
+  user_id?: string; // UUID string in the database
   media_type: string;
   url: string;
   description?: string;
-  created_at?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
 };
 
 export type UserPianoVisit = {
-  id: string;
-  user_id: string;
-  piano_id: string;
-  visit_date?: string;
+  id: string; // UUID string in the database
+  user_id: string; // UUID string in the database
+  piano_id: string; // UUID string in the database
+  visit_date?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
   notes?: string;
 };
 
 export type UserEventAttendance = {
-  id: string;
-  user_id: string;
-  event_id: string;
+  id: string; // UUID string in the database
+  user_id: string; // UUID string in the database
+  event_id: string; // UUID string in the database
   status?: string;
-  created_at?: string;
-  updated_at?: string;
+  created_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
+  updated_at?: Date | string; // TIMESTAMP WITH TIME ZONE in the database
 };
 
 // Piano-related functions
 export async function getAllPianos() {
   try {
-    console.log('Fetching all pianos...');
-    
-    // Check if supabase is initialized
-    if (!supabase) {
-      console.error('Supabase client is not initialized');
-      throw new Error('Supabase client is not initialized');
-    }
-    
-    // Log the supabase object to see if it's properly initialized
-    console.log('Supabase client:', supabase ? 'Initialized' : 'Not initialized');
-    
-    // Try to fetch pianos - this should be a public operation that doesn't require authentication
-    console.log('Attempting to fetch pianos from the "pianos" table...');
     const { data, error } = await supabase
       .from('pianos')
       .select('*')
       .order('name');
     
     if (error) {
-      console.error('Supabase error fetching pianos:', error);
-      
-      // Check for specific error types
-      if (error.code === 'PGRST301') {
-        console.error('Authentication error: This might be due to Row Level Security (RLS) policies requiring authentication');
-        console.error('Make sure your Supabase RLS policies allow public access to the pianos table');
-      } else if (error.code === '42501') {
-        console.error('Permission denied: This might be due to Row Level Security (RLS) policies');
-        console.error('Make sure your Supabase RLS policies allow public access to the pianos table');
-      } else if (error.code === '42P01') {
-        console.error('Table not found: The "pianos" table might not exist');
-      }
-      
       throw error;
     }
     
-    console.log(`Successfully fetched ${data?.length || 0} pianos`);
-    return data || [];
+    return handleArrayResult(data);
   } catch (err) {
-    console.error('Exception in getAllPianos:', err);
-    throw {
-      message: 'Error fetching pianos',
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'pianos', err);
   }
 }
 
@@ -168,15 +143,12 @@ export async function getPianoById(id: string) {
     if (error) {
       throw error;
     }
-    return data;
+    
+    return handleSingleResult(data);
   } catch (err) {
-    throw {
-      message: `Error fetching piano with id ${id}`,
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'piano', err, id);
   }
 }
-
 export async function createPiano(pianoData: Omit<Piano, 'id' | 'created_at' | 'updated_at'>) {
   try {
     const { data, error } = await supabase
@@ -187,12 +159,10 @@ export async function createPiano(pianoData: Omit<Piano, 'id' | 'created_at' | '
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error creating piano',
-      details: err
-    };
+    throw handleDataServiceError('creating', 'piano', err);
   }
 }
 
@@ -207,12 +177,10 @@ export async function updatePiano(id: string, pianoData: Partial<Piano>) {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: `Error updating piano with id ${id}`,
-      details: err
-    };
+    throw handleDataServiceError('updating', 'piano', err, id);
   }
 }
 
@@ -231,61 +199,28 @@ export async function reportPianoIssue(reportData: {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error reporting piano issue',
-      details: err
-    };
+    throw handleDataServiceError('reporting', 'piano issue', err, reportData.piano_id);
   }
 }
 
 // Event-related functions
 export async function getAllEvents() {
   try {
-    console.log('Fetching all events...');
-    
-    // Check if supabase is initialized
-    if (!supabase) {
-      console.error('Supabase client is not initialized');
-      throw new Error('Supabase client is not initialized');
-    }
-    
-    // Log the supabase object to see if it's properly initialized
-    console.log('Supabase client:', supabase ? 'Initialized' : 'Not initialized');
-    
-    // Try to fetch events - this should be a public operation that doesn't require authentication
-    console.log('Attempting to fetch events from the "events" table...');
     const { data, error } = await supabase
       .from('events')
       .select('*, pianos:piano_id(*)')
       .order('date');
     
     if (error) {
-      console.error('Supabase error fetching events:', error);
-      
-      // Check for specific error types
-      if (error.code === 'PGRST301') {
-        console.error('Authentication error: This might be due to Row Level Security (RLS) policies requiring authentication');
-        console.error('Make sure your Supabase RLS policies allow public access to the events table');
-      } else if (error.code === '42501') {
-        console.error('Permission denied: This might be due to Row Level Security (RLS) policies');
-        console.error('Make sure your Supabase RLS policies allow public access to the events table');
-      } else if (error.code === '42P01') {
-        console.error('Table not found: The "events" table might not exist');
-      }
-      
       throw error;
     }
     
-    console.log(`Successfully fetched ${data?.length || 0} events`);
-    return data || [];
+    return handleArrayResult(data);
   } catch (err) {
-    console.error('Exception in getAllEvents:', err);
-    throw {
-      message: 'Error fetching events',
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'events', err);
   }
 }
 
@@ -302,12 +237,10 @@ export async function getUpcomingEvents() {
     if (error) {
       throw error;
     }
-    return data || [];
+    
+    return handleArrayResult(data);
   } catch (err) {
-    throw {
-      message: 'Error fetching upcoming events',
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'upcoming events', err);
   }
 }
 
@@ -323,12 +256,9 @@ export async function getEventById(id: string) {
       throw error;
     }
     
-    return data;
+    return handleSingleResult(data);
   } catch (err) {
-    throw {
-      message: `Error fetching event with id ${id}`,
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'event', err, id);
   }
 }
 
@@ -342,12 +272,10 @@ export async function createEvent(eventData: Omit<Event, 'id' | 'created_at' | '
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error creating event',
-      details: err
-    };
+    throw handleDataServiceError('creating', 'event', err);
   }
 }
 
@@ -362,12 +290,10 @@ export async function updateEvent(id: string, eventData: Partial<Event>) {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: `Error updating event with id ${id}`,
-      details: err
-    };
+    throw handleDataServiceError('updating', 'event', err, id);
   }
 }
 
@@ -386,12 +312,10 @@ export async function reportEventIssue(reportData: {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error reporting event issue',
-      details: err
-    };
+    throw handleDataServiceError('reporting', 'event issue', err, reportData.event_id);
   }
 }
 
@@ -407,12 +331,10 @@ export async function getPianoMedia(pianoId: string) {
     if (error) {
       throw error;
     }
-    return data || [];
+    
+    return handleArrayResult(data);
   } catch (err) {
-    throw {
-      message: `Error fetching media for piano ${pianoId}`,
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'piano media', err, pianoId);
   }
 }
 
@@ -427,12 +349,10 @@ export async function getEventMedia(eventId: string) {
     if (error) {
       throw error;
     }
-    return data || [];
+    
+    return handleArrayResult(data);
   } catch (err) {
-    throw {
-      message: `Error fetching media for event ${eventId}`,
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'event media', err, eventId);
   }
 }
 
@@ -442,10 +362,7 @@ export async function getCurrentUser() {
     const { data: { user } } = await supabase.auth.getUser();
     return user;
   } catch (err) {
-    throw {
-      message: 'Error getting current user',
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'current user', err);
   }
 }
 
@@ -460,12 +377,10 @@ export async function getUserProfile(userId: string) {
     if (error) {
       throw error;
     }
-    return data;
+    
+    return handleSingleResult(data);
   } catch (err) {
-    throw {
-      message: `Error fetching profile for user ${userId}`,
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'user profile', err, userId);
   }
 }
 
@@ -481,12 +396,10 @@ export async function getUserPianoVisits(userId: string) {
     if (error) {
       throw error;
     }
-    return data || [];
+    
+    return handleArrayResult(data);
   } catch (err) {
-    throw {
-      message: 'Error fetching user piano visits',
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'user piano visits', err, userId);
   }
 }
 
@@ -505,12 +418,10 @@ export async function createUserPianoVisit(visitData: {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error creating user piano visit',
-      details: err
-    };
+    throw handleDataServiceError('creating', 'user piano visit', err, visitData.piano_id);
   }
 }
 
@@ -525,12 +436,10 @@ export async function getUserEventAttendance(userId: string) {
     if (error) {
       throw error;
     }
-    return data || [];
+    
+    return handleArrayResult(data);
   } catch (err) {
-    throw {
-      message: 'Error fetching user event attendance',
-      details: err
-    };
+    throw handleDataServiceError('fetching', 'user event attendance', err, userId);
   }
 }
 
@@ -548,12 +457,10 @@ export async function createUserEventAttendance(attendanceData: {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error creating user event attendance',
-      details: err
-    };
+    throw handleDataServiceError('creating', 'user event attendance', err, attendanceData.event_id);
   }
 }
 
@@ -570,74 +477,11 @@ export async function updateUserEventAttendance(id: string, attendanceData: {
     if (error) {
       throw error;
     }
-    return data[0];
+    
+    return handleFirstResult(data);
   } catch (err) {
-    throw {
-      message: 'Error updating user event attendance',
-      details: err
-    };
+    throw handleDataServiceError('updating', 'user event attendance', err, id);
   }
 }
 
-export async function importMockData(mockData: any) {
-  try {
-    // Import pianos
-    if (mockData.pianos && mockData.pianos.length > 0) {
-      const pianos = mockData.pianos.map((piano: any) => ({
-        id: piano.id, // Use the ID directly
-        name: piano.name,
-        location: piano.location,
-        coordinates: piano.coordinates,
-        description: piano.description,
-        type: piano.type,
-        condition: piano.condition,
-        access: piano.access || 'Public',
-        last_maintained: piano.lastMaintained,
-        category: piano.category,
-        airport_code: piano.airportCode,
-        country: piano.country,
-        city: piano.city,
-        verified: false,
-        verification_count: 0
-      }));
-
-      const { data, error } = await supabase
-        .from('pianos')
-        .insert(pianos)
-        .select();
-      
-      if (error) {
-        return { success: false, error };
-      }
-    }
-
-    // Import events
-    if (mockData.events && mockData.events.length > 0) {
-      const events = mockData.events.map((event: any) => ({
-        id: event.id, // Use the ID directly
-        name: event.name,
-        location: event.location,
-        coordinates: event.coordinates,
-        date: event.date,
-        time: event.time,
-        description: event.description,
-        type: event.type,
-        piano_id: event.pianoId, // Use pianoId directly
-        status: 'upcoming'
-      }));
-
-      const { data, error } = await supabase
-        .from('events')
-        .insert(events)
-        .select();
-      
-      if (error) {
-        return { success: false, error };
-      }
-    }
-
-    return { success: true };
-  } catch (err) {
-    return { success: false, error: err };
-  }
-}
+// End of file

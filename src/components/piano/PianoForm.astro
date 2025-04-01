@@ -1,13 +1,8 @@
 ---
 // PianoForm.astro
-// Import Supabase client for server-side use if needed
-import { supabase } from '../../utils/supabase';
 import LocationPicker from '../community/LocationPicker.astro';
 import { auth, profile } from '../../utils/auth';
-
-// Authentication is now properly implemented
-const DEVELOPMENT_MODE = false; // No longer bypassing authentication
-const SERVICE_ROLE_KEY = ''; // Not using service role key anymore
+// Authentication is properly implemented
 
 // Access environment variables via import.meta.env
 const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "it@singforhope.org";
@@ -26,15 +21,6 @@ const { formTitle = "Add a New Piano", isModal: propsIsModal = false } = Astro.p
 const displayInModal = isModal || propsIsModal;
 ---
 
-{DEVELOPMENT_MODE && (
-  <div class="alert alert-warning mb-4">
-    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
-    <div>
-      <h3 class="font-bold">Development Mode</h3>
-      <div class="text-xs">Authentication is bypassed. This should NOT be used in production!</div>
-    </div>
-  </div>
-)}
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
@@ -174,8 +160,17 @@ const displayInModal = isModal || propsIsModal;
 
 <!-- Auth utilities script -->
 <script>
-  // Import auth and profile directly (not dynamically)
+  // Import auth, profile, and form utilities
   import { auth, profile } from '../../utils/auth';
+  import {
+    generateUniqueId,
+    uploadImage,
+    createMediaEntry,
+    checkAuthentication,
+    handleFormError,
+    showToast,
+    logFormData
+  } from '../../utils/formUtils';
   
   // Add TypeScript declaration to extend window interface
   interface WindowWithAuth extends Window {
@@ -372,7 +367,7 @@ const displayInModal = isModal || propsIsModal;
           
           // Create piano object from form data
           // Generate a unique ID for the piano
-          const uniqueId = `piano_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
+          const uniqueId = generateUniqueId('piano');
           console.log('Generated unique ID:', uniqueId);
           
           const pianoData = {
@@ -399,36 +394,23 @@ const displayInModal = isModal || propsIsModal;
           console.log('Form submission started');
           logFormData(formData);
           
-          // Check for authentication using the exposed auth utilities
-          try {
-            // Use the auth utilities exposed on the window with our helper function
-            const { auth, profile } = await ensureAuthUtilities();
-            
-            // Get the current session
-            const session = await auth.getSession();
-            
-            if (!session) {
-              window.worldPianosGlobals.toastManager.showToast("You must be logged in to add a piano.", "error");
-              throw new Error('Authentication required');
-            }
-            
-            // Get user ID for tracking who created the piano
-            const userId = session.user.id;
-            
-            // Set the user ID on the pianoData object
-            pianoData.created_by = userId;
-            
-            // Check if admin for certain operations
-            const isAdmin = await profile.isAdmin(userId);
-            
-            // Additional admin-only fields
-            if (isAdmin) {
-              pianoData.verified = formData.get('verified') === 'true';
-            }
-          } catch (error) {
-            console.error('Authentication error:', error);
-            window.worldPianosGlobals.toastManager.showToast("Authentication error. Please try logging in again. You may need to refresh the page.", "error");
-            throw new Error('Authentication error');
+          // Check for authentication
+          const { userId, error: authError } = await checkAuthentication();
+          
+          if (authError) {
+            window.worldPianosGlobals.toastManager.showToast(authError, "error");
+            throw new Error('Authentication required');
+          }
+          
+          // Set the user ID on the pianoData object
+          pianoData.created_by = userId;
+          
+          // Check if admin for certain operations
+          const isAdmin = await profile.isAdmin(userId);
+          
+          // Additional admin-only fields
+          if (isAdmin) {
+            pianoData.verified = formData.get('verified') === 'true';
           }
           
           // Validate all required fields are present
@@ -463,33 +445,10 @@ const displayInModal = isModal || propsIsModal;
           const imageFile = formData.get('pianoPicture');
           let imageUrl = null;
           
-          if (imageFile && imageFile.size > 0) {
-            console.log('Uploading image:', imageFile.name);
-            
-            // Generate a unique file name
-            const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
-            
-            try {
-              // Upload to Supabase Storage
-              const { data: uploadData, error: uploadError } = await supabase.storage
-                .from('piano-images')
-                .upload(fileName, imageFile);
-                
-              if (uploadError) {
-                console.error('Error uploading image:', uploadError);
-                throw uploadError;
-              }
-              
-              // Get public URL
-              const { data: urlData } = supabase.storage
-                .from('piano-images')
-                .getPublicUrl(fileName);
-                
-              imageUrl = urlData.publicUrl;
+          if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+            imageUrl = await uploadImage(imageFile, 'piano-images', `Image for piano ${pianoData.name}`);
+            if (imageUrl) {
               console.log('Image uploaded successfully:', imageUrl);
-            } catch (error) {
-              console.error('Error handling image upload:', error);
-              // Continue with piano creation even if image upload fails
             }
           }
           
@@ -519,25 +478,15 @@ const displayInModal = isModal || propsIsModal;
           
           // If we have an image and piano data, store it
           if (imageUrl && insertedPiano && insertedPiano.length > 0) {
-            try {
-              // Create a piano_media entry
-              const { data: mediaData, error: mediaError } = await supabase
-                .from('piano_media')
-                .insert({
-                  piano_id: insertedPiano[0].id,
-                  media_type: 'image',
-                  url: imageUrl,
-                  description: `Primary image for ${insertedPiano[0].name}`
-                });
-                
-              if (mediaError) {
-                console.error('Error creating piano media entry:', mediaError);
-              } else {
-                console.log('Piano media entry created:', mediaData);
-              }
-            } catch (mediaError) {
-              console.error('Error creating piano media entry:', mediaError);
-              // Continue even if media creation fails
+            const mediaEntry = await createMediaEntry(
+              'piano_media',
+              insertedPiano[0].id,
+              imageUrl,
+              `Primary image for ${insertedPiano[0].name}`
+            );
+            
+            if (mediaEntry) {
+              console.log('Piano media entry created:', mediaEntry);
             }
           }
           
@@ -577,44 +526,36 @@ const displayInModal = isModal || propsIsModal;
               window.location.reload();
             }, 1000);
           } else {
-            // Redirect to piano details page after a short delay
-            setTimeout(() => {
-              window.location.href = `/pianos/${insertedPiano[0].id}`;
-            }, 1500);
-          }
-        } catch (error) {
-          // Show detailed error message
-          console.error("Form submission error:", error);
-          
-          let errorMessage = "There was an error submitting the form. Please try again.";
-          
-          // Provide more specific error messages based on the error type
-          if (error.message) {
-            if (error.message.includes('Location not selected')) {
-              errorMessage = "Please select a location using the map.";
-            } else if (error.message.includes('permission') || error.message.includes('access')) {
-              errorMessage = "Permission denied. You may need to log in or check your access rights.";
-            } else if (error.message.includes('network') || error.message.includes('connection')) {
-              errorMessage = "Network error. Please check your internet connection.";
-            } else if (error.message.includes('validation')) {
-              errorMessage = "Validation error. Please check your form inputs.";
-            } else if (error.message.includes('bucket')) {
-              errorMessage = "Error with image storage. Please try again or skip adding an image.";
-            } else if (error.message.includes('already created')) {
-              errorMessage = "A piano was already submitted in this session.";
+            // Check if the piano details page exists before redirecting
+            const pianoDetailsUrl = `/pianos/${insertedPiano[0].id}`;
+            
+            if (window.checkUrlExists) {
+              window.checkUrlExists(pianoDetailsUrl, (exists) => {
+                if (exists) {
+                  // Redirect to piano details page after a short delay
+                  setTimeout(() => {
+                    window.location.href = pianoDetailsUrl;
+                  }, 1500);
+                } else {
+                  // If the page doesn't exist, redirect to the pianos list page
+                  console.warn(`Piano details page ${pianoDetailsUrl} does not exist, redirecting to pianos list`);
+                  setTimeout(() => {
+                    window.location.href = '/pianos';
+                  }, 1500);
+                }
+              });
+            } else {
+              // Fallback if checkUrlExists is not available
+              setTimeout(() => {
+                window.location.href = pianoDetailsUrl;
+              }, 1500);
             }
           }
-          
-          // Show the error message as a toast
+        } catch (error) {
+          // Handle and show error message
+          console.error("Form submission error:", error);
+          const errorMessage = handleFormError(error);
           window.worldPianosGlobals.toastManager.showToast(errorMessage, "error");
-          
-          // Log detailed error information to console
-          console.error("Detailed error:", {
-            message: error.message,
-            stack: error.stack,
-            code: error.code,
-            details: error.details
-          });
         } finally {
           // Reset button state
           if (submitBtn && submitText && loadingSpinner) {
@@ -626,13 +567,5 @@ const displayInModal = isModal || propsIsModal;
       });
     }
     
-    // Helper function to log form data (for debugging)
-    function logFormData(formData) {
-      const formDataObj = {};
-      formData.forEach((value, key) => {
-        formDataObj[key] = value instanceof File ? `File: ${value.name}` : value;
-      });
-      console.log("Form data:", formDataObj);
-    }
   });
 </script>
