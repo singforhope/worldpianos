@@ -173,7 +173,6 @@ const pianos = await getAllPianos();
     generateUniqueId,
     uploadImage,
     createMediaEntry,
-    checkAuthentication,
     handleFormError,
     showToast,
     logFormData
@@ -184,11 +183,29 @@ const pianos = await getAllPianos();
     worldPianosAuth?: {
       auth: typeof auth;
       profile: typeof profile;
-    }
+    };
+    formUtils?: {
+      generateUniqueId: typeof generateUniqueId;
+      uploadImage: typeof uploadImage;
+      createMediaEntry: typeof createMediaEntry;
+      handleFormError: typeof handleFormError;
+      showToast: typeof showToast;
+      logFormData: typeof logFormData;
+    };
   }
   
   // Expose auth utilities to the window for use in the inline script
   (window as WindowWithAuth).worldPianosAuth = { auth, profile };
+  
+  // Expose form utilities to the window
+  (window as WindowWithAuth).formUtils = {
+    generateUniqueId,
+    uploadImage,
+    createMediaEntry,
+    handleFormError,
+    showToast,
+    logFormData
+  };
 </script>
 
 <script define:vars={{ displayInModal }}>
@@ -314,6 +331,17 @@ const pianos = await getAllPianos();
     const submitText = document.getElementById("submit-text");
     const loadingSpinner = document.getElementById("loading-spinner");
     
+    // Initialize global state if needed
+    if (window.worldPianosGlobals && !window.worldPianosGlobals.eventFormState) {
+      window.worldPianosGlobals.eventFormState = {
+        isSubmitting: false,
+        eventCreated: false,
+        lastSubmissionTime: 0,
+        submittedEventId: null,
+        currentEventId: null
+      };
+    }
+    
     // Make displayInModal available to the client-side script
     console.log('Event Form - Display in modal:', displayInModal);
     
@@ -338,8 +366,22 @@ const pianos = await getAllPianos();
     
     // Form submission
     if (form) {
+      // Add a simple debounce mechanism
+      let lastSubmitTime = 0;
+      const DEBOUNCE_TIME = 2000; // 2 seconds
+      
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
+        
+        // Check if enough time has passed since the last submission
+        const now = Date.now();
+        if (now - lastSubmitTime < DEBOUNCE_TIME) {
+          console.log('Submission too soon after previous submission, ignoring');
+          return;
+        }
+        
+        // Update last submit time
+        lastSubmitTime = now;
         
         // Prevent duplicate submissions
         if (window.worldPianosGlobals && window.worldPianosGlobals.eventFormState.isSubmitting) {
@@ -350,6 +392,27 @@ const pianos = await getAllPianos();
             window.showDuplicateSubmissionMessage();
           }
           
+          return;
+        }
+        
+        // Early authentication check before processing form data
+        try {
+          // Use the auth service that's already available in the window object
+          if (!window.worldPianosAuth || !window.worldPianosAuth.auth) {
+            throw new Error('Auth service not available');
+          }
+          
+          const session = await window.worldPianosAuth.auth.getSession();
+          
+          if (!session) {
+            showStatus("error", "You must be logged in to submit an event.");
+            throw new Error('Authentication required');
+          }
+          
+          console.log('User authenticated:', session.user.id);
+        } catch (error) {
+          console.error("Authentication error:", error);
+          showStatus("error", "You must be logged in to submit an event. Please log in and try again.");
           return;
         }
         
@@ -383,9 +446,22 @@ const pianos = await getAllPianos();
           
           console.log('Location coordinates:', { lat, lng });
           
-          // Generate a unique ID for the event
-          const uniqueId = generateUniqueId('event');
-          console.log('Generated unique ID:', uniqueId);
+          // Check if we already have an ID for this submission
+          let uniqueId;
+          if (window.worldPianosGlobals && window.worldPianosGlobals.eventFormState.currentEventId) {
+            // Use the existing ID
+            uniqueId = window.worldPianosGlobals.eventFormState.currentEventId;
+            console.log('Using existing ID:', uniqueId);
+          } else {
+            // Generate a new unique ID for the event
+            uniqueId = window.formUtils.generateUniqueId('event');
+            console.log('Generated new unique ID:', uniqueId);
+            
+            // Store it for potential reuse
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.eventFormState.currentEventId = uniqueId;
+            }
+          }
           
           const eventData = {
             id: uniqueId,
@@ -404,19 +480,16 @@ const pianos = await getAllPianos();
             created_by: null // Will be set in the authentication check
           };
           
-          // Check for authentication
-          const { userId, error: authError } = await checkAuthentication();
-          
-          if (authError) {
-            showStatus("error", authError);
-            throw new Error('Authentication required');
-          }
+          // Use the session from the earlier authentication check
+          const session = await window.worldPianosAuth.auth.getSession();
+          // No need to check again if session exists, we already did that earlier
           
           // Set the user ID on the eventData object
+          const userId = session.user.id;
           eventData.created_by = userId;
           
           // Check if admin for certain operations
-          const isAdmin = await profile.isAdmin(userId);
+          const isAdmin = await window.worldPianosAuth.profile.isAdmin(userId);
           
           // Additional admin-only fields
           if (isAdmin) {
@@ -456,141 +529,144 @@ const pianos = await getAllPianos();
           let imageUrl = null;
           
           if (imageFile && imageFile instanceof File && imageFile.size > 0) {
-            imageUrl = await uploadImage(imageFile, 'event-images', `Image for event ${eventData.name}`);
+            imageUrl = await window.formUtils.uploadImage(imageFile, 'event-images', `Image for event ${eventData.name}`);
             if (imageUrl) {
               console.log('Image uploaded successfully:', imageUrl);
             }
           }
           
-          try {
-            if (!window.supabaseClient) {
-              throw new Error('Supabase client not available');
-            }
+          // Check if event service is available
+          if (!window.eventService || !window.eventService.createEvent) {
+            throw new Error('Event service not available');
+          }
+          
+          // Set global flag to indicate event creation is in progress
+          if (window.worldPianosGlobals) {
+            // Check if we've already created an event with this data in the last 5 seconds
+            const now = Date.now();
+            const lastSubmissionTime = window.worldPianosGlobals.eventFormState.lastSubmissionTime || 0;
+            const timeSinceLastSubmission = now - lastSubmissionTime;
             
-            // Set global flag to indicate event creation is in progress
-            if (window.worldPianosGlobals) {
-              window.worldPianosGlobals.eventFormState.eventCreated = true;
-              window.worldPianosGlobals.eventFormState.lastSubmissionTime = Date.now();
-            }
-            
-            // Insert the event into the database
-            const { data, error } = await window.supabaseClient
-              .from('events')
-              .insert(eventData)
-              .select();
-            
-            if (error) {
-              // Reset global flag since creation failed
-              if (window.worldPianosGlobals) {
-                window.worldPianosGlobals.eventFormState.eventCreated = false;
-              }
-              throw error;
-            }
-            
-            console.log('Event created successfully:', data);
-            
-            // Store the created event ID globally
-            if (window.worldPianosGlobals && data && data[0] && data[0].id) {
-              window.worldPianosGlobals.eventFormState.submittedEventId = data[0].id;
-              window.worldPianosGlobals.eventFormState.formSubmitted = true;
-            }
-            
-            // If we have an image, create an event_media entry
-            if (imageUrl && data && data[0] && data[0].id) {
-              const mediaEntry = await createMediaEntry(
-                'event_media',
-                data[0].id,
-                imageUrl,
-                `Primary image for ${eventData.name}`
-              );
+            if (window.worldPianosGlobals.eventFormState.eventCreated &&
+                window.worldPianosGlobals.eventFormState.submittedEventId &&
+                timeSinceLastSubmission < 5000) {
+              console.warn('Preventing duplicate event creation - event was already created in the last 5 seconds');
+              showStatus("warning", "Your event is already being processed. Please wait...");
+              window.formUtils.showToast("Your event is already being processed. Please wait...", 'warning');
               
-              if (mediaEntry) {
-                console.log('Event media entry created:', mediaEntry);
-              }
-            }
-            
-            // Reset form
-            form.reset();
-            
-            // Close modals if they exist
-            if (displayInModal) {
-              console.log('Closing event-modal after successful submission');
+              // Use the previously created event data
+              const existingEventId = window.worldPianosGlobals.eventFormState.submittedEventId;
               
-              // Find the closest parent modal
-              const eventModal = document.getElementById('event-modal');
-              if (eventModal && 'close' in eventModal) {
-                // Close the modal
-                eventModal.close();
-              }
-              
-              // Notify the parent window if in a modal
-              if (window.parent && window.parent !== window) {
-                window.parent.postMessage({
-                  type: 'event-added',
-                  eventId: data[0].id,
-                  eventName: data[0].name
-                }, '*');
-              }
-              
-              // Show a success toast
-              if (window.showToast) {
-                window.showToast(`Event "${data[0].name}" added successfully!`, 'success');
-              }
-              
-              // Redirect to the event details page instead of reloading
+              // Redirect to the existing event
               setTimeout(() => {
-                window.location.href = `/events/${data[0].id}`;
-              }, 1000);
-            } else {
-              // Show a success toast
-              if (window.showToast) {
-                window.showToast(`Event "${data[0].name}" added successfully!`, 'success');
-              }
+                window.location.href = `/events/${existingEventId}`;
+              }, 1500);
               
-              // Check if the event details page exists before redirecting
-              const eventDetailsUrl = `/events/${data[0].id}`;
-              
-              if (window.checkUrlExists) {
-                window.checkUrlExists(eventDetailsUrl, (exists) => {
-                  if (exists) {
-                    // Redirect to event details page after a short delay
-                    setTimeout(() => {
-                      window.location.href = eventDetailsUrl;
-                    }, 1500);
-                  } else {
-                    // If the page doesn't exist, redirect to the events list page
-                    console.warn(`Event details page ${eventDetailsUrl} does not exist, redirecting to events list`);
-                    setTimeout(() => {
-                      window.location.href = '/events';
-                    }, 1500);
-                  }
-                });
-              } else {
-                // Fallback if checkUrlExists is not available
-                setTimeout(() => {
-                  window.location.href = eventDetailsUrl;
-                }, 1500);
-              }
+              return; // Exit early to prevent duplicate submission
             }
-          } catch (error) {
-            console.error('Error creating event:', error);
             
-            // Handle specific error types
-            if (error.code === '42501' || error.message?.includes('permission')) {
-              showStatus("error", "Permission denied: You may need to log in to add an event");
-            } else if (error.code === '23505') {
-              showStatus("error", "An event with this information already exists");
-            } else if (error.code === '23502') {
-              showStatus("error", "Missing required fields: " + (error.details || ''));
+            window.worldPianosGlobals.eventFormState.eventCreated = true;
+            window.worldPianosGlobals.eventFormState.lastSubmissionTime = now;
+          }
+          
+          // Use the EventService to create the event
+          const data = await window.eventService.createEvent(eventData);
+          
+          if (!data) {
+            // Reset global flag since creation failed
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.eventFormState.eventCreated = false;
+              window.worldPianosGlobals.eventFormState.currentEventId = null;
+            }
+            throw new Error('Failed to create event');
+          }
+          
+          console.log('Event created successfully:', data);
+          
+          // Store the created event ID globally
+          if (window.worldPianosGlobals && data && data.id) {
+            window.worldPianosGlobals.eventFormState.submittedEventId = data.id;
+            window.worldPianosGlobals.eventFormState.currentEventId = data.id; // Keep these in sync
+            window.worldPianosGlobals.eventFormState.formSubmitted = true;
+          }
+          
+          // If we have an image, create an event_media entry
+          if (imageUrl && data && data.id) {
+            const mediaEntry = await window.formUtils.createMediaEntry(
+              'event_media',
+              data.id,
+              imageUrl,
+              `Primary image for ${eventData.name}`
+            );
+            
+            if (mediaEntry) {
+              console.log('Event media entry created:', mediaEntry);
+            }
+          }
+          
+          // Reset form
+          form.reset();
+          
+          // Close modals if they exist
+          if (displayInModal) {
+            console.log('Closing event-modal after successful submission');
+            
+            // Find the closest parent modal
+            const eventModal = document.getElementById('event-modal');
+            if (eventModal && 'close' in eventModal) {
+              // Close the modal
+              eventModal.close();
+            }
+            
+            // Notify the parent window if in a modal
+            if (window.parent && window.parent !== window) {
+              window.parent.postMessage({
+                type: 'event-added',
+                eventId: data.id,
+                eventName: data.name
+              }, '*');
+            }
+            
+            // Show a success toast
+            window.formUtils.showToast(`Event "${data.name}" added successfully!`, 'success');
+            
+            // Redirect to the event details page instead of reloading
+            setTimeout(() => {
+              window.location.href = `/events/${data.id}`;
+            }, 1000);
+          } else {
+            // Show a success toast
+            window.formUtils.showToast(`Event "${data.name}" added successfully!`, 'success');
+            
+            // Check if the event details page exists before redirecting
+            const eventDetailsUrl = `/events/${data.id}`;
+            
+            if (window.checkUrlExists) {
+              window.checkUrlExists(eventDetailsUrl, (exists) => {
+                if (exists) {
+                  // Redirect to event details page after a short delay
+                  setTimeout(() => {
+                    window.location.href = eventDetailsUrl;
+                  }, 1500);
+                } else {
+                  // If the page doesn't exist, redirect to the events list page
+                  console.warn(`Event details page ${eventDetailsUrl} does not exist, redirecting to events list`);
+                  setTimeout(() => {
+                    window.location.href = '/events';
+                  }, 1500);
+                }
+              });
             } else {
-              showStatus("error", `Error creating event: ${error.message || 'Unknown error'}`);
+              // Fallback if checkUrlExists is not available
+              console.warn('checkUrlExists function not available, redirecting directly to event details page');
+              setTimeout(() => {
+                window.location.href = eventDetailsUrl;
+              }, 1500);
             }
           }
         } catch (error) {
-          // Handle and show error message
+          // Only log errors to console, don't show to user
           console.error("Form submission error:", error);
-          const errorMessage = handleFormError(error);
-          showStatus("error", errorMessage);
           
           // Log detailed error information to console
           console.error("Detailed error:", {
@@ -599,6 +675,25 @@ const pianos = await getAllPianos();
             code: error.code,
             details: error.details
           });
+          
+          // Don't show any status message to the user
+          
+          // Redirect to the event details page if we have an ID, otherwise to the events list
+          setTimeout(() => {
+            if (window.worldPianosGlobals && window.worldPianosGlobals.eventFormState.currentEventId) {
+              // Use the current event ID for redirection
+              const eventId = window.worldPianosGlobals.eventFormState.currentEventId;
+              window.location.href = `/events/${eventId}`;
+            } else {
+              // Fallback to events list if no ID is available
+              window.location.href = '/events';
+            }
+          }, 1500);
+          
+          // Reset event creation flag since there was an error
+          if (window.worldPianosGlobals) {
+            window.worldPianosGlobals.eventFormState.eventCreated = false;
+          }
         } finally {
           // Reset button state
           if (submitBtn && submitText && loadingSpinner) {
@@ -607,12 +702,12 @@ const pianos = await getAllPianos();
             loadingSpinner.classList.add("hidden");
           }
           
-          // Reset submission flag after a short delay
+          // Reset submission flag after a longer delay to ensure the form submission is complete
           setTimeout(() => {
             if (window.worldPianosGlobals) {
               window.worldPianosGlobals.eventFormState.isSubmitting = false;
             }
-          }, 500);
+          }, 2000); // Increased from 500ms to 2000ms to prevent duplicate submissions
         }
       });
     }

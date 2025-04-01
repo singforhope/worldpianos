@@ -1,0 +1,157 @@
+---
+// PianoService component provides client-side piano management functions
+---
+
+<script is:inline>
+  // Use a self-executing function to avoid polluting the global scope
+  (function() {
+    // We can't use import statements in inline scripts
+    // Instead, we'll use the global supabaseClient that's set by SupabaseClient.astro
+    let supabase;
+    
+    // Function to initialize the service when Supabase is ready
+    function initPianoService() {
+      if (window.supabaseClient) {
+        supabase = window.supabaseClient;
+      } else {
+        // Wait for the supabase-ready event
+        window.addEventListener('supabase-ready', function() {
+          supabase = window.supabaseClient;
+        }, { once: true }); // Use once: true to automatically remove the listener after it's triggered
+      }
+    }
+    
+    // Initialize the service
+    initPianoService();
+  
+    // Client-side implementation of createPiano function
+    async function createPiano(pianoData) {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+      
+      try {
+        // Insert the piano data
+        const { data, error } = await supabase
+          .from('pianos')
+          .insert({
+            id: pianoData.id,
+            name: pianoData.name,
+            type: pianoData.type,
+            location: pianoData.location,
+            coordinates: pianoData.coordinates,
+            condition: pianoData.condition,
+            access: pianoData.access,
+            category: pianoData.category.toLowerCase(),
+            last_maintained: pianoData.last_maintained,
+            description: pianoData.description,
+            created_by: pianoData.created_by,
+            verified: pianoData.verified,
+            country: pianoData.country,
+            city: pianoData.city
+          })
+          .select();
+        
+        if (error) {
+          // Check for specific error types
+          if (error.code === '42501' || error.message?.includes('permission')) {
+            throw new Error('Permission denied: You may need to log in to add a piano');
+          } else if (error.code === '23505') {
+            throw new Error('A piano with this information already exists');
+          } else if (error.code === '23502') {
+            throw new Error('Missing required fields: ' + error.details);
+          } else if (error.code === '400') {
+            throw new Error('Bad request: ' + (error.message || 'Check your data format'));
+          } else {
+            // Try to provide a more helpful error message
+            const errorMsg = error.message || 'Unknown error';
+            throw new Error(`Database error (${error.code}): ${errorMsg}`);
+          }
+        }
+        
+        if (!data || data.length === 0) {
+          throw new Error('No data returned after insert');
+        }
+        
+        return data[0];
+      } catch (error) {
+        throw error;
+      }
+    }
+    
+    // Function to upload an image to Supabase storage
+    async function uploadPianoImage(imageFile, pianoName) {
+      if (!imageFile || imageFile.size === 0) {
+        return null;
+      }
+      
+      // Generate a unique file name
+      const fileName = `${Date.now()}-${imageFile.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+      
+      try {
+        // Upload to Supabase Storage
+        const { data: uploadData, error: uploadError } = await supabase.storage
+          .from('piano-images')
+          .upload(fileName, imageFile);
+          
+        if (uploadError) {
+          throw uploadError;
+        }
+        
+        // Get public URL
+        const { data: urlData } = supabase.storage
+          .from('piano-images')
+          .getPublicUrl(fileName);
+          
+        return urlData.publicUrl;
+      } catch (error) {
+        return null;
+      }
+    }
+    
+    // Function to create a piano media entry
+    async function createPianoMedia(pianoId, imageUrl, description) {
+      if (!pianoId || !imageUrl) {
+        return null;
+      }
+      
+      try {
+        const { data, error } = await supabase
+          .from('piano_media')
+          .insert({
+            piano_id: pianoId,
+            media_type: 'image',
+            url: imageUrl,
+            description: description || `Image for piano ${pianoId}`
+          });
+          
+        if (error) {
+          throw error;
+        }
+        
+        return data;
+      } catch (error) {
+        return null;
+      }
+    }
+    
+    // Helper function to log form data (for debugging)
+    function logFormData(formData) {
+      if (process.env.NODE_ENV === 'development') {
+        const formDataObj = {};
+        formData.forEach((value, key) => {
+          formDataObj[key] = value instanceof File ? `File: ${value.name}` : String(value);
+        });
+        console.log("Form data:", formDataObj);
+      }
+    }
+    
+    // Make functions available globally
+    window.pianoService = {
+      createPiano,
+      uploadPianoImage,
+      createPianoMedia,
+      logFormData
+    };
+  })(); // End of self-executing function
+</script>

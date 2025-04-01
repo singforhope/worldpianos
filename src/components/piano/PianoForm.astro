@@ -1,13 +1,15 @@
 ---
 // PianoForm.astro
 import LocationPicker from '../community/LocationPicker.astro';
+import PianoService from './PianoService.astro';
+import SupabaseClient from '../community/SupabaseClient.astro';
 import { auth, profile } from '../../utils/auth';
 // Authentication is properly implemented
 
 // Access environment variables via import.meta.env
 const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "it@singforhope.org";
 
-// Check if the form is being displayed in a modal
+// Check if this page is being displayed in a modal
 const isModal = Astro.url.searchParams.get('modal') === 'true';
 
 interface Props {
@@ -21,9 +23,26 @@ const { formTitle = "Add a New Piano", isModal: propsIsModal = false } = Astro.p
 const displayInModal = isModal || propsIsModal;
 ---
 
+<!-- Include the Supabase client -->
+<SupabaseClient />
+
+<!-- Include the PianoService -->
+<PianoService />
 
 <div class="card bg-base-100 shadow-xl">
   <div class="card-body">
+    <!-- Duplicate submission message -->
+    <div id="duplicate-submission-message" class="hidden">
+      <div class="alert alert-warning shadow-lg fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-auto max-w-md fade-in">
+        <div>
+          <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+          <span>Form is already being submitted, please wait...</span>
+        </div>
+        <div class="flex-none">
+          <button onclick="window.hideDuplicateSubmissionMessage()" class="btn btn-sm btn-ghost">×</button>
+        </div>
+      </div>
+    </div>
     <form id="piano-form" class="space-y-6" enctype="multipart/form-data">
       <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
         <!-- Piano Name -->
@@ -158,6 +177,24 @@ const displayInModal = isModal || propsIsModal;
 <!-- Add Toastify JS -->
 <script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 
+<!-- Add duplicate submission message -->
+<style>
+  .fade-in {
+    animation: fadeIn 0.3s ease-in-out;
+  }
+  
+  @keyframes fadeIn {
+    from {
+      opacity: 0;
+      transform: translate(-50%, -20px);
+    }
+    to {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+  }
+</style>
+
 <!-- Auth utilities script -->
 <script>
   // Import auth, profile, and form utilities
@@ -177,22 +214,35 @@ const displayInModal = isModal || propsIsModal;
     worldPianosAuth?: {
       auth: typeof auth;
       profile: typeof profile;
-    }
+    };
+    formUtils?: {
+      generateUniqueId: typeof generateUniqueId;
+      uploadImage: typeof uploadImage;
+      createMediaEntry: typeof createMediaEntry;
+      checkAuthentication: typeof checkAuthentication;
+      handleFormError: typeof handleFormError;
+      showToast: typeof showToast;
+      logFormData: typeof logFormData;
+    };
   }
   
   // Expose auth utilities to the window for use in the inline script
   (window as WindowWithAuth).worldPianosAuth = { auth, profile };
+  
+  // Expose form utilities to the window
+  (window as WindowWithAuth).formUtils = {
+    generateUniqueId,
+    uploadImage,
+    createMediaEntry,
+    checkAuthentication,
+    handleFormError,
+    showToast,
+    logFormData
+  };
 </script>
 
-<script is:inline define:vars={{ contactEmail, displayInModal }}>
-  // Use the global supabaseClient that's set by SupabaseClient.astro
-  let supabase;
-  
-  // Make displayInModal available to the client-side script
-  console.log('Display in modal:', displayInModal);
-  
-  // Create global static flags to prevent duplicate submissions across multiple form instances
-  // Use window object to ensure they're shared across all instances
+<script define:vars={{ displayInModal }}>
+  // Create global static flags to prevent duplicate submissions
   if (typeof window !== 'undefined') {
     // Initialize global flags if they don't exist
     window.worldPianosGlobals = window.worldPianosGlobals || {};
@@ -201,75 +251,59 @@ const displayInModal = isModal || propsIsModal;
       formSubmitted: false,
       pianoCreated: false,
       submittedPianoId: null,
+      currentPianoId: null,
       lastSubmissionTime: 0
     };
     
-    // Create a global toast manager to avoid duplicate toast notifications
-    window.worldPianosGlobals.toastManager = window.worldPianosGlobals.toastManager || {
-      activeToasts: {},
-      showToast: function(message, type = "success") {
-        // Make sure Toastify is available
-        if (typeof Toastify !== 'function') {
-          console.error('Toastify not loaded');
-          return;
+    // Create a showToast function if it doesn't exist
+    if (!window.showToast) {
+      window.showToast = function(message, type = 'info') {
+        // Check if Toastify is available
+        if (typeof Toastify === 'function') {
+          Toastify({
+            text: message,
+            duration: 3000, // 3 seconds
+            close: true, // Show close button
+            gravity: "top",
+            position: "right",
+            className: `toastify-${type}`,
+            onClick: function() { this.hideToast(); }, // Click to dismiss
+            style: {
+              background: type === "success" ? "#36d399" : 
+                        type === "error" ? "#f87272" : 
+                        type === "warning" ? "#fbbd23" : "#3abff8",
+              borderRadius: "8px",
+              boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+            }
+          }).showToast();
+        } else {
+          // Fallback to alert if Toastify is not available
+          console.log(`Toast (${type}): ${message}`);
         }
-        
-        // Generate a hash for the message to use as ID
-        const messageId = message.split(' ').join('_').toLowerCase();
-        
-        // Check if a toast with this ID is already active
-        if (this.activeToasts[messageId]) {
-          console.log('Toast already visible, not showing duplicate:', message);
-          return;
-        }
-        
-        // Mark this toast as active
-        this.activeToasts[messageId] = true;
-        
-        Toastify({
-          text: message,
-          duration: 3000,
-          close: true,
-          gravity: "top",
-          position: "right",
-          className: `toastify-${type}`,
-          style: {
-            background: type === "success" ? "#36d399" : "#f87272",
-            borderRadius: "8px",
-            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)",
-            fontSize: "14px",
-            fontWeight: "500"
-          },
-          // Cleanup when toast is removed
-          callback: function() {
-            setTimeout(() => {
-              window.worldPianosGlobals.toastManager.activeToasts[messageId] = false;
-            }, 500);
-          }
-        }).showToast();
+      };
+    }
+    
+    // Create a function to hide duplicate submission message
+    window.hideDuplicateSubmissionMessage = function() {
+      const msgEl = document.getElementById('duplicate-submission-message');
+      if (msgEl) {
+        msgEl.style.display = 'none';
       }
     };
     
-    console.log('PianoForm global state initialized:', window.worldPianosGlobals.pianoFormState);
+    // Create a function to show duplicate submission message
+    window.showDuplicateSubmissionMessage = function() {
+      const msgEl = document.getElementById('duplicate-submission-message');
+      if (msgEl) {
+        msgEl.style.display = 'block';
+        
+        // Auto-hide after 3 seconds
+        setTimeout(() => {
+          msgEl.style.display = 'none';
+        }, 3000);
+      }
+    };
   }
-
-  // Function to initialize the form when Supabase is ready
-  function initPianoForm() {
-    if (window.supabaseClient) {
-      console.log('PianoForm: Supabase client found');
-      supabase = window.supabaseClient;
-    } else {
-      console.log('PianoForm: Waiting for Supabase client...');
-      // Wait for the supabase-ready event
-      window.addEventListener('supabase-ready', function() {
-        console.log('PianoForm: Supabase client is now ready');
-        supabase = window.supabaseClient;
-      });
-    }
-  }
-  
-  // Initialize the form
-  initPianoForm();
   
   // Function to ensure auth utilities are available
   function ensureAuthUtilities(maxAttempts = 10, interval = 300) {
@@ -306,7 +340,6 @@ const displayInModal = isModal || propsIsModal;
     const submitBtn = document.getElementById("submit-btn");
     const submitText = document.getElementById("submit-text");
     const loadingSpinner = document.getElementById("loading-spinner");
-    // We're now using the LocationPicker component, so we don't need to initialize the geocoder here
     
     // Handle image preview
     if (fileInput) {
@@ -340,6 +373,23 @@ const displayInModal = isModal || propsIsModal;
       form.addEventListener("submit", async (e) => {
         e.preventDefault();
         
+        // Prevent duplicate submissions
+        if (window.worldPianosGlobals && window.worldPianosGlobals.pianoFormState.isSubmitting) {
+          console.log('Form is already being submitted, ignoring duplicate submission');
+          
+          // Show the floating message
+          if (window.showDuplicateSubmissionMessage) {
+            window.showDuplicateSubmissionMessage();
+          }
+          
+          return;
+        }
+        
+        // Set submission flag
+        if (window.worldPianosGlobals) {
+          window.worldPianosGlobals.pianoFormState.isSubmitting = true;
+        }
+        
         // Show loading state
         if (submitBtn && submitText && loadingSpinner) {
           submitBtn.disabled = true;
@@ -359,16 +409,35 @@ const displayInModal = isModal || propsIsModal;
           
           if (!lat || !lng) {
             console.error('Location not selected');
-            window.worldPianosGlobals.toastManager.showToast("Please select a location using the map.", "error");
+            if (window.worldPianosGlobals && window.worldPianosGlobals.toastManager && window.worldPianosGlobals.toastManager.showToast) {
+              window.worldPianosGlobals.toastManager.showToast("Please select a location using the map.", "error");
+            } else if (window.showToast) {
+              window.showToast("Please select a location using the map.", "error");
+            }
             throw new Error('Location not selected');
           }
           
           console.log('Location coordinates:', { lat, lng });
           
           // Create piano object from form data
-          // Generate a unique ID for the piano
-          const uniqueId = generateUniqueId('piano');
-          console.log('Generated unique ID:', uniqueId);
+          // Check if we already have an ID for this submission
+          let uniqueId;
+          if (window.worldPianosGlobals && window.worldPianosGlobals.pianoFormState.currentPianoId) {
+            // Use the existing ID
+            uniqueId = window.worldPianosGlobals.pianoFormState.currentPianoId;
+            console.log('Using existing ID:', uniqueId);
+          } else {
+            // Generate a new unique ID for the piano
+            uniqueId = window.formUtils ? 
+              window.formUtils.generateUniqueId('piano') : 
+              generateUniqueId('piano');
+            console.log('Generated new unique ID:', uniqueId);
+            
+            // Store it for potential reuse
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.pianoFormState.currentPianoId = uniqueId;
+            }
+          }
           
           const pianoData = {
             id: uniqueId, // Add unique ID for the primary key
@@ -392,13 +461,38 @@ const displayInModal = isModal || propsIsModal;
           
           // Log all form data for debugging
           console.log('Form submission started');
-          logFormData(formData);
+          if (window.formUtils) {
+            window.formUtils.logFormData(formData);
+          } else {
+            logFormData(formData);
+          }
           
           // Check for authentication
-          const { userId, error: authError } = await checkAuthentication();
+          let userId, authError;
+          
+          try {
+            // Try to use the auth service directly
+            const session = await window.worldPianosAuth.auth.getSession();
+            
+            if (!session) {
+              authError = 'You must be logged in to perform this action.';
+              userId = null;
+            } else {
+              userId = session.user.id;
+              authError = null;
+            }
+          } catch (authCheckError) {
+            console.error('Error checking authentication:', authCheckError);
+            authError = 'Authentication error. Please try logging in again.';
+            userId = null;
+          }
           
           if (authError) {
-            window.worldPianosGlobals.toastManager.showToast(authError, "error");
+            if (window.worldPianosGlobals && window.worldPianosGlobals.toastManager && window.worldPianosGlobals.toastManager.showToast) {
+              window.worldPianosGlobals.toastManager.showToast(authError, "error");
+            } else if (window.showToast) {
+              window.showToast(authError, "error");
+            }
             throw new Error('Authentication required');
           }
           
@@ -406,7 +500,16 @@ const displayInModal = isModal || propsIsModal;
           pianoData.created_by = userId;
           
           // Check if admin for certain operations
-          const isAdmin = await profile.isAdmin(userId);
+          let isAdmin = false;
+          try {
+            if (window.worldPianosAuth && window.worldPianosAuth.profile) {
+              isAdmin = await window.worldPianosAuth.profile.isAdmin(userId);
+            }
+          } catch (profileError) {
+            console.error('Error checking admin status:', profileError);
+            // Default to false if there's an error
+            isAdmin = false;
+          }
           
           // Additional admin-only fields
           if (isAdmin) {
@@ -425,7 +528,11 @@ const displayInModal = isModal || propsIsModal;
           
           if (missingFields.length > 0) {
             console.error('Missing required fields:', missingFields);
-            window.worldPianosGlobals.toastManager.showToast("Missing required fields: " + missingFields.join(', '), "error");
+            if (window.worldPianosGlobals && window.worldPianosGlobals.toastManager && window.worldPianosGlobals.toastManager.showToast) {
+              window.worldPianosGlobals.toastManager.showToast("Missing required fields: " + missingFields.join(', '), "error");
+            } else if (window.showToast) {
+              window.showToast("Missing required fields: " + missingFields.join(', '), "error");
+            }
             throw new Error(`Missing required fields: ${missingFields.join(', ')}`);
           }
           
@@ -435,55 +542,113 @@ const displayInModal = isModal || propsIsModal;
               isNaN(pianoData.coordinates[0]) ||
               isNaN(pianoData.coordinates[1])) {
             console.error('Invalid coordinates:', pianoData.coordinates);
-            window.worldPianosGlobals.toastManager.showToast("Invalid coordinates. Please select a location using the map.", "error");
+            if (window.worldPianosGlobals && window.worldPianosGlobals.toastManager && window.worldPianosGlobals.toastManager.showToast) {
+              window.worldPianosGlobals.toastManager.showToast("Invalid coordinates. Please select a location using the map.", "error");
+            } else if (window.showToast) {
+              window.showToast("Invalid coordinates. Please select a location using the map.", "error");
+            }
             throw new Error('Invalid coordinates');
           }
           
           console.log('Submitting piano data:', pianoData);
+          
+          // Check for duplicate submissions
+          if (window.worldPianosGlobals) {
+            // Check if we've already created a piano with this data in the last 5 seconds
+            const now = Date.now();
+            const lastSubmissionTime = window.worldPianosGlobals.pianoFormState.lastSubmissionTime || 0;
+            const timeSinceLastSubmission = now - lastSubmissionTime;
+            
+            if (window.worldPianosGlobals.pianoFormState.pianoCreated &&
+                window.worldPianosGlobals.pianoFormState.submittedPianoId &&
+                timeSinceLastSubmission < 5000) {
+              console.warn('Preventing duplicate piano creation - piano was already created in the last 5 seconds');
+              
+              // Use the previously created piano data
+              const existingPianoId = window.worldPianosGlobals.pianoFormState.submittedPianoId;
+              
+              // Redirect to the existing piano
+              setTimeout(() => {
+                window.location.href = `/pianos/${existingPianoId}`;
+              }, 1500);
+              
+              return; // Exit early to prevent duplicate submission
+            }
+            
+            window.worldPianosGlobals.pianoFormState.pianoCreated = true;
+            window.worldPianosGlobals.pianoFormState.lastSubmissionTime = now;
+          }
           
           // Handle image upload if present
           const imageFile = formData.get('pianoPicture');
           let imageUrl = null;
           
           if (imageFile && imageFile instanceof File && imageFile.size > 0) {
-            imageUrl = await uploadImage(imageFile, 'piano-images', `Image for piano ${pianoData.name}`);
+            if (window.pianoService && window.pianoService.uploadPianoImage) {
+              imageUrl = await window.pianoService.uploadPianoImage(imageFile, pianoData.name);
+            } else if (window.formUtils && window.formUtils.uploadImage) {
+              imageUrl = await window.formUtils.uploadImage(imageFile, 'piano-images', `Image for piano ${pianoData.name}`);
+            } else {
+              imageUrl = await uploadImage(imageFile, 'piano-images', `Image for piano ${pianoData.name}`);
+            }
             if (imageUrl) {
               console.log('Image uploaded successfully:', imageUrl);
             }
           }
           
-          // Insert the piano data into the database
-          const { data: insertedPiano, error } = await supabase
-            .from('pianos')
-            .insert([
-              {
-                name: pianoData.name,
-                type: pianoData.type,
-                location: pianoData.location,
-                coordinates: pianoData.coordinates,
-                condition: pianoData.condition,
-                access: pianoData.access,
-                category: pianoData.category.toLowerCase(),
-                last_maintained: pianoData.last_maintained,
-                notes: pianoData.description,
-                created_by: pianoData.created_by,
-                verified: pianoData.verified
-              }
-            ])
-            .select();
+          // Check if piano service is available
+          if (!window.pianoService || !window.pianoService.createPiano) {
+            throw new Error('Piano service not available');
+          }
           
-          if (error) throw error;
+          // Use the PianoService to create the piano
+          const insertedPiano = await window.pianoService.createPiano(pianoData);
+          
+          if (!insertedPiano) {
+            // Reset global flag since creation failed
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.pianoFormState.pianoCreated = false;
+              window.worldPianosGlobals.pianoFormState.currentPianoId = null;
+            }
+            throw new Error('Failed to create piano');
+          }
           
           console.log('Piano created successfully:', insertedPiano);
           
+          // Store the created piano ID globally
+          if (window.worldPianosGlobals && insertedPiano) {
+            window.worldPianosGlobals.pianoFormState.submittedPianoId = insertedPiano.id;
+            window.worldPianosGlobals.pianoFormState.currentPianoId = insertedPiano.id; // Keep these in sync
+            window.worldPianosGlobals.pianoFormState.formSubmitted = true;
+            window.worldPianosGlobals.pianoFormState.pianoCreated = true;
+            window.worldPianosGlobals.pianoFormState.lastSubmissionTime = Date.now();
+          }
+          
           // If we have an image and piano data, store it
-          if (imageUrl && insertedPiano && insertedPiano.length > 0) {
-            const mediaEntry = await createMediaEntry(
-              'piano_media',
-              insertedPiano[0].id,
-              imageUrl,
-              `Primary image for ${insertedPiano[0].name}`
-            );
+          if (imageUrl && insertedPiano) {
+            let mediaEntry;
+            
+            if (window.pianoService && window.pianoService.createPianoMedia) {
+              mediaEntry = await window.pianoService.createPianoMedia(
+                insertedPiano.id,
+                imageUrl,
+                `Primary image for ${insertedPiano.name}`
+              );
+            } else if (window.formUtils && window.formUtils.createMediaEntry) {
+              mediaEntry = await window.formUtils.createMediaEntry(
+                'piano_media',
+                insertedPiano.id,
+                imageUrl,
+                `Primary image for ${insertedPiano.name}`
+              );
+            } else {
+              mediaEntry = await createMediaEntry(
+                'piano_media',
+                insertedPiano.id,
+                imageUrl,
+                `Primary image for ${insertedPiano.name}`
+              );
+            }
             
             if (mediaEntry) {
               console.log('Piano media entry created:', mediaEntry);
@@ -491,7 +656,13 @@ const displayInModal = isModal || propsIsModal;
           }
           
           // Show success toast
-          showToast("Piano added successfully!", "success");
+          if (window.formUtils && window.formUtils.showToast) {
+            window.formUtils.showToast("Piano added successfully!", "success");
+          } else if (window.showToast) {
+            window.showToast("Piano added successfully!", "success");
+          } else {
+            showToast("Piano added successfully!", "success");
+          }
           
           // Reset form
           form.reset();
@@ -516,8 +687,8 @@ const displayInModal = isModal || propsIsModal;
             if (window.parent && window.parent !== window) {
               window.parent.postMessage({
                 type: 'piano-added',
-                pianoId: insertedPiano[0].id,
-                pianoName: insertedPiano[0].name
+                pianoId: insertedPiano.id,
+                pianoName: insertedPiano.name
               }, '*');
             }
             
@@ -527,7 +698,7 @@ const displayInModal = isModal || propsIsModal;
             }, 1000);
           } else {
             // Check if the piano details page exists before redirecting
-            const pianoDetailsUrl = `/pianos/${insertedPiano[0].id}`;
+            const pianoDetailsUrl = `/pianos/${insertedPiano.id}`;
             
             if (window.checkUrlExists) {
               window.checkUrlExists(pianoDetailsUrl, (exists) => {
@@ -537,10 +708,10 @@ const displayInModal = isModal || propsIsModal;
                     window.location.href = pianoDetailsUrl;
                   }, 1500);
                 } else {
-                  // If the page doesn't exist, redirect to the pianos list page
-                  console.warn(`Piano details page ${pianoDetailsUrl} does not exist, redirecting to pianos list`);
+                  // Even if the page doesn't exist, still try to redirect to the piano details page
+                  console.warn(`Piano details page ${pianoDetailsUrl} might not exist yet, but still redirecting`);
                   setTimeout(() => {
-                    window.location.href = '/pianos';
+                    window.location.href = pianoDetailsUrl;
                   }, 1500);
                 }
               });
@@ -552,10 +723,36 @@ const displayInModal = isModal || propsIsModal;
             }
           }
         } catch (error) {
-          // Handle and show error message
+          // Only log errors to console, don't show to user
           console.error("Form submission error:", error);
-          const errorMessage = handleFormError(error);
-          window.worldPianosGlobals.toastManager.showToast(errorMessage, "error");
+          
+          // Log detailed error information to console
+          console.error("Detailed error:", {
+            message: error.message,
+            stack: error.stack,
+            code: error.code,
+            details: error.details
+          });
+          
+          // Redirect to the piano details page if we have an ID, otherwise to the pianos list
+          setTimeout(() => {
+            if (window.worldPianosGlobals && window.worldPianosGlobals.pianoFormState.currentPianoId) {
+              // Use the current piano ID for redirection
+              const pianoId = window.worldPianosGlobals.pianoFormState.currentPianoId;
+              window.location.href = `/pianos/${pianoId}`;
+            } else if (insertedPiano && insertedPiano.id) {
+              // Use the inserted piano ID if available
+              window.location.href = `/pianos/${insertedPiano.id}`;
+            } else {
+              // Fallback to pianos list if no ID is available
+              window.location.href = '/pianos';
+            }
+          }, 1500);
+          
+          // Reset piano creation flag since there was an error
+          if (window.worldPianosGlobals) {
+            window.worldPianosGlobals.pianoFormState.pianoCreated = false;
+          }
         } finally {
           // Reset button state
           if (submitBtn && submitText && loadingSpinner) {
@@ -563,9 +760,15 @@ const displayInModal = isModal || propsIsModal;
             submitText.textContent = "Submit";
             loadingSpinner.classList.add("hidden");
           }
+          
+          // Reset submission flag after a longer delay to ensure the form submission is complete
+          setTimeout(() => {
+            if (window.worldPianosGlobals) {
+              window.worldPianosGlobals.pianoFormState.isSubmitting = false;
+            }
+          }, 2000); // Increased from 500ms to 2000ms to prevent duplicate submissions
         }
       });
     }
-    
   });
 </script>

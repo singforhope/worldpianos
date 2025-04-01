@@ -150,3 +150,88 @@ We standardized error handling across all functions by:
    - The new schema is more flexible and can accommodate future changes
    - The migration script is designed to be safe and idempotent
    - The TypeScript types are more explicit and easier to maintain
+
+## Recent Updates (April 2025)
+
+### 1. Added `reported_by` Column to Reports Tables
+
+We created a new migration file (`supabase/migrations/20250401_add_reported_by_column.sql`) that:
+
+- **Adds `reported_by` Column to Piano Reports**
+  - Added a `reported_by` column to the `piano_reports` table
+  - This column references `auth.users(id)` and stores the ID of the user who reported the issue
+  - Aligns with the `reportPianoIssue` function in `dataService.ts` which expects a `reported_by` parameter
+
+- **Adds `reported_by` Column to Event Reports**
+  - Added a `reported_by` column to the `event_reports` table
+  - This column references `auth.users(id)` and stores the ID of the user who reported the issue
+  - Aligns with the `reportEventIssue` function in `dataService.ts` which expects a `reported_by` parameter
+
+- **Data Migration**
+  - Copies existing `user_id` values to `reported_by` for data consistency
+  - Ensures no data is lost during the schema update
+
+- **Documentation**
+  - Added comments to the columns to explain their purpose
+  - Updated this document to reflect the changes
+
+### How to Apply This Update
+
+1. **Run the Migration Script**
+   - Execute the SQL commands in `supabase/migrations/20250401_add_reported_by_column.sql` in your Supabase SQL editor
+   - This will add the new columns and migrate existing data
+   - The script is idempotent and checks if the columns already exist before adding them
+
+2. **Update Your Code**
+   - When reporting issues, use the `reported_by` parameter instead of `user_id`
+   - The `reportPianoIssue` and `reportEventIssue` functions in `dataService.ts` already expect this parameter
+
+### 2. Updated RLS Policies for Piano Reports
+
+We created a new migration file (`supabase/migrations/20250401_update_piano_reports_rls.sql`) that:
+
+- **Updates the Insert Policy**
+  - Replaced the restrictive policy that required authentication
+  - Created a more permissive policy that allows any insert
+  - This helps troubleshoot issues with report submission
+
+- **Adds a Select Policy**
+  - Created a policy to allow users to view their own reports
+  - Users can see reports where they are either the `user_id` or `reported_by`
+  - Admins can see all reports
+
+- **Temporary Solution**
+  - This is a temporary policy for testing purposes
+  - Once the report submission is working correctly, you may want to revert to a more restrictive policy
+
+### How to Apply This Update
+
+1. **Run the Migration Script**
+   - Execute the SQL commands in `supabase/migrations/20250401_update_piano_reports_rls.sql` in your Supabase SQL editor
+   - This will update the RLS policies for the piano_reports table
+   - The script first drops existing policies before creating new ones
+
+### 3. Updated RLS Policies for Event Reports
+
+We created a new migration file (`supabase/migrations/20250401_update_event_reports_rls.sql`) that:
+
+- **Updates the Insert Policy**
+  - Replaced the restrictive policy that required authentication
+  - Created a more permissive policy that allows any insert
+  - This helps troubleshoot issues with event report submission
+
+- **Adds a Select Policy**
+  - Created a policy to allow users to view their own event reports
+  - Users can see reports where they are either the `user_id` or `reported_by`
+  - Admins can see all reports
+
+- **Temporary Solution**
+  - This is a temporary policy for testing purposes
+  - Once the report submission is working correctly, you may want to revert to a more restrictive policy
+
+### How to Apply This Update
+
+1. **Run the Migration Script**
+   - Execute the SQL commands in `supabase/migrations/20250401_update_event_reports_rls.sql` in your Supabase SQL editor
+   - This will update the RLS policies for the event_reports table
+   - The script first drops existing policies before creating new ones

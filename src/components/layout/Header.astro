@@ -65,6 +65,13 @@ const isActive = (path: string) => currentPath.startsWith(path);
                 </li>
                 <li>
                     <a
+                        href="/pianos"
+                        class={`${isActive("/pianos") ? "bg-primary text-primary-content font-semibold" : ""} hover:bg-primary hover:text-primary-content`}
+                        >Pianos</a
+                    >
+                </li>
+                <li>
+                    <a
                         href="/events"
                         class={`${isActive("/events") ? "bg-primary text-primary-content font-semibold" : ""} hover:bg-primary hover:text-primary-content`}
                         >Events</a
@@ -123,6 +130,13 @@ const isActive = (path: string) => currentPath.startsWith(path);
                     href="/map"
                     class={`${isActive("/map") ? "bg-primary text-primary-content font-semibold" : ""} hover:bg-primary hover:text-primary-content`}
                     >Map</a
+                >
+            </li>
+            <li>
+                <a
+                    href="/pianos"
+                    class={`${isActive("/pianos") ? "bg-primary text-primary-content font-semibold" : ""} hover:bg-primary hover:text-primary-content`}
+                    >Pianos</a
                 >
             </li>
             <li>
