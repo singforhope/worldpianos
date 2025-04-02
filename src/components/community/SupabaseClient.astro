@@ -11,8 +11,8 @@ import { supabase } from '../../utils/supabaseClient';
   // Import the Supabase client
   import { supabase } from '../../utils/supabaseClient';
   
-  // Add TypeScript declaration to extend window interface
-  interface WindowWithSupabase extends Window {
+  // Add TypeScript declaration using type intersection instead of extension
+  type WindowWithSupabase = Window & {
     supabaseClient?: typeof supabase;
     hasDispatchedSupabaseReady?: boolean;
   }

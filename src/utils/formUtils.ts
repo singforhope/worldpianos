@@ -55,21 +55,81 @@ export async function uploadImage(
       console.error(`Error checking/creating bucket ${bucketName}:`, bucketError);
     }
     
-    // Upload to Supabase Storage
-    const { data: uploadData, error: uploadError } = await supabase.storage
-      .from(bucketName)
-      .upload(fileName, imageFile);
+    // METHOD 1: Direct fetch to Supabase Storage API
+    try {
+      // Get the JWT token
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) throw new Error('No active session');
       
-    if (uploadError) {
-      throw uploadError;
+      const token = session.access_token;
+      
+      // Create FormData
+      const formData = new FormData();
+      formData.append('file', imageFile);
+      
+      // Set proper URL for upload
+      const storageUrl = `https://epdkmtgrcqreqewpnzaf.supabase.co/storage/v1/object/${bucketName}/` + fileName;
+      
+      console.log(`Uploading to ${bucketName}:`, storageUrl);
+      
+      // Upload with fetch
+      const uploadResponse = await fetch(storageUrl, {
+        method: 'POST',
+        headers: {
+          'Authorization': `Bearer ${token}`
+        },
+        body: formData
+      });
+      
+      if (!uploadResponse.ok) {
+        const errorData = await uploadResponse.json();
+        throw new Error(`Upload failed: ${JSON.stringify(errorData)}`);
+      }
+      
+      console.log('Upload successful with direct fetch');
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+        
+      if (!urlData) throw new Error('Failed to get public URL');
+      
+      return urlData.publicUrl;
+    } catch (fetchError) {
+      console.error('Direct fetch upload failed:', fetchError);
+      
+      // METHOD 2: Fallback to Supabase client with Blob
+      console.log('Trying fallback upload with supabase client...');
+      
+      // Create a clean Blob with the correct MIME type
+      const fileExt = imageFile.name.split('.').pop();
+      const arrayBuffer = await imageFile.arrayBuffer();
+      const blob = new Blob([arrayBuffer], { 
+        type: imageFile.type || `image/${fileExt}` 
+      });
+      
+      // Upload to Supabase Storage with the blob
+      const { data: uploadData, error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, blob, {
+          contentType: imageFile.type || `image/${fileExt}`,
+          cacheControl: '3600',
+          upsert: true
+        });
+        
+      if (uploadError) {
+        throw uploadError;
+      }
+      
+      // Get public URL
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+        
+      console.log('Fallback upload successful');
+      return urlData.publicUrl;
     }
-    
-    // Get public URL
-    const { data: urlData } = supabase.storage
-      .from(bucketName)
-      .getPublicUrl(fileName);
-      
-    return urlData.publicUrl;
   } catch (error) {
     console.error('Error uploading image:', error);
     return null;
