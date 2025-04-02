@@ -302,6 +302,16 @@ const categories = [...new Set(pianos.map(piano => piano.category))].sort();
     
     // Initialize filter count
     updateFilterCount(0);
+    
+    // Set a flag to track initial load
+    const isInitialLoad = true;
+    
+    // Add a short delay to ensure the map has fully loaded before applying filters
+    setTimeout(() => {
+      // Ensure all pianos are shown by default with no filters applied
+      applyFilters({"category":null,"type":null,"condition":null,"country":null,"city":null});
+      console.log("Initial filter applied: All pianos should be visible");
+    }, 500);
   });
 </script>
 

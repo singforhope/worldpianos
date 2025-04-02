@@ -1,6 +1,5 @@
 ---
 // Header.astro
-import Results from "../search/Results.astro";
 import Location from "../search/Location.astro";
 import { Image } from "astro:assets";
 import logo from "../../assets/logo.png";
@@ -107,21 +106,57 @@ const isActive = (path: string) => currentPath.startsWith(path);
                         </button>
                     </li>
                 )}
+                
+                <!-- Location Button in Mobile Menu -->
+                <li>
+                    <button id="mobile-location-button" class="flex items-center">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
+                            ></path>
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        Set a Location
+                    </button>
+                </li>
+                
+                <!-- Mobile Search Toggle -->
+                <li class="lg:hidden mt-2">
+                    <button id="mobile-search-toggle" class="flex items-center">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+                        </svg>
+                        Search
+                    </button>
+                </li>
             </ul>
         </div>
         <!-- Logo -->
         <a
             href="/"
-            class="btn btn-ghost normal-case text-2xl flex items-center gap-1"
+            class="btn btn-ghost normal-case text-xl md:text-2xl flex items-center gap-1 px-1 md:px-3"
         >
-            <div class="w-9 h-9">
+            <div class="w-7 h-7 md:w-9 md:h-9">
                 <Image
                     src={logo}
                     alt="Worldpianos Logo"
                    
                 />
             </div>
-            <span class="text-primary -mr-1">World</span>Pianos
+            <span class="text-primary -mr-1">World</span><span>Pianos</span>
         </a>
         <!-- Desktop Menu -->
         <ul class="menu menu-horizontal px-1 hidden lg:flex">
@@ -158,7 +193,8 @@ const isActive = (path: string) => currentPath.startsWith(path);
 
     <!-- Middle Section: Search -->
     <div class="navbar-center flex-1 justify-center relative">
-        <form class="form-control w-full max-w-xl" id="search-form" autocomplete="off">
+        <!-- Desktop Search -->
+        <form class="form-control w-full max-w-xl hidden md:block" id="search-form" autocomplete="off">
             <div class="flex flex-col sm:flex-row w-full max-w-xl">
                 <div class="join w-full">
                     <div class="dropdown join-item">
@@ -202,30 +238,32 @@ const isActive = (path: string) => currentPath.startsWith(path);
                 </div>
             </div>
         </form>
-        <Results
-            isVisible={false}
-            searchQuery={searchQuery}
-            searchType={Astro.url.searchParams.get("type") || "pianos"}
-        />
+        
+        <!-- Mobile Search Button (always visible) -->
+        <button id="mobile-search-btn" class="btn btn-circle btn-ghost md:hidden">
+            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"></path>
+            </svg>
+        </button>
     </div>
 
     <!-- Right Section: User Controls -->
-    <div class="navbar-end flex-1 justify-end mr-2">
-        <!-- Location Button -->
-        <Location className="mr-2" />
+    <div class="navbar-end flex-1 justify-end mr-0 md:mr-2 gap-1">
+        <!-- Location Button (hidden on mobile, visible on md screens and up) -->
+        <Location className="hidden md:flex mr-1" />
 
         <div id="auth-container">
             {
                 !authenticated ? (
-                    <div class="flex items-center gap-2">
-                        <a href="/auth" class="btn btn-primary btn-sm">
-                            Login or Sign Up
+                    <div class="flex items-center">
+                        <a href="/auth" class="btn btn-primary btn-sm px-2 xs:px-4">
+                            <span class="hidden xs:inline">Login or</span><span> Sign Up</span>
                         </a>
                     </div>
                 ) : (
-                    <div class="flex items-center">
+                    <div class="flex items-center gap-1">
                         <!-- Add Piano Button (Modal Trigger) - Only shown when authenticated -->
-                        <button id="open-piano-modal" class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
+                        <button id="open-piano-modal" class="btn btn-primary btn-outline btn-sm mr-1 hidden sm:flex">
                             <svg
                                 xmlns="http://www.w3.org/2000/svg"
                                 class="h-5 w-5"
@@ -239,11 +277,11 @@ const isActive = (path: string) => currentPath.startsWith(path);
                                     stroke-width="2"
                                     d="M12 4v16m8-8H4"></path>
                             </svg>
-                            Add Piano
+                            <span class="hidden md:inline">Add Piano</span>
                         </button>
-                        <div class="dropdown dropdown-end ml-2">
+                        <div class="dropdown dropdown-end">
                             <label tabindex="0" class="btn btn-ghost btn-circle avatar">
-                                <div class="w-10 rounded-full">
+                                <div class="w-8 md:w-10 rounded-full">
                                     <img
                                         src={userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}`}
                                         alt="User avatar"
@@ -367,6 +405,66 @@ const isActive = (path: string) => currentPath.startsWith(path);
             }
         </div>
     </div>
+    
+    <!-- Mobile Search Panel (hidden by default) -->
+    <div id="mobile-search-panel" class="fixed inset-x-0 top-16 z-40 hidden bg-base-100 shadow-lg p-4 animate-fadeInDown md:hidden">
+        <form class="form-control w-full" id="mobile-search-form" autocomplete="off">
+            <div class="flex flex-col w-full">
+                <div class="join w-full">
+                    <div class="dropdown join-item">
+                        <div tabindex="0" role="button" class="btn btn-bordered join-item" id="mobile-search-type-btn">
+                            <span id="mobile-search-type-text">Pianos</span>
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ml-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7" />
+                            </svg>
+                        </div>
+                        <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+                            <li><a class="mobile-search-type-option" data-value="pianos">Pianos</a></li>
+                            <li><a class="mobile-search-type-option" data-value="events">Events</a></li>
+                        </ul>
+                    </div>
+                    <input
+                        type="text"
+                        id="mobile-search-input"
+                        name="q"
+                        value=""
+                        placeholder="Search pianos..."
+                        class="input input-bordered join-item flex-grow"
+                        autocomplete="off"
+                    />
+                    <button type="submit" class="btn btn-primary join-item">
+                        <svg
+                            xmlns="http://www.w3.org/2000/svg"
+                            class="h-5 w-5"
+                            fill="none"
+                            viewBox="0 0 24 24"
+                            stroke="currentColor"
+                        >
+                            <path
+                                stroke-linecap="round"
+                                stroke-linejoin="round"
+                                stroke-width="2"
+                                d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                            ></path>
+                        </svg>
+                    </button>
+                </div>
+                <div class="mt-2 w-full">
+                    <!-- Mobile search loading indicator -->
+                    <div id="mobile-search-loading" class="py-4 justify-center" style="display: none;">
+                        <div class="loading loading-spinner loading-sm"></div>
+                    </div>
+                    
+                    <!-- Mobile search results container - separate from desktop -->
+                    <div id="mobile-results-container" class="max-h-60 overflow-y-auto rounded-lg shadow-inner"></div>
+                </div>
+                <div class="flex justify-between mt-3">
+                    <button type="submit" class="btn btn-sm btn-primary">Search</button>
+                    <button id="close-mobile-search" class="btn btn-sm btn-ghost">Close</button>
+                </div>
+            </div>
+        </form>
+    </div>
 </header>
 
 <script>
@@ -374,6 +472,10 @@ const isActive = (path: string) => currentPath.startsWith(path);
     const themeToggle = document.getElementById("theme-toggle");
     const themeText = themeToggle?.querySelector(".theme-text");
     const html = document.documentElement;
+    
+    // Get mobile location button
+    const mobileLocationButton = document.getElementById("mobile-location-button");
+    const locationModal = document.getElementById("location-modal") as HTMLDialogElement;
 
     if (themeToggle && themeText) {
         // Toggle theme on click
@@ -391,22 +493,54 @@ const isActive = (path: string) => currentPath.startsWith(path);
         });
 
         // Update text based on current theme
-        // Make sure we get the theme from localStorage to be consistent
         const currentTheme = localStorage.getItem("theme") || "light";
-        // Also ensure the HTML attribute is set correctly
         html.setAttribute("data-theme", currentTheme);
         themeText.textContent =
             currentTheme === "light" ? "Dark Mode" : "Light Mode";
     }
 
+    // Initial theme check
+    const storedTheme = localStorage.getItem("theme");
+    if (storedTheme) {
+        html.setAttribute("data-theme", storedTheme);
+        if (themeText) {
+            themeText.textContent = storedTheme === "light" ? "Dark Mode" : "Light Mode";
+        }
+    } else {
+        localStorage.setItem("theme", "light");
+    }
+    
+    // Mobile location button click handler
+    if (mobileLocationButton && locationModal) {
+        mobileLocationButton.addEventListener("click", () => {
+            locationModal.showModal();
+        });
+    }
+    
+    // Mobile menu functionality
+    const mobileMenu = document.querySelector(".dropdown label[tabindex='0']");
+
     // Search functionality
-    const searchInput = document.getElementById("search-input");
-    const searchResults = document.querySelector(".search-results");
+    const searchInput = document.getElementById("search-input") as HTMLInputElement;
     const searchForm = document.getElementById("search-form");
     const searchTypeBtn = document.getElementById("search-type-btn");
     const searchTypeText = document.getElementById("search-type-text");
     const searchTypeInput = document.getElementById("search-type-input") as HTMLInputElement;
     const searchTypeOptions = document.querySelectorAll(".search-type-option");
+
+    // Mobile search elements
+    const mobileSearchBtn = document.getElementById("mobile-search-btn");
+    const mobileSearchToggle = document.getElementById("mobile-search-toggle");
+    const mobileSearchPanel = document.getElementById("mobile-search-panel");
+    const closeMobileSearch = document.getElementById("close-mobile-search");
+    const mobileSearchForm = document.getElementById("mobile-search-form");
+    const mobileSearchInput = document.getElementById("mobile-search-input") as HTMLInputElement;
+    const mobileSearchTypeBtn = document.getElementById("mobile-search-type-btn");
+    const mobileSearchTypeText = document.getElementById("mobile-search-type-text");
+    const mobileSearchTypeInput = document.getElementById("mobile-search-type-input") as HTMLInputElement;
+    const mobileSearchTypeOptions = document.querySelectorAll(".mobile-search-type-option");
+    const mobileSearchLoading = document.getElementById("mobile-search-loading");
+    const mobileResultsContainer = document.getElementById("mobile-results-container");
 
     // Get the current search type from URL or default to "pianos"
     const urlParams = new URLSearchParams(window.location.search);
@@ -416,6 +550,12 @@ const isActive = (path: string) => currentPath.startsWith(path);
     if (searchTypeText && searchTypeInput) {
         searchTypeText.textContent = currentType.charAt(0).toUpperCase() + currentType.slice(1);
         searchTypeInput.value = currentType;
+    }
+    
+    // Also set for mobile
+    if (mobileSearchTypeText && mobileSearchTypeInput) {
+        mobileSearchTypeText.textContent = currentType.charAt(0).toUpperCase() + currentType.slice(1);
+        mobileSearchTypeInput.value = currentType;
     }
 
     // Handle search type option clicks
@@ -447,78 +587,201 @@ const isActive = (path: string) => currentPath.startsWith(path);
             }
         });
     });
-
-    if (searchInput && searchResults && searchForm) {
-        // Initially hide the results
-        searchResults.classList.add(
-            "opacity-0",
-            "-translate-y-2",
-            "pointer-events-none"
-        );
-
-        // Show results on focus
-        searchInput.addEventListener("focus", () => {
-            searchResults.classList.remove(
-                "opacity-0",
-                "-translate-y-2",
-                "pointer-events-none"
-            );
-            searchResults.classList.add("opacity-100", "translate-y-0");
-        });
-
-        // Show results on input
-        searchInput.addEventListener("input", () => {
-            searchResults.classList.remove(
-                "opacity-0",
-                "-translate-y-2",
-                "pointer-events-none"
-            );
-            searchResults.classList.add("opacity-100", "translate-y-0");
-        });
-
-        // Handle form submission
-        searchForm.addEventListener("submit", (e) => {
-            e.preventDefault();
-            const searchQuery = (searchInput as HTMLInputElement).value.trim();
-            const selectedType = searchTypeInput ? searchTypeInput.value : "pianos";
+    
+    // Handle mobile search type option clicks
+    mobileSearchTypeOptions.forEach(option => {
+        option.addEventListener("click", () => {
+            const value = option.getAttribute("data-value") || "pianos";
+            if (mobileSearchTypeText) {
+                mobileSearchTypeText.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+            }
+            if (mobileSearchInput) {
+                mobileSearchInput.placeholder = `Search ${value}...`;
+            }
             
-            if (searchQuery) {
-                window.location.href = `/?q=${encodeURIComponent(searchQuery)}&type=${selectedType}`;
+            // Clear previous results when changing type
+            if (mobileResultsContainer) {
+                mobileResultsContainer.innerHTML = '';
             }
         });
+    });
 
-        // Hide results when clicking outside
-        document.addEventListener("click", (e) => {
-            if (
-                !searchInput.contains(e.target as Node) &&
-                !searchResults?.contains(e.target as Node) &&
-                !searchTypeBtn?.contains(e.target as Node)
-            ) {
-                searchResults.classList.remove("opacity-100", "translate-y-0");
-                searchResults.classList.add(
-                    "opacity-0",
-                    "-translate-y-2",
-                    "pointer-events-none"
-                );
+    // Mobile search toggle
+    function showMobileSearch() {
+        if (mobileSearchPanel) {
+            mobileSearchPanel.classList.remove('hidden');
+            // Focus the input for better UX
+            if (mobileSearchInput) mobileSearchInput.focus();
+            
+            // Copy values from desktop search if available
+            if (searchInput && mobileSearchInput) {
+                mobileSearchInput.value = (searchInput as HTMLInputElement).value;
             }
+        }
+    }
+    
+    function hideMobileSearch() {
+        if (mobileSearchPanel) {
+            mobileSearchPanel.classList.add('hidden');
+            // Hide mobile search results
+            if (mobileResultsContainer) {
+                mobileResultsContainer.classList.add("opacity-0", "-translate-y-2", "pointer-events-none");
+                mobileResultsContainer.classList.remove("opacity-100", "translate-y-0");
+            }
+        }
+    }
+    
+    // Mobile search button click
+    if (mobileSearchBtn) {
+        mobileSearchBtn.addEventListener('click', showMobileSearch);
+    }
+    
+    // Mobile search toggle in menu
+    if (mobileSearchToggle) {
+        mobileSearchToggle.addEventListener('click', showMobileSearch);
+    }
+    
+    // Close mobile search
+    if (closeMobileSearch) {
+        closeMobileSearch.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideMobileSearch();
         });
-
-        // Hide results when clicking a result
-        searchResults.addEventListener("click", (e) => {
-            if ((e.target as HTMLElement).closest("a")) {
-                searchResults.classList.remove("opacity-100", "translate-y-0");
-                searchResults.classList.add(
-                    "opacity-0",
-                    "-translate-y-2",
-                    "pointer-events-none"
-                );
+    }
+    
+    // Mobile search input handler
+    if (mobileSearchInput) {
+        let mobileSearchTimeout: number | undefined;
+        
+        mobileSearchInput.addEventListener("input", () => {
+            const query = mobileSearchInput.value.trim();
+            const type = mobileSearchTypeText?.textContent?.toLowerCase() || "pianos";
+            
+            // Clear timeout if it exists
+            if (mobileSearchTimeout) {
+                clearTimeout(mobileSearchTimeout);
+            }
+            
+            if (query.length >= 2) {
+                // Show loading indicator
+                if (mobileSearchLoading) {
+                    mobileSearchLoading.classList.remove("hidden");
+                }
+                if (mobileResultsContainer) {
+                    mobileResultsContainer.innerHTML = '';
+                }
+                
+                // Set timeout to prevent too many requests
+                mobileSearchTimeout = window.setTimeout(async () => {
+                    try {
+                        const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=5`);
+                        
+                        if (!response.ok) {
+                            throw new Error('Search request failed');
+                        }
+                        
+                        const data = await response.json();
+                        
+                        // Hide loading indicator
+                        if (mobileSearchLoading) {
+                            mobileSearchLoading.classList.add("hidden");
+                        }
+                        
+                        // Display results
+                        if (mobileResultsContainer) {
+                            renderMobileResults(data, type);
+                        }
+                    } catch (error) {
+                        console.error("Search error:", error);
+                        if (mobileSearchLoading) {
+                            mobileSearchLoading.classList.add("hidden");
+                        }
+                        if (mobileResultsContainer) {
+                            mobileResultsContainer.innerHTML = '<div class="p-3 text-error">Error loading results</div>';
+                        }
+                    }
+                }, 300);
+            } else {
+                // Hide loading and clear results if query is too short
+                if (mobileSearchLoading) {
+                    mobileSearchLoading.classList.add("hidden");
+                }
+                if (mobileResultsContainer) {
+                    mobileResultsContainer.innerHTML = '';
+                }
             }
         });
         
-        // Set initial placeholder
-        if (searchInput) {
-            (searchInput as HTMLInputElement).placeholder = `Search ${currentType}...`;
+        // Function to render mobile results
+        function renderMobileResults(results: any[], type: string) {
+            if (!mobileResultsContainer) return;
+            
+            mobileResultsContainer.innerHTML = '';
+            
+            if (results.length === 0) {
+                mobileResultsContainer.innerHTML = '<div class="p-3 text-sm text-base-content/70">No results found</div>';
+                return;
+            }
+            
+            const resultsList = document.createElement('ul');
+            resultsList.className = 'menu bg-base-100 rounded-box w-full';
+            
+            results.forEach(item => {
+                const listItem = document.createElement('li');
+                
+                const link = document.createElement('a');
+                link.href = type === 'pianos' 
+                    ? `/pianos/${item.id}` 
+                    : `/events/${item.id}`;
+                
+                const title = document.createElement('span');
+                title.className = 'font-medium';
+                title.textContent = item.name || item.title || 'Untitled';
+                
+                const subtitle = document.createElement('span');
+                subtitle.className = 'text-xs text-base-content/70';
+                
+                if (type === 'pianos') {
+                    subtitle.textContent = item.location || 'No location specified';
+                } else {
+                    subtitle.textContent = item.location || 'No location specified';
+                }
+                
+                link.appendChild(title);
+                link.appendChild(document.createElement('br'));
+                link.appendChild(subtitle);
+                
+                listItem.appendChild(link);
+                resultsList.appendChild(listItem);
+            });
+            
+            mobileResultsContainer.appendChild(resultsList);
+            
+            // Add "View all results" link
+            const viewAllItem = document.createElement('li');
+            viewAllItem.className = 'border-t border-base-300 mt-1 pt-1';
+            
+            const viewAllLink = document.createElement('a');
+            viewAllLink.className = 'btn btn-ghost btn-sm justify-center text-primary';
+            if (mobileSearchInput) {
+                viewAllLink.href = `/search?q=${encodeURIComponent(mobileSearchInput.value)}&type=${type}`;
+            }
+            viewAllLink.textContent = 'View all results';
+            
+            viewAllItem.appendChild(viewAllLink);
+            resultsList.appendChild(viewAllItem);
         }
+    }
+    
+    // Form submission for mobile search
+    if (mobileSearchForm && mobileSearchInput) {
+        mobileSearchForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const query = mobileSearchInput.value.trim();
+            if (query.length > 0) {
+                window.location.href = `/search?q=${encodeURIComponent(query)}&type=${mobileSearchTypeText?.textContent?.toLowerCase() || "pianos"}`;
+            }
+        });
     }
 </script>
 
@@ -570,16 +833,38 @@ const isActive = (path: string) => currentPath.startsWith(path);
                             : ''}
                             <li>
                                 <a id="theme-toggle">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z" />
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"
+                                        />
                                     </svg>
                                     <span class="theme-text">Dark Mode</span>
                                 </a>
                             </li>
                             <li>
                                 <a href="#" id="logout-btn">
-                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                    <svg
+                                        xmlns="http://www.w3.org/2000/svg"
+                                        class="h-5 w-5"
+                                        fill="none"
+                                        viewBox="0 0 24 24"
+                                        stroke="currentColor"
+                                    >
+                                        <path
+                                            stroke-linecap="round"
+                                            stroke-linejoin="round"
+                                            stroke-width="2"
+                                            d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"
+                                        />
                                     </svg>
                                     Logout
                                 </a>
@@ -756,4 +1041,249 @@ const isActive = (path: string) => currentPath.startsWith(path);
             mobileAddPianoBtn.addEventListener('click', handleAddPianoClick);
         }
     });
+</script>
+
+<script>
+    // Mobile search panel toggle
+    const mobileSearchBtn = document.getElementById("mobile-search-btn");
+    const mobileSearchPanel = document.getElementById("mobile-search-panel");
+    const closeMobileSearch = document.getElementById("close-mobile-search");
+    const mobileSearchInput = document.getElementById("mobile-search-input") as HTMLInputElement;
+    const mobileSearchTypeBtn = document.getElementById("mobile-search-type-btn");
+    const mobileSearchTypeText = document.getElementById("mobile-search-type-text");
+    const mobileSearchTypeOptions = document.querySelectorAll(".mobile-search-type-option");
+    const mobileSearchLoading = document.getElementById("mobile-search-loading");
+    const mobileResultsContainer = document.getElementById("mobile-results-container");
+    const mobileSearchForm = document.getElementById("mobile-search-form");
+
+    // Desktop search functionality
+    const searchInput = document.getElementById("search-input") as HTMLInputElement;
+    const searchForm = document.getElementById("search-form");
+    const searchTypeBtn = document.getElementById("search-type-btn");
+    const searchTypeText = document.getElementById("search-type-text");
+    const searchTypeInput = document.getElementById("search-type-input") as HTMLInputElement;
+    const searchTypeOptions = document.querySelectorAll(".search-type-option");
+    const desktopSearchLoading = document.createElement("div");
+    const desktopResultsContainer = document.createElement("div");
+    
+    // Set up desktop results containers
+    if (searchForm) {
+        // Create and append the loading indicator
+        desktopSearchLoading.className = "hidden py-4 flex justify-center";
+        desktopSearchLoading.innerHTML = '<div class="loading loading-spinner loading-sm"></div>';
+        desktopSearchLoading.id = "desktop-search-loading";
+        
+        // Create and append the results container
+        desktopResultsContainer.className = "max-h-60 overflow-y-auto rounded-lg shadow-inner absolute w-full bg-base-100 mt-2";
+        desktopResultsContainer.id = "desktop-results-container";
+        
+        // Append the elements to the form
+        const searchFormContainer = searchForm.closest('.form-control');
+        if (searchFormContainer) {
+            searchFormContainer.appendChild(desktopSearchLoading);
+            searchFormContainer.appendChild(desktopResultsContainer);
+            (searchFormContainer as HTMLElement).style.position = 'relative';
+        }
+    }
+    
+    // Handle desktop search type options
+    searchTypeOptions.forEach(option => {
+        option.addEventListener("click", () => {
+            const value = option.getAttribute("data-value") || "pianos";
+            if (searchTypeText && searchTypeInput) {
+                searchTypeText.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+                searchTypeInput.value = value;
+            }
+            if (searchInput) {
+                searchInput.placeholder = `Search ${value}...`;
+            }
+            // Clear previous results
+            if (desktopResultsContainer) {
+                desktopResultsContainer.innerHTML = '';
+            }
+        });
+    });
+
+    // Handle desktop search input
+    let desktopSearchTimeout: number | undefined;
+    if (searchInput) {
+        searchInput.addEventListener("input", () => {
+            const query = searchInput.value.trim();
+            
+            // Clear timeout if it exists
+            if (desktopSearchTimeout) {
+                clearTimeout(desktopSearchTimeout);
+            }
+            
+            if (query.length >= 2) {
+                // Show loading indicator
+                desktopSearchLoading.classList.remove("hidden");
+                desktopResultsContainer.innerHTML = '';
+                
+                // Set timeout to prevent too many requests
+                desktopSearchTimeout = window.setTimeout(() => {
+                    const selectedType = searchTypeInput ? searchTypeInput.value : "pianos";
+                    fetchDesktopSearchResults(query, selectedType);
+                }, 300);
+            } else {
+                // Hide loading and clear results if query is too short
+                desktopSearchLoading.classList.add("hidden");
+                desktopResultsContainer.innerHTML = '';
+            }
+        });
+        
+        // Handle click outside to close results
+        document.addEventListener("click", (e) => {
+            if (
+                !searchInput.contains(e.target as Node) &&
+                !desktopResultsContainer.contains(e.target as Node) &&
+                !searchTypeBtn?.contains(e.target as Node)
+            ) {
+                desktopResultsContainer.innerHTML = '';
+            }
+        });
+    }
+    
+    // Handle form submission
+    if (searchForm && searchInput) {
+        searchForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const query = searchInput.value.trim();
+            const selectedType = searchTypeInput ? searchTypeInput.value : "pianos";
+            
+            if (query) {
+                window.location.href = `/search?q=${encodeURIComponent(query)}&type=${selectedType}`;
+            }
+        });
+    }
+    
+    // Function to fetch desktop search results
+    async function fetchDesktopSearchResults(query: string, type: string) {
+        try {
+            const response = await fetch(`/api/search?q=${encodeURIComponent(query)}&type=${type}&limit=5`);
+            
+            if (!response.ok) {
+                throw new Error('Search request failed');
+            }
+            
+            const data = await response.json();
+            
+            // Hide loading indicator
+            desktopSearchLoading.classList.add("hidden");
+            
+            // Display results
+            renderDesktopSearchResults(data, type);
+        } catch (error) {
+            console.error("Search error:", error);
+            desktopSearchLoading.classList.add("hidden");
+            desktopResultsContainer.innerHTML = '<div class="p-3 text-error">Error loading results</div>';
+        }
+    }
+    
+    // Function to render desktop search results
+    function renderDesktopSearchResults(results: any[], type: string) {
+        desktopResultsContainer.innerHTML = '';
+        
+        if (results.length === 0) {
+            desktopResultsContainer.innerHTML = '<div class="p-3 text-sm text-base-content/70">No results found</div>';
+            return;
+        }
+        
+        const resultsList = document.createElement('ul');
+        resultsList.className = 'menu bg-base-100 rounded-box w-full';
+        
+        results.forEach(item => {
+            const listItem = document.createElement('li');
+            
+            const link = document.createElement('a');
+            link.href = type === 'pianos' 
+                ? `/pianos/${item.id}` 
+                : `/events/${item.id}`;
+            
+            const title = document.createElement('span');
+            title.className = 'font-medium';
+            title.textContent = item.name || item.title || 'Untitled';
+            
+            const subtitle = document.createElement('span');
+            subtitle.className = 'text-xs text-base-content/70';
+            
+            if (type === 'pianos') {
+                subtitle.textContent = item.location || 'No location specified';
+            } else {
+                subtitle.textContent = item.location || 'No location specified';
+            }
+            
+            link.appendChild(title);
+            link.appendChild(document.createElement('br'));
+            link.appendChild(subtitle);
+            
+            listItem.appendChild(link);
+            resultsList.appendChild(listItem);
+        });
+        
+        desktopResultsContainer.appendChild(resultsList);
+        
+        // Add "View all results" link
+        const viewAllItem = document.createElement('li');
+        viewAllItem.className = 'border-t border-base-300 mt-1 pt-1';
+        
+        const viewAllLink = document.createElement('a');
+        viewAllLink.className = 'btn btn-ghost btn-sm justify-center text-primary';
+        if (searchInput) {
+            viewAllLink.href = `/search?q=${encodeURIComponent(searchInput.value)}&type=${type}`;
+        }
+        viewAllLink.textContent = 'View all results';
+        
+        viewAllItem.appendChild(viewAllLink);
+        resultsList.appendChild(viewAllItem);
+    }
+
+    // Mobile Search Type Dropdown
+    mobileSearchTypeOptions.forEach(option => {
+        option.addEventListener("click", () => {
+            const value = option.getAttribute("data-value") || "pianos";
+            if (mobileSearchTypeText) {
+                mobileSearchTypeText.textContent = value.charAt(0).toUpperCase() + value.slice(1);
+            }
+            if (mobileSearchInput) {
+                mobileSearchInput.placeholder = `Search ${value}...`;
+            }
+            
+            // Clear previous results when changing type
+            if (mobileResultsContainer) {
+                mobileResultsContainer.innerHTML = '';
+            }
+        });
+    });
+
+    if (mobileSearchBtn) {
+        mobileSearchBtn.addEventListener("click", () => {
+            if (mobileSearchPanel) {
+                mobileSearchPanel.classList.toggle("hidden");
+                if (!mobileSearchPanel.classList.contains("hidden") && mobileSearchInput) {
+                    mobileSearchInput.focus();
+                }
+            }
+        });
+    }
+
+    if (closeMobileSearch) {
+        closeMobileSearch.addEventListener("click", (e) => {
+            e.preventDefault();
+            if (mobileSearchPanel) {
+                mobileSearchPanel.classList.add("hidden");
+            }
+        });
+    }
+
+    // Form submission for mobile search
+    if (mobileSearchForm && mobileSearchInput) {
+        mobileSearchForm.addEventListener("submit", (e) => {
+            e.preventDefault();
+            const query = mobileSearchInput.value.trim();
+            if (query.length > 0) {
+                window.location.href = `/search?q=${encodeURIComponent(query)}&type=${mobileSearchTypeText?.textContent?.toLowerCase() || "pianos"}`;
+            }
+        });
+    }
 </script>

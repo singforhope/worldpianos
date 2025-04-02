@@ -6,9 +6,10 @@ interface Props {
     isVisible: boolean;
     searchQuery?: string;
     searchType?: string;
+    isMobile?: boolean;
 }
 
-const { isVisible, searchQuery = "", searchType = "pianos" } = Astro.props;
+const { isVisible, searchQuery = "", searchType = "pianos", isMobile = false } = Astro.props;
 
 // Get the current search type from URL or props
 const urlParams = new URLSearchParams(Astro.url.search);
@@ -62,13 +63,13 @@ const topEvents = filteredEvents.slice(0, displayLimit);
 ---
 
 <div
-    class={`search-results absolute top-full left-0 right-0 bg-base-100 shadow-lg rounded-b-lg border-t border-base-300 z-50 transition-all duration-200 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}
-    id="search-results-container"
+    class={`search-results ${isMobile ? 'w-full rounded-lg' : 'absolute top-full left-0 right-0 rounded-b-lg border-t border-base-300'} bg-base-100 shadow-lg z-50 transition-all duration-200 ease-out ${isVisible ? "opacity-100 translate-y-0" : "opacity-0 -translate-y-2 pointer-events-none"}`}
+    id={isMobile ? "mobile-search-results-container" : "search-results-container"}
 >
     <!-- Pianos Section -->
     {
         currentType === "pianos" && (
-            <div class="p-4">
+            <div class={`p-4 ${isMobile ? 'pb-0' : ''}`}>
                 <h3 class="text-lg font-semibold mb-3">Pianos</h3>
                 
                 {filteredPianos.length === 0 ? (
@@ -162,7 +163,7 @@ const topEvents = filteredEvents.slice(0, displayLimit);
     <!-- Events Section -->
     {
         currentType === "events" && (
-            <div class="p-4">
+            <div class={`p-4 ${isMobile ? 'pb-0' : ''}`}>
                 <h3 class="text-lg font-semibold mb-3">Events</h3>
                 
                 {filteredEvents.length === 0 ? (

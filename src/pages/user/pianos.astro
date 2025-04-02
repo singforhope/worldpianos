@@ -170,80 +170,109 @@ const bodyClasses = [
                 
                 <!-- Main Content -->
                 <div class="lg:col-span-3">
-                    <div class="flex justify-between items-center mb-8">
-                        <h1 class="text-3xl font-bold">My Pianos</h1>
-                        <div class="flex">
-                            <!-- This button is hidden as we're using the one from the header -->
-                            <div class="hidden">
-                                <button id="page-piano-modal-btn" class="btn btn-primary btn-outline btn-sm mr-2 hidden sm:flex">
-                                    <svg
-                                        xmlns="http://www.w3.org/2000/svg"
-                                        class="h-5 w-5"
-                                        fill="none"
-                                        viewBox="0 0 24 24"
-                                        stroke="currentColor"
-                                    >
-                                        <path
-                                            stroke-linecap="round"
-                                            stroke-linejoin="round"
-                                            stroke-width="2"
-                                            d="M12 4v16m8-8H4"></path>
+                    <div class="flex justify-between items-center mb-6">
+                        <h1 class="text-2xl font-bold">My Pianos</h1>
+                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('user-piano-modal').showModal()">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Piano
+                        </button>
+                    </div>
+                    
+                    <!-- Search and filters -->
+                    <div class="bg-base-100 rounded-lg mb-4">
+                        <div class="flex flex-col gap-4">
+                            <!-- Search bar -->
+                            <div class="relative">
+                                <input type="text" id="piano-search" placeholder="Search by name, location, or description..." class="input input-bordered w-full pr-10" />
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
                                     </svg>
-                                    Add Piano
-                                </button>
+                                </div>
                             </div>
-                            <button class="btn btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
-                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                </svg>
-                                Add Piano
-                            </button>
+                            
+                            <!-- Filter buttons and sort -->
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <div class="rounded-full px-4 py-1 bg-primary text-primary-content cursor-pointer" data-filter="all">All</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="verified">Verified</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="pending">Pending</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="public">Public</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="private">Private</div>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <select id="piano-sort" class="select select-bordered">
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                        <option value="name">Name (A-Z)</option>
+                                        <option value="name-desc">Name (Z-A)</option>
+                                    </select>
+                                </div>
+                            </div>
                         </div>
                     </div>
                     
                     <div id="pianos-list">
                         {userPianos && userPianos.length > 0 ? (
-                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
                                 {userPianos.map((piano) => (
-                                    <div class="card bg-base-100 shadow-xl">
-                                        <div class="card-body">
-                                            <h2 class="card-title">{piano.name}</h2>
-                                            <p class="text-sm text-base-content/70">{piano.location}</p>
-                                            <div class="flex items-center gap-2 mt-2">
-                                                <span class={`badge ${piano.verified ? 'badge-success' : 'badge-warning'}`}>
-                                                    {piano.verified ? 'Verified' : 'Pending Verification'}
-                                                </span>
-                                                {piano.public && (
-                                                    <span class="badge badge-info">Public</span>
-                                                )}
+                                    <div class="card bg-base-100 border border-base-200 hover:shadow-md transition-shadow">
+                                        <div class="card-body p-4">
+                                            <div class="flex justify-between items-start">
+                                                <h2 class="card-title text-base font-medium">{piano.name}</h2>
+                                                <div class="flex gap-1">
+                                                    <span class={`badge badge-sm ${piano.verified ? 'badge-success' : 'badge-warning'}`}>
+                                                        {piano.verified ? 'Verified' : 'Pending'}
+                                                    </span>
+                                                    {piano.public && (
+                                                        <span class="badge badge-sm badge-info">Public</span>
+                                                    )}
+                                                </div>
                                             </div>
-                                            <p class="mt-4">{piano.description?.substring(0, 100)}{piano.description?.length > 100 ? '...' : ''}</p>
-                                            <div class="card-actions justify-end mt-4">
-                                                <a href={`/pianos/${piano.id}`} class="btn btn-primary btn-sm">View Details</a>
-                                                <a href={`/pianos/edit/${piano.id}`} class="btn btn-outline btn-sm">Edit</a>
+                                            <div class="text-xs text-base-content/70 flex items-center gap-1 mt-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                {piano.location || 'No location specified'}
+                                            </div>
+                                            <p class="text-sm mt-2 line-clamp-2">{piano.description || 'No description provided'}</p>
+                                            <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                                                <a href={`/pianos/${piano.id}`} class="btn btn-primary btn-xs">View</a>
+                                                <a href={`/pianos/edit/${piano.id}`} class="btn btn-ghost btn-xs">Edit</a>
                                             </div>
                                         </div>
                                     </div>
                                 ))}
                             </div>
                         ) : (
-                            <div class="card bg-base-100 shadow-xl">
-                                <div class="card-body">
-                                    <div class="alert">
-                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <div class="card bg-base-100 shadow-sm">
+                                <div class="card-body p-6">
+                                    <div class="alert alert-info shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                         <span>You haven't added any pianos yet.</span>
-                                    </div>
-                                    <div class="flex justify-center mt-4">
-                                        <button class="btn btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
-                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
-                                            </svg>
+                                        <button class="btn btn-sm btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
                                             Add Your First Piano
                                         </button>
                                     </div>
                                 </div>
                             </div>
                         )}
+                    </div>
+                    
+                    <!-- Pagination for future use -->
+                    <div class="flex justify-center mt-6">
+                        <div class="join">
+                            <button class="join-item btn btn-sm">Prev</button>
+                            <button class="join-item btn btn-sm btn-primary">1</button>
+                            <button class="join-item btn btn-sm">2</button>
+                            <button class="join-item btn btn-sm">3</button>
+                            <button class="join-item btn btn-sm">Next</button>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -295,6 +324,22 @@ const bodyClasses = [
 
 <script>
     import { auth, profile } from '../../utils/auth';
+    import { supabase } from '../../utils/supabase';
+    
+    // Define Piano interface
+    interface Piano {
+        id: string;
+        name: string;
+        location?: string;
+        description?: string;
+        verified?: boolean;
+        public?: boolean;
+        created_by: string;
+        created_at: string;
+    }
+    
+    // Global state to store all pianos
+    let allPianos: Piano[] = [];
     
     // Listen for messages from the iframe
     window.addEventListener('message', function(event) {
@@ -309,6 +354,215 @@ const bodyClasses = [
             window.location.reload();
         }
     });
+    
+    // Function to fetch user pianos
+    const fetchUserPianos = async (userId: string): Promise<Piano[]> => {
+        try {
+            const { data: pianos, error } = await supabase
+                .from('pianos')
+                .select('*')
+                .eq('created_by', userId)
+                .order('created_at', { ascending: false });
+                
+            if (error) {
+                console.error('Error fetching pianos:', error);
+                return [];
+            }
+            
+            return pianos || [];
+        } catch (err) {
+            console.error('Exception when fetching pianos:', err);
+            return [];
+        }
+    };
+    
+    // Function to filter pianos based on search and filter criteria
+    const filterPianos = (pianos: Piano[], searchTerm: string, filterValue: string, sortValue: string): Piano[] => {
+        // First apply the search filter
+        let filteredPianos = searchTerm
+            ? pianos.filter(piano => 
+                piano.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (piano.location && piano.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (piano.description && piano.description.toLowerCase().includes(searchTerm.toLowerCase()))
+              )
+            : pianos;
+            
+        // Apply status filter
+        if (filterValue === 'verified') {
+            filteredPianos = filteredPianos.filter(piano => piano.verified);
+        } else if (filterValue === 'pending') {
+            filteredPianos = filteredPianos.filter(piano => !piano.verified);
+        } else if (filterValue === 'public') {
+            filteredPianos = filteredPianos.filter(piano => piano.public);
+        } else if (filterValue === 'private') {
+            filteredPianos = filteredPianos.filter(piano => !piano.public);
+        }
+        
+        // Apply sorting
+        if (sortValue === 'newest') {
+            filteredPianos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        } else if (sortValue === 'oldest') {
+            filteredPianos.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        } else if (sortValue === 'name') {
+            filteredPianos.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortValue === 'name-desc') {
+            filteredPianos.sort((a, b) => b.name.localeCompare(a.name));
+        }
+        
+        return filteredPianos;
+    };
+    
+    // Function to update the UI with the pianos
+    const updatePianosList = (pianos: Piano[]): void => {
+        const pianosListElement = document.getElementById('pianos-list');
+        if (!pianosListElement) return;
+        
+        if (pianos.length > 0) {
+            // Create grid for piano cards
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
+            
+            // Add piano cards
+            pianos.forEach(piano => {
+                const card = document.createElement('div');
+                card.className = 'card bg-base-100 border border-base-200 hover:shadow-md transition-shadow';
+                
+                const description = piano.description ? 
+                    (piano.description.length > 120 ? 
+                        `${piano.description.substring(0, 120)}...` : 
+                        piano.description) : 
+                    'No description provided';
+                
+                card.innerHTML = `
+                    <div class="card-body p-4">
+                        <div class="flex justify-between items-start">
+                            <h2 class="card-title text-base font-medium">${piano.name}</h2>
+                            <div class="flex gap-1">
+                                <span class="badge badge-sm ${piano.verified ? 'badge-success' : 'badge-warning'}">
+                                    ${piano.verified ? 'Verified' : 'Pending'}
+                                </span>
+                                ${piano.public ? '<span class="badge badge-sm badge-info">Public</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="text-xs text-base-content/70 flex items-center gap-1 mt-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            ${piano.location || 'No location specified'}
+                        </div>
+                        <p class="text-sm mt-2 line-clamp-2">${description}</p>
+                        <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                            <a href="/pianos/${piano.id}" class="btn btn-primary btn-xs">View</a>
+                            <a href="/pianos/edit/${piano.id}" class="btn btn-ghost btn-xs">Edit</a>
+                        </div>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+            
+            // Clear the current content and add the grid
+            pianosListElement.innerHTML = '';
+            pianosListElement.appendChild(grid);
+        } else {
+            // Show empty state
+            pianosListElement.innerHTML = `
+                <div class="card bg-base-100 shadow-sm">
+                    <div class="card-body p-6">
+                        <div class="alert alert-info shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>No pianos found matching your criteria.</span>
+                            <button class="btn btn-sm btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
+                                Add Piano
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update the pagination visibility
+        const paginationElement = document.querySelector('.join')?.parentElement;
+        if (paginationElement) {
+            paginationElement.style.display = pianos.length > 0 ? 'flex' : 'none';
+        }
+        
+        // Update the result count badge
+        const resultCountElement = document.getElementById('result-count');
+        if (resultCountElement) {
+            resultCountElement.textContent = `${pianos.length} ${pianos.length === 1 ? 'piano' : 'pianos'}`;
+            
+            // Apply appropriate styling based on results count
+            if (pianos.length === 0) {
+                resultCountElement.className = 'badge badge-sm bg-error text-error-content self-center min-w-[60px] justify-center';
+            } else if (pianos.length < 5) {
+                resultCountElement.className = 'badge badge-sm bg-warning text-warning-content self-center min-w-[60px] justify-center';
+            } else {
+                resultCountElement.className = 'badge badge-sm bg-primary text-primary-content self-center min-w-[60px] justify-center';
+            }
+        }
+    };
+    
+    // Setup search and filter event listeners with enhanced functionality
+    const setupFilterListeners = () => {
+        const searchInput = document.getElementById('piano-search') as HTMLInputElement;
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        const sortSelect = document.getElementById('piano-sort') as HTMLSelectElement;
+        
+        if (!searchInput || !sortSelect) return;
+        
+        // Track active filter
+        let activeFilter = 'all';
+        
+        // Function to apply all filters and update UI
+        const applyFilters = () => {
+            const searchTerm = searchInput.value;
+            const filterValue = activeFilter;
+            const sortValue = sortSelect.value;
+            
+            const filteredPianos = filterPianos(allPianos, searchTerm, filterValue, sortValue);
+            updatePianosList(filteredPianos);
+        };
+        
+        // Set up search input
+        searchInput.addEventListener('input', applyFilters);
+        
+        // Set up filter buttons
+        filterButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const target = e.currentTarget as HTMLElement;
+                const filterValue = target.getAttribute('data-filter');
+                
+                if (filterValue) {
+                    // Update active filter
+                    activeFilter = filterValue;
+                    
+                    // Update button styles
+                    filterButtons.forEach(btn => {
+                        btn.classList.remove('bg-primary', 'text-primary-content');
+                        btn.classList.add('bg-base-300', 'text-base-content');
+                    });
+                    
+                    // Apply style to active filter
+                    target.classList.remove('bg-base-300', 'text-base-content');
+                    target.classList.add('bg-primary', 'text-primary-content');
+                    
+                    // Apply filters
+                    applyFilters();
+                }
+            });
+        });
+        
+        // Set up sort select
+        sortSelect.addEventListener('change', applyFilters);
+        
+        // Initialize with 'all' filter selected
+        document.querySelector('[data-filter="all"]')?.classList.add('bg-primary', 'text-primary-content');
+        document.querySelectorAll('[data-filter]:not([data-filter="all"])')?.forEach(btn => {
+            btn.classList.add('bg-base-300', 'text-base-content');
+        });
+    };
     
     document.addEventListener('DOMContentLoaded', async () => {
         try {
@@ -338,32 +592,50 @@ const bodyClasses = [
                     
                     if (data) {
                         userProfile = Array.isArray(data) ? data[0] : data;
-                        // Reload the page to show the new profile
-                        window.location.reload();
                     }
-                } else {
-                    // Update the UI with the user's data
-                    const nameElement = document.getElementById('sidebar-name');
-                    const emailElement = document.getElementById('sidebar-email');
-                    const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
-                    
-                    if (nameElement) {
-                        nameElement.textContent = userProfile.display_name || user.email?.split('@')[0] || 'User';
-                    }
-                    
-                    if (emailElement) {
-                        emailElement.textContent = user.email || 'No email available';
-                    }
-                    
-                    if (avatarImg && userProfile.avatar_url) {
-                        avatarImg.src = userProfile.avatar_url;
-                    }
-                    
-                    // Hide loading state and show pianos content
-                    if (loadingState) loadingState.classList.add('hidden');
-                    if (pianosContent) pianosContent.classList.remove('hidden');
                 }
+                
+                // Update the UI with the user's data
+                const nameElement = document.getElementById('sidebar-name');
+                const emailElement = document.getElementById('sidebar-email');
+                const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
+                
+                if (nameElement) {
+                    nameElement.textContent = userProfile?.display_name || user.email?.split('@')[0] || 'User';
+                }
+                
+                if (emailElement) {
+                    emailElement.textContent = user.email || 'No email available';
+                }
+                
+                if (avatarImg && userProfile?.avatar_url) {
+                    avatarImg.src = userProfile.avatar_url;
+                }
+                
+                // Fetch user's pianos and update the UI
+                console.log('Fetching pianos for user:', user.id);
+                allPianos = await fetchUserPianos(user.id);
+                console.log(`Found ${allPianos.length} pianos for user`);
+                updatePianosList(allPianos);
+                
+                // Set up filter listeners
+                setupFilterListeners();
+                
+                // Hide loading state and show pianos content
+                if (loadingState) loadingState.classList.add('hidden');
+                if (pianosContent) pianosContent.classList.remove('hidden');
             } catch (profileError) {
+                console.error('Error fetching profile:', profileError);
+                
+                // Try to fetch pianos even if profile fetch fails
+                try {
+                    allPianos = await fetchUserPianos(user.id);
+                    updatePianosList(allPianos);
+                    setupFilterListeners();
+                } catch (pianosError) {
+                    console.error('Error fetching pianos:', pianosError);
+                }
+                
                 // Show pianos content even if profile fetch fails
                 if (loadingState) loadingState.classList.add('hidden');
                 if (pianosContent) pianosContent.classList.remove('hidden');
@@ -374,11 +646,18 @@ const bodyClasses = [
             if (logoutBtn) {
                 logoutBtn.addEventListener('click', async (e) => {
                     e.preventDefault();
-                    await auth.signOut();
-                    window.location.href = '/';
+                    try {
+                        localStorage.removeItem('worldpianos-auth');
+                        console.log('Logged out, redirecting to homepage');
+                        window.location.href = '/';
+                    } catch (error) {
+                        console.error('Error signing out:', error);
+                        window.location.href = '/';  // Redirect anyway
+                    }
                 });
             }
         } catch (error) {
+            console.error('Unhandled error in pianos page:', error);
             // Fallback error handling - ensure UI is not stuck in loading state
             const loadingState = document.getElementById('loading-state');
             const pianosContent = document.getElementById('pianos-content');

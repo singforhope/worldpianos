@@ -228,52 +228,60 @@ const bodyClasses = [
                         <!-- Recent Pianos -->
                         <div class="card bg-base-100 shadow-xl">
                             <div class="card-body">
-                                <div class="flex justify-between items-center w-full">
+                                <div class="flex justify-between items-center w-full mb-4">
                                     <h2 class="card-title">Your Recent Pianos</h2>
+                                    <a href="/user/pianos" class="btn btn-primary btn-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Piano
+                                    </a>
                                 </div>
                                 
                                 {userPianos && userPianos.length > 0 ? (
-                                    <div class="overflow-x-auto">
-                                        <table class="table table-zebra w-full">
-                                            <thead>
-                                                <tr>
-                                                    <th>Name</th>
-                                                    <th>Location</th>
-                                                    <th>Verified</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {userPianos.slice(0, 5).map((piano) => (
-                                                    <tr>
-                                                        <td>{piano.name}</td>
-                                                        <td>{piano.location}</td>
-                                                        <td>
-                                                            {piano.verified ? (
-                                                                <span class="badge badge-success">Yes</span>
-                                                            ) : (
-                                                                <span class="badge badge-warning">No</span>
-                                                            )}
-                                                        </td>
-                                                        <td>
-                                                            <a href={`/pianos/${piano.id}`} class="btn btn-xs btn-primary">View</a>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                    <div>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {userPianos.slice(0, 3).map((piano) => (
+                                                <div class="card bg-base-100 border border-base-200 hover:shadow-md transition-shadow">
+                                                    <div class="card-body p-4">
+                                                        <div class="flex justify-between items-start">
+                                                            <h2 class="card-title text-base font-medium">{piano.name}</h2>
+                                                            <div class="flex gap-1">
+                                                                <span class={`badge badge-sm ${piano.verified ? 'badge-success' : 'badge-warning'}`}>
+                                                                    {piano.verified ? 'Verified' : 'Pending'}
+                                                                </span>
+                                                                {piano.public && (
+                                                                    <span class="badge badge-sm badge-info">Public</span>
+                                                                )}
+                                                            </div>
+                                                        </div>
+                                                        <div class="text-xs text-base-content/70 flex items-center gap-1 mt-1">
+                                                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                            </svg>
+                                                            {piano.location || 'No location specified'}
+                                                        </div>
+                                                        <p class="text-sm mt-2 line-clamp-2">{piano.description || 'No description provided'}</p>
+                                                        <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                                                            <a href={`/pianos/${piano.id}`} class="btn btn-primary btn-xs">View</a>
+                                                            <a href={`/pianos/edit/${piano.id}`} class="btn btn-ghost btn-xs">Edit</a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div class="flex justify-center mt-4">
+                                            <a href="/user/pianos" class="btn btn-outline btn-sm">View All Pianos</a>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div class="alert">
+                                    <div class="alert flex items-center justify-between">
+                                        <div class="flex items-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                         <span>You haven't added any pianos yet.</span>
+                                        </div>
                                         <a href="/user/pianos" class="btn btn-sm btn-primary">Add Piano</a>
-                                    </div>
-                                )}
-                                
-                                {userPianos && userPianos.length > 0 && (
-                                    <div class="card-actions justify-end mt-4">
-                                        <a href="/user/pianos" class="btn btn-primary btn-sm">View All Pianos</a>
                                     </div>
                                 )}
                             </div>
@@ -282,51 +290,63 @@ const bodyClasses = [
                         <!-- Recent Events -->
                         <div class="card bg-base-100 shadow-xl">
                             <div class="card-body">
-                                <div class="flex justify-between items-center w-full">
+                                <div class="flex justify-between items-center w-full mb-4">
                                     <h2 class="card-title">Your Recent Events</h2>
+                                    <a href="/user/events" class="btn btn-primary btn-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                                        </svg>
+                                        Add Event
+                                    </a>
                                 </div>
                                 
                                 {userEvents && userEvents.length > 0 ? (
-                                    <div class="overflow-x-auto">
-                                        <table class="table table-zebra w-full">
-                                            <thead>
-                                                <tr>
-                                                    <th>Name</th>
-                                                    <th>Date</th>
-                                                    <th>Status</th>
-                                                    <th>Actions</th>
-                                                </tr>
-                                            </thead>
-                                            <tbody>
-                                                {userEvents.slice(0, 5).map((event) => (
-                                                    <tr>
-                                                        <td>{event.name}</td>
-                                                        <td>{event.date}</td>
-                                                        <td>
-                                                            <span class={`badge ${event.status === 'upcoming' ? 'badge-primary' : event.status === 'ongoing' ? 'badge-success' : 'badge-secondary'}`}>
-                                                                {event.status}
+                                    <div>
+                                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                                            {userEvents.slice(0, 3).map((event) => (
+                                                <div class="card bg-base-100 border border-base-200 hover:shadow-md transition-shadow">
+                                                    <div class="card-body p-4">
+                                                        <div class="flex justify-between items-start">
+                                                            <h2 class="card-title text-base font-medium">{event.name}</h2>
+                                                            <span class={`badge badge-sm ${event.status === 'upcoming' ? 'badge-primary' : event.status === 'ongoing' ? 'badge-success' : 'badge-secondary'}`}>
+                                                                {event.status || 'unknown'}
                                                             </span>
-                                                        </td>
-                                                        <td>
-                                                            <a href={`/events/${event.id}`} class="btn btn-xs btn-primary">View</a>
-                                                        </td>
-                                                    </tr>
-                                                ))}
-                                            </tbody>
-                                        </table>
+                                                        </div>
+                                                        <div class="flex flex-col sm:flex-row sm:gap-4 gap-1 my-2">
+                                                            <div class="flex items-center gap-1">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                                                </svg>
+                                                                <span class="text-xs text-base-content/70">{event.date || 'Date not specified'}</span>
+                                                            </div>
+                                                            <div class="flex items-center gap-1">
+                                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                                </svg>
+                                                                <span class="text-xs text-base-content/70">{event.location || 'Location not specified'}</span>
+                                                            </div>
+                                                        </div>
+                                                        <p class="text-sm line-clamp-2">{event.description || 'No description provided'}</p>
+                                                        <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                                                            <a href={`/events/${event.id}`} class="btn btn-primary btn-xs">View</a>
+                                                            <a href={`/events/edit/${event.id}`} class="btn btn-ghost btn-xs">Edit</a>
+                                                        </div>
+                                                    </div>
+                                                </div>
+                                            ))}
+                                        </div>
+                                        <div class="flex justify-center mt-4">
+                                            <a href="/user/events" class="btn btn-outline btn-sm">View All Events</a>
+                                        </div>
                                     </div>
                                 ) : (
-                                    <div class="alert">
+                                    <div class="alert flex items-center justify-between">
+                                        <div class="flex items-center">
                                         <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
                                         <span>You haven't added any events yet.</span>
+                                        </div>
                                         <a href="/user/events" class="btn btn-sm btn-primary">Add Event</a>
-
-                                    </div>
-                                )}
-                                
-                                {userEvents && userEvents.length > 0 && (
-                                    <div class="card-actions justify-end mt-4">
-                                        <a href="/user/events" class="btn btn-primary btn-sm">View All Events</a>
                                     </div>
                                 )}
                             </div>
@@ -351,8 +371,316 @@ const bodyClasses = [
         // Track if we've shown the dashboard to prevent redundant operations
         let dashboardShown = false;
         
-        // Simple function to show the dashboard
-        const showDashboard = () => {
+        // Function to update the dashboard stats with fresh data
+        const updateDashboardStats = (pianos: any[], events: any[]) => {
+            // Update counts in the stats cards
+            const pianosCountElement = document.querySelector('.stat-value.text-primary');
+            if (pianosCountElement) pianosCountElement.textContent = pianos.length.toString();
+            
+            const eventsCountElement = document.querySelector('.stat-value.text-secondary');
+            if (eventsCountElement) eventsCountElement.textContent = events.length.toString();
+        };
+        
+        // Helper function to find elements by text content
+        const findElementByTextContent = (selector: string, text: string) => {
+            const elements = document.querySelectorAll(selector);
+            for (const el of elements) {
+                if (el.textContent?.includes(text)) {
+                    return el;
+                }
+            }
+            return null;
+        };
+        
+        // Function to update the pianos section
+        const updatePianosSection = (pianos: any[]) => {
+            const pianosTitle = findElementByTextContent('.card-title', 'Your Recent Pianos');
+            const cardBody = pianosTitle?.closest('.card-body');
+            
+            if (!cardBody) {
+                console.error('Could not find pianos card body');
+                return;
+            }
+            
+            if (pianos.length > 0) {
+                // Remove any existing alert
+                const existingAlert = cardBody.querySelector('.alert');
+                if (existingAlert) existingAlert.remove();
+                
+                // Create the grid container
+                let gridContainer = cardBody.querySelector('.grid.grid-cols-1.md\\:grid-cols-3');
+                if (!gridContainer) {
+                    // Clear previous content except the header
+                    Array.from(cardBody.children).forEach(child => {
+                        if (!child.classList.contains('flex')) {
+                            child.remove();
+                        }
+                    });
+                    
+                    // Create new container
+                    const container = document.createElement('div');
+                    gridContainer = document.createElement('div');
+                    gridContainer.className = 'grid grid-cols-1 md:grid-cols-3 gap-4';
+                    container.appendChild(gridContainer);
+                    
+                    // Add "View All" button
+                    const viewAllContainer = document.createElement('div');
+                    viewAllContainer.className = 'flex justify-center mt-4';
+                    viewAllContainer.innerHTML = `
+                        <a href="/user/pianos" class="btn btn-outline btn-sm">View All Pianos</a>
+                    `;
+                    container.appendChild(viewAllContainer);
+                    
+                    cardBody.appendChild(container);
+                } else {
+                    // Clear existing grid
+                    gridContainer.innerHTML = '';
+                }
+                
+                // Add piano cards (up to 3)
+                pianos.slice(0, 3).forEach(piano => {
+                    const card = document.createElement('div');
+                    card.className = 'card bg-base-100 border border-base-200 hover:shadow-md transition-shadow';
+                    
+                    const description = piano.description ? 
+                        (piano.description.length > 120 ? 
+                            `${piano.description.substring(0, 120)}...` : 
+                            piano.description) : 
+                        'No description provided';
+                    
+                    card.innerHTML = `
+                        <div class="card-body p-4">
+                            <div class="flex justify-between items-start">
+                                <h2 class="card-title text-base font-medium">${piano.name}</h2>
+                                <div class="flex gap-1">
+                                    <span class="badge badge-sm ${piano.verified ? 'badge-success' : 'badge-warning'}">
+                                        ${piano.verified ? 'Verified' : 'Pending'}
+                                    </span>
+                                    ${piano.public ? '<span class="badge badge-sm badge-info">Public</span>' : ''}
+                                </div>
+                            </div>
+                            <div class="text-xs text-base-content/70 flex items-center gap-1 mt-1">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                </svg>
+                                ${piano.location || 'No location specified'}
+                            </div>
+                            <p class="text-sm mt-2 line-clamp-2">${description}</p>
+                            <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                                <a href="/pianos/${piano.id}" class="btn btn-primary btn-xs">View</a>
+                                <a href="/pianos/edit/${piano.id}" class="btn btn-ghost btn-xs">Edit</a>
+                            </div>
+                        </div>
+                    `;
+                    
+                    gridContainer.appendChild(card);
+                });
+            } else {
+                // Show empty state
+                cardBody.innerHTML = `
+                    <div class="flex justify-between items-center w-full mb-4">
+                        <h2 class="card-title">Your Recent Pianos</h2>
+                        <a href="/user/pianos" class="btn btn-primary btn-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Piano
+                        </a>
+                    </div>
+                    <div class="alert flex items-center justify-between">
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>You haven't added any pianos yet.</span>
+                        </div>
+                        <a href="/user/pianos" class="btn btn-sm btn-primary">Add Piano</a>
+                    </div>
+                `;
+            }
+        };
+        
+        // Function to update the events section
+        const updateEventsSection = (events: any[]) => {
+            const eventsTitle = findElementByTextContent('.card-title', 'Your Recent Events');
+            const cardBody = eventsTitle?.closest('.card-body');
+            
+            if (!cardBody) {
+                console.error('Could not find events card body');
+                return;
+            }
+            
+            if (events.length > 0) {
+                // Remove any existing alert
+                const existingAlert = cardBody.querySelector('.alert');
+                if (existingAlert) existingAlert.remove();
+                
+                // Create the grid container
+                let gridContainer = cardBody.querySelector('.grid.grid-cols-1.md\\:grid-cols-3');
+                if (!gridContainer) {
+                    // Clear previous content except the header
+                    Array.from(cardBody.children).forEach(child => {
+                        if (!child.classList.contains('flex')) {
+                            child.remove();
+                        }
+                    });
+                    
+                    // Create new container
+                    const container = document.createElement('div');
+                    gridContainer = document.createElement('div');
+                    gridContainer.className = 'grid grid-cols-1 md:grid-cols-3 gap-4';
+                    container.appendChild(gridContainer);
+                    
+                    // Add "View All" button
+                    const viewAllContainer = document.createElement('div');
+                    viewAllContainer.className = 'flex justify-center mt-4';
+                    viewAllContainer.innerHTML = `
+                        <a href="/user/events" class="btn btn-outline btn-sm">View All Events</a>
+                    `;
+                    container.appendChild(viewAllContainer);
+                    
+                    cardBody.appendChild(container);
+                } else {
+                    // Clear existing grid
+                    gridContainer.innerHTML = '';
+                }
+                
+                // Add event cards (up to 3)
+                events.slice(0, 3).forEach(event => {
+                    const card = document.createElement('div');
+                    card.className = 'card bg-base-100 border border-base-200 hover:shadow-md transition-shadow';
+                    
+                    const description = event.description ? 
+                        (event.description.length > 120 ? 
+                            `${event.description.substring(0, 120)}...` : 
+                            event.description) : 
+                        'No description provided';
+                    
+                    const statusClass = event.status === 'upcoming' ? 'badge-primary' : 
+                                      event.status === 'ongoing' ? 'badge-success' : 
+                                      'badge-secondary';
+                    
+                    card.innerHTML = `
+                        <div class="card-body p-4">
+                            <div class="flex justify-between items-start">
+                                <h2 class="card-title text-base font-medium">${event.name}</h2>
+                                <span class="badge badge-sm ${statusClass}">
+                                    ${event.status || 'unknown'}
+                                </span>
+                            </div>
+                            <div class="flex flex-col sm:flex-row sm:gap-4 gap-1 my-2">
+                                <div class="flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                    </svg>
+                                    <span class="text-xs text-base-content/70">${event.date || 'Date not specified'}</span>
+                                </div>
+                                <div class="flex items-center gap-1">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 text-base-content/60" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                    </svg>
+                                    <span class="text-xs text-base-content/70">${event.location || 'Location not specified'}</span>
+                                </div>
+                            </div>
+                            <p class="text-sm line-clamp-2">${description}</p>
+                            <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                                <a href="/events/${event.id}" class="btn btn-primary btn-xs">View</a>
+                                <a href="/events/edit/${event.id}" class="btn btn-ghost btn-xs">Edit</a>
+                            </div>
+                        </div>
+                    `;
+                    
+                    gridContainer.appendChild(card);
+                });
+            } else {
+                // Show empty state
+                cardBody.innerHTML = `
+                    <div class="flex justify-between items-center w-full mb-4">
+                        <h2 class="card-title">Your Recent Events</h2>
+                        <a href="/user/events" class="btn btn-primary btn-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Event
+                        </a>
+                    </div>
+                    <div class="alert flex items-center justify-between">
+                        <div class="flex items-center">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>You haven't added any events yet.</span>
+                        </div>
+                        <a href="/user/events" class="btn btn-sm btn-primary">Add Event</a>
+                    </div>
+                `;
+            }
+        };
+        
+        // Enhanced function to fetch and update dashboard data
+        const fetchDashboardData = async (userId: string) => {
+            try {
+                // Import Supabase client
+                const { supabase } = await import('../../utils/supabase');
+                const { profile } = await import('../../utils/auth');
+                
+                // Get user profile
+                const userProfile = await profile.getUserProfile(userId);
+                
+                // Update profile display
+                const nameElement = document.getElementById('sidebar-name');
+                const emailElement = document.getElementById('sidebar-email');
+                const avatarElement = document.getElementById('sidebar-avatar') as HTMLImageElement | null;
+                
+                if (nameElement && userProfile?.display_name) {
+                    nameElement.textContent = userProfile.display_name;
+                }
+                
+                if (emailElement) {
+                    const user = await supabase.auth.getUser();
+                    if (user && user.data && user.data.user) {
+                        emailElement.textContent = user.data.user.email || 'No email available';
+                    }
+                }
+                
+                if (avatarElement && userProfile?.avatar_url) {
+                    avatarElement.src = userProfile.avatar_url;
+                }
+                
+                // Fetch pianos for the user
+                const { data: pianos, error: pianosError } = await supabase
+                    .from('pianos')
+                    .select('*')
+                    .eq('created_by', userId)
+                    .order('created_at', { ascending: false });
+                
+                if (pianosError) {
+                    console.error('Error fetching pianos:', pianosError);
+                }
+                
+                // Fetch events for the user
+                const { data: events, error: eventsError } = await supabase
+                    .from('events')
+                    .select('*')
+                    .eq('created_by', userId)
+                    .order('created_at', { ascending: false });
+                
+                if (eventsError) {
+                    console.error('Error fetching events:', eventsError);
+                }
+                
+                // Update dashboard with fetched data
+                updateDashboardStats(pianos || [], events || []);
+                updatePianosSection(pianos || []);
+                updateEventsSection(events || []);
+                
+                return { pianos: pianos || [], events: events || [] };
+            } catch (error) {
+                console.error('Error fetching dashboard data:', error);
+                return { pianos: [], events: [] };
+            }
+        };
+        
+        // Enhanced showDashboard function with data fetching
+        const showDashboard = async () => {
             if (dashboardShown) return; // Prevent multiple executions
             
             console.log('Showing dashboard content');
@@ -360,6 +688,23 @@ const bodyClasses = [
             
             if (loadingState) loadingState.classList.add('hidden');
             if (dashboardContent) dashboardContent.classList.remove('hidden');
+            
+            try {
+                // Import auth utility
+                const { auth } = await import('../../utils/auth');
+                
+                // Get current user
+                const user = await auth.getCurrentUser();
+                
+                if (user) {
+                    console.log('Fetching dashboard data for user:', user.id);
+                    await fetchDashboardData(user.id);
+                } else {
+                    console.warn('User authenticated but ID not available for data fetch');
+                }
+            } catch (error) {
+                console.error('Error in client-side data fetching:', error);
+            }
         };
         
         // Simple function to show an error

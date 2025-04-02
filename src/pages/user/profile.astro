@@ -193,68 +193,112 @@ const bodyClasses = [
                 
                 <!-- Main Content -->
                 <div class="lg:col-span-3">
-                    <h1 class="text-3xl font-bold mb-8">Edit Your Profile</h1>
+                    <h1 class="text-3xl font-bold mb-6">Edit Your Profile</h1>
                     
-                    <div class="card bg-base-100 shadow-xl">
-                        <div class="card-body">
-                            <form id="profile-form" class="space-y-4">
-                                <div class="form-control">
-                                    <label class="label">
-                                        <span class="label-text">Display Name</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="display-name"
-                                        name="display_name"
-                                        class="input input-bordered"
-                                        value={userProfile?.display_name || ''}
-                                    />
+                    <div class="card bg-base-100 shadow-md">
+                        <div class="card-body p-6">
+                            <div class="grid grid-cols-1 gap-6">
+                                <div class="flex flex-col md:flex-row gap-8">
+                                    <!-- Avatar Preview Section -->
+                                    <div class="flex flex-col items-center">
+                                        <div class="avatar mb-4">
+                                            <div class="w-32 h-32 rounded-full bg-base-200">
+                                                <img id="avatar-preview" src={userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}&size=128&background=e3e3e3`} alt="Avatar preview" />
+                                            </div>
+                                        </div>
+                                        <div class="flex justify-between gap-8 mt-2">
+                                            <div class="flex flex-col items-center">
+                                                <div class="text-3xl font-bold text-primary">{userPianos.length}</div>
+                                                <div class="text-sm">Pianos Added</div>
+                                            </div>
+                                            <div class="flex flex-col items-center">
+                                                <div class="text-3xl font-bold text-secondary">{userEvents.length}</div>
+                                                <div class="text-sm">Events Created</div>
+                                            </div>
+                                        </div>
+                                        <div class="text-center mt-4 text-sm text-base-content/70">
+                                            Member since {userProfile?.created_at ? new Date(userProfile.created_at).toLocaleDateString() : 'recently'}
+                                        </div>
+                                    </div>
+
+                                    <!-- Profile Form -->
+                                    <div class="flex-grow">
+                                        <form id="profile-form" class="space-y-6">
+                                            <div class="form-control">
+                                                <label class="label">
+                                                    <span class="label-text font-medium">Display Name</span>
+                                                </label>
+                                                <input
+                                                    type="text"
+                                                    id="display-name"
+                                                    name="display_name"
+                                                    class="input input-bordered w-full"
+                                                    value={userProfile?.display_name || ''}
+                                                    placeholder="How you'll be known on the platform"
+                                                />
+                                            </div>
+                                            
+                                            <div class="form-control">
+                                                <label class="label">
+                                                    <span class="label-text font-medium">Bio</span>
+                                                </label>
+                                                <textarea
+                                                    id="bio"
+                                                    name="bio"
+                                                    class="textarea textarea-bordered h-32"
+                                                    placeholder="Tell us about yourself and your interest in pianos..."
+                                                >{userProfile?.bio || ''}</textarea>
+                                            </div>
+                                            
+                                            <div class="form-control">
+                                                <label class="label">
+                                                    <span class="label-text font-medium">Profile Picture</span>
+                                                </label>
+                                                <input
+                                                    type="file"
+                                                    id="avatar-file"
+                                                    name="avatar_file"
+                                                    accept="image/*"
+                                                    class="file-input file-input-bordered w-full"
+                                                />
+                                                <div class="text-xs text-base-content/70 mt-1">
+                                                    Upload a profile picture (max 2MB). Supported formats: JPG, PNG, GIF.
+                                                </div>
+                                                <div id="upload-progress" class="hidden w-full mt-2">
+                                                    <progress class="progress progress-primary w-full" value="0" max="100"></progress>
+                                                    <div class="text-xs text-center" id="upload-status">Uploading... 0%</div>
+                                                </div>
+                                                <input
+                                                    type="hidden"
+                                                    id="avatar-url"
+                                                    name="avatar_url"
+                                                    value={userProfile?.avatar_url || ''}
+                                                />
+                                            </div>
+                                            
+                                            <div id="status-message" class="alert mt-4 hidden"></div>
+                                            
+                                            <div class="flex justify-end gap-2 mt-6">
+                                                <button type="reset" class="btn btn-outline">Reset</button>
+                                                <button type="submit" id="save-profile" class="btn btn-primary">
+                                                    Save Profile
+                                                </button>
+                                            </div>
+                                        </form>
+                                    </div>
                                 </div>
-                                
-                                <div class="form-control">
-                                    <label class="label">
-                                        <span class="label-text">Bio</span>
-                                    </label>
-                                    <textarea
-                                        id="bio"
-                                        name="bio"
-                                        class="textarea textarea-bordered h-24"
-                                    >{userProfile?.bio || ''}</textarea>
-                                </div>
-                                
-                                <div class="form-control">
-                                    <label class="label">
-                                        <span class="label-text">Avatar URL</span>
-                                    </label>
-                                    <input
-                                        type="text"
-                                        id="avatar-url"
-                                        name="avatar_url"
-                                        class="input input-bordered"
-                                        value={userProfile?.avatar_url || ''}
-                                    />
-                                    <label class="label">
-                                        <span class="label-text-alt">Enter a URL to an image</span>
-                                    </label>
-                                </div>
-                                
-                                <div id="status-message" class="mt-4 text-sm hidden"></div>
-                                
-                                <div class="form-control mt-6">
-                                    <button type="submit" id="save-profile" class="btn btn-primary">Save Profile</button>
-                                </div>
-                            </form>
+                            </div>
                         </div>
                     </div>
                 </div>
             </div>
         </div>
     </div>
-    </div>
 </MainLayout>
 
 <script>
     import { auth, profile } from '../../utils/auth';
+    import { supabase } from '../../utils/supabase';
     
     document.addEventListener('DOMContentLoaded', async () => {
         // Get loading and content elements
@@ -321,7 +365,177 @@ const bodyClasses = [
             if (profileContent) profileContent.classList.remove('hidden');
         }
         
-        // Profile form submission
+        // File upload handling
+        const avatarFileInput = document.getElementById('avatar-file') as HTMLInputElement;
+        const avatarUrlInput = document.getElementById('avatar-url') as HTMLInputElement;
+        const avatarPreview = document.getElementById('avatar-preview') as HTMLImageElement;
+        const uploadProgress = document.getElementById('upload-progress');
+        const uploadStatus = document.getElementById('upload-status');
+        
+        if (avatarFileInput && avatarUrlInput && avatarPreview) {
+            avatarFileInput.addEventListener('change', async (e) => {
+                const file = avatarFileInput.files?.[0];
+                if (!file) return;
+                
+                // Validate file size (max 2MB)
+                if (file.size > 2 * 1024 * 1024) {
+                    showStatus('error', 'File size exceeds 2MB limit. Please choose a smaller file.');
+                    avatarFileInput.value = '';
+                    return;
+                }
+                
+                try {
+                    // Show upload progress
+                    if (uploadProgress) uploadProgress.classList.remove('hidden');
+                    
+                    // Get current user
+                    const user = await auth.getCurrentUser();
+                    if (!user) throw new Error('User not authenticated');
+                    
+                    // Create a unique file name using userId + timestamp
+                    const fileExt = file.name.split('.').pop();
+                    const fileName = `${user.id}_${Date.now()}.${fileExt}`;
+                    
+                    // Show the file information in console for debugging
+                    console.log('File info:', {
+                        name: file.name,
+                        type: file.type,
+                        size: `${Math.round(file.size / 1024)} KB`,
+                        newFileName: fileName
+                    });
+                    
+                    // METHOD 1: Direct fetch to Supabase Storage API - most reliable approach
+                    try {
+                        // Get the JWT token
+                        const { data: { session } } = await supabase.auth.getSession();
+                        if (!session) throw new Error('No active session');
+                        
+                        const token = session.access_token;
+                        
+                        // Create FormData
+                        const formData = new FormData();
+                        formData.append('file', file);
+                        
+                        // Set proper URL for upload - hardcode the Supabase URL
+                        const storageUrl = 'https://epdkmtgrcqreqewpnzaf.supabase.co/storage/v1/object/user-avatars/' + fileName;
+                        
+                        console.log('Uploading to:', storageUrl);
+                        
+                        // Upload with fetch
+                        const uploadResponse = await fetch(storageUrl, {
+                            method: 'POST',
+                            headers: {
+                                'Authorization': `Bearer ${token}`
+                            },
+                            body: formData
+                        });
+                        
+                        if (!uploadResponse.ok) {
+                            const errorData = await uploadResponse.json();
+                            throw new Error(`Upload failed: ${JSON.stringify(errorData)}`);
+                        }
+                        
+                        console.log('Upload successful with direct fetch');
+                        
+                        // Get public URL
+                        const { data: publicUrlData } = supabase.storage
+                            .from('user-avatars')
+                            .getPublicUrl(fileName);
+                            
+                        if (!publicUrlData) throw new Error('Failed to get public URL');
+                        
+                        const publicUrl = publicUrlData.publicUrl;
+                        console.log('Public URL:', publicUrl);
+                        
+                        // Update avatar preview with timestamp to avoid cache
+                        avatarPreview.src = `${publicUrl}?t=${Date.now()}`;
+                        
+                        // Update hidden input with the new URL
+                        avatarUrlInput.value = publicUrl;
+                        
+                        // Delete old avatar if exists
+                        if (userProfile?.avatar_url && 
+                            !userProfile.avatar_url.includes('ui-avatars.com')) {
+                            try {
+                                // Extract just the filename from the URL
+                                const oldUrl = new URL(userProfile.avatar_url);
+                                const oldFilePath = oldUrl.pathname.split('/').pop();
+                                
+                                if (oldFilePath && oldFilePath !== fileName) {
+                                    console.log('Removing old avatar file:', oldFilePath);
+                                    await supabase.storage
+                                        .from('user-avatars')
+                                        .remove([oldFilePath]);
+                                }
+                            } catch (deleteError) {
+                                console.error('Error deleting old avatar:', deleteError);
+                            }
+                        }
+                        
+                        // Show success message
+                        showStatus('success', 'Profile picture uploaded successfully!');
+                    } catch (fetchError: any) {
+                        console.error('Upload with fetch failed:', fetchError);
+                        showStatus('error', `Error uploading file: ${fetchError.message}`);
+                        
+                        // Try fallback method if direct fetch fails
+                        try {
+                            console.log('Trying upload fallback with supabase client...');
+                            
+                            // Create a clean Blob with the correct MIME type
+                            const arrayBuffer = await file.arrayBuffer();
+                            const blob = new Blob([arrayBuffer], { 
+                                type: file.type || `image/${fileExt}` 
+                            });
+                            
+                            // Try another upload method as fallback
+                            const { data, error } = await supabase.storage
+                                .from('user-avatars')
+                                .upload(fileName, blob, {
+                                    contentType: file.type || `image/${fileExt}`,
+                                    cacheControl: '3600',
+                                    upsert: true
+                                });
+                                
+                            if (error) throw error;
+                            
+                            // Get public URL
+                            const { data: publicUrlData } = supabase.storage
+                                .from('user-avatars')
+                                .getPublicUrl(fileName);
+                                
+                            const publicUrl = publicUrlData.publicUrl;
+                            console.log('Fallback upload successful:', publicUrl);
+                            
+                            // Update avatar preview
+                            avatarPreview.src = `${publicUrl}?t=${Date.now()}`;
+                            
+                            // Update hidden input with the new URL
+                            avatarUrlInput.value = publicUrl;
+                            
+                            // Show success message
+                            showStatus('success', 'Profile picture uploaded successfully (fallback method)!');
+                        } catch (fallbackError) {
+                            console.error('Fallback upload also failed:', fallbackError);
+                            showStatus('error', `All upload methods failed. Please try again later.`);
+                        }
+                    }
+                } catch (error: any) {
+                    console.error('Error uploading file:', error);
+                    showStatus('error', `Error uploading file: ${error.message || 'Unknown error'}`);
+                    avatarFileInput.value = '';
+                } finally {
+                    // Hide progress bar
+                    if (uploadProgress) {
+                        setTimeout(() => {
+                            uploadProgress.classList.add('hidden');
+                        }, 1500);
+                    }
+                }
+            });
+        }
+        
+        // Profile form submission - update to include file upload handling
         const profileForm = document.getElementById('profile-form') as HTMLFormElement;
         const saveProfileBtn = document.getElementById('save-profile') as HTMLButtonElement;
         
@@ -330,13 +544,13 @@ const bodyClasses = [
                 e.preventDefault();
                 
                 saveProfileBtn.disabled = true;
-                saveProfileBtn.textContent = 'Saving...';
+                saveProfileBtn.innerHTML = '<span class="loading loading-spinner loading-xs"></span> Saving...';
                 
                 const formData = new FormData(profileForm);
                 const profileData = {
                     display_name: formData.get('display_name'),
                     bio: formData.get('bio'),
-                    avatar_url: formData.get('avatar_url')
+                    avatar_url: formData.get('avatar_url'),
                 };
                 
                 try {
@@ -353,17 +567,28 @@ const bodyClasses = [
                         throw error;
                     }
                     
+                    // Also update sidebar avatar
+                    const sidebarAvatar = document.getElementById('sidebar-avatar') as HTMLImageElement;
+                    if (sidebarAvatar && profileData.avatar_url) {
+                        sidebarAvatar.src = profileData.avatar_url as string;
+                    }
+                    
+                    // Update sidebar name
+                    const sidebarName = document.getElementById('sidebar-name');
+                    if (sidebarName && profileData.display_name) {
+                        sidebarName.textContent = profileData.display_name as string;
+                    }
+                    
                     showStatus('success', 'Profile updated successfully!');
                     
-                    // Reload page after a short delay
-                    setTimeout(() => {
-                        window.location.reload();
-                    }, 1500);
+                    // Reset button state
+                    saveProfileBtn.disabled = false;
+                    saveProfileBtn.innerHTML = 'Save Profile';
                 } catch (error: any) {
                     console.error('Error updating profile:', error);
                     showStatus('error', 'Error updating profile: ' + (error.message || 'Unknown error'));
                     saveProfileBtn.disabled = false;
-                    saveProfileBtn.textContent = 'Save Profile';
+                    saveProfileBtn.innerHTML = 'Save Profile';
                 }
             });
         }
@@ -381,13 +606,20 @@ const bodyClasses = [
             });
         }
         
-        // Function to show status messages
+        // Enhanced status message function
         function showStatus(type: 'error' | 'success', message: string) {
             const statusEl = document.getElementById('status-message');
             if (statusEl) {
                 statusEl.textContent = message;
-                statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : 'text-success'}`;
+                statusEl.className = `alert ${type === 'error' ? 'alert-error' : 'alert-success'} mt-4`;
                 statusEl.classList.remove('hidden');
+                
+                // Auto-hide after 5 seconds for success messages
+                if (type === 'success') {
+                    setTimeout(() => {
+                        statusEl.classList.add('hidden');
+                    }, 5000);
+                }
             }
         }
     });
