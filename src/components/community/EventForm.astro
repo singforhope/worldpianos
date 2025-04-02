@@ -218,6 +218,7 @@ const pianos = await getAllPianos();
       formSubmitted: false,
       eventCreated: false,
       submittedEventId: null,
+      currentEventId: null,
       lastSubmissionTime: 0
     };
     
@@ -377,6 +378,7 @@ const pianos = await getAllPianos();
         const now = Date.now();
         if (now - lastSubmitTime < DEBOUNCE_TIME) {
           console.log('Submission too soon after previous submission, ignoring');
+          window.formUtils.showToast("Please wait a moment before submitting again", "warning");
           return;
         }
         
@@ -390,9 +392,23 @@ const pianos = await getAllPianos();
           // Show the floating message instead of a toast
           if (window.showDuplicateSubmissionMessage) {
             window.showDuplicateSubmissionMessage();
+          } else {
+            window.formUtils.showToast("Form is already being submitted", "warning");
           }
           
           return;
+        }
+        
+        // Set submission flag EARLY to prevent duplicate submissions
+        if (window.worldPianosGlobals) {
+          window.worldPianosGlobals.eventFormState.isSubmitting = true;
+        }
+        
+        // Show loading state
+        if (submitBtn && submitText && loadingSpinner) {
+          submitBtn.disabled = true;
+          submitText.textContent = "Sending...";
+          loadingSpinner.classList.remove("hidden");
         }
         
         // Early authentication check before processing form data
@@ -414,18 +430,6 @@ const pianos = await getAllPianos();
           console.error("Authentication error:", error);
           showStatus("error", "You must be logged in to submit an event. Please log in and try again.");
           return;
-        }
-        
-        // Set submission flag
-        if (window.worldPianosGlobals) {
-          window.worldPianosGlobals.eventFormState.isSubmitting = true;
-        }
-        
-        // Show loading state
-        if (submitBtn && submitText && loadingSpinner) {
-          submitBtn.disabled = true;
-          submitText.textContent = "Sending...";
-          loadingSpinner.classList.remove("hidden");
         }
         
         // Get form data
@@ -524,23 +528,7 @@ const pianos = await getAllPianos();
           
           console.log('Submitting event data:', eventData);
           
-          // Handle image upload if present
-          const imageFile = formData.get('eventPicture');
-          let imageUrl = null;
-          
-          if (imageFile && imageFile instanceof File && imageFile.size > 0) {
-            imageUrl = await window.formUtils.uploadImage(imageFile, 'event-images', `Image for event ${eventData.name}`);
-            if (imageUrl) {
-              console.log('Image uploaded successfully:', imageUrl);
-            }
-          }
-          
-          // Check if event service is available
-          if (!window.eventService || !window.eventService.createEvent) {
-            throw new Error('Event service not available');
-          }
-          
-          // Set global flag to indicate event creation is in progress
+          // Check for duplicate submissions - IMPORTANT FIX
           if (window.worldPianosGlobals) {
             // Check if we've already created an event with this data in the last 5 seconds
             const now = Date.now();
@@ -551,8 +539,6 @@ const pianos = await getAllPianos();
                 window.worldPianosGlobals.eventFormState.submittedEventId &&
                 timeSinceLastSubmission < 5000) {
               console.warn('Preventing duplicate event creation - event was already created in the last 5 seconds');
-              showStatus("warning", "Your event is already being processed. Please wait...");
-              window.formUtils.showToast("Your event is already being processed. Please wait...", 'warning');
               
               // Use the previously created event data
               const existingEventId = window.worldPianosGlobals.eventFormState.submittedEventId;
@@ -569,10 +555,32 @@ const pianos = await getAllPianos();
             window.worldPianosGlobals.eventFormState.lastSubmissionTime = now;
           }
           
-          // Use the EventService to create the event
-          const data = await window.eventService.createEvent(eventData);
+          // Handle image upload if present
+          const imageFile = formData.get('eventPicture');
+          let imageUrl = null;
           
-          if (!data) {
+          if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+            if (window.eventService && window.eventService.uploadEventImage) {
+              imageUrl = await window.eventService.uploadEventImage(imageFile, eventData.name);
+            } else if (window.formUtils && window.formUtils.uploadImage) {
+              imageUrl = await window.formUtils.uploadImage(imageFile, 'event-images', `Image for event ${eventData.name}`);
+            } else {
+              throw new Error('No image upload service available');
+            }
+            if (imageUrl) {
+              console.log('Image uploaded successfully:', imageUrl);
+            }
+          }
+          
+          // Check if event service is available
+          if (!window.eventService || !window.eventService.createEvent) {
+            throw new Error('Event service not available');
+          }
+          
+          // Use the EventService to create the event
+          const insertedEvent = await window.eventService.createEvent(eventData);
+          
+          if (!insertedEvent) {
             // Reset global flag since creation failed
             if (window.worldPianosGlobals) {
               window.worldPianosGlobals.eventFormState.eventCreated = false;
@@ -581,23 +589,37 @@ const pianos = await getAllPianos();
             throw new Error('Failed to create event');
           }
           
-          console.log('Event created successfully:', data);
+          console.log('Event created successfully:', insertedEvent);
           
           // Store the created event ID globally
-          if (window.worldPianosGlobals && data && data.id) {
-            window.worldPianosGlobals.eventFormState.submittedEventId = data.id;
-            window.worldPianosGlobals.eventFormState.currentEventId = data.id; // Keep these in sync
+          if (window.worldPianosGlobals && insertedEvent) {
+            window.worldPianosGlobals.eventFormState.submittedEventId = insertedEvent.id;
+            window.worldPianosGlobals.eventFormState.currentEventId = insertedEvent.id; // Keep these in sync
             window.worldPianosGlobals.eventFormState.formSubmitted = true;
+            window.worldPianosGlobals.eventFormState.eventCreated = true;
+            window.worldPianosGlobals.eventFormState.lastSubmissionTime = Date.now();
           }
           
-          // If we have an image, create an event_media entry
-          if (imageUrl && data && data.id) {
-            const mediaEntry = await window.formUtils.createMediaEntry(
-              'event_media',
-              data.id,
-              imageUrl,
-              `Primary image for ${eventData.name}`
-            );
+          // If we have an image and event data, store it
+          if (imageUrl && insertedEvent) {
+            let mediaEntry;
+            
+            if (window.eventService && window.eventService.createEventMedia) {
+              mediaEntry = await window.eventService.createEventMedia(
+                insertedEvent.id,
+                imageUrl,
+                `Primary image for ${insertedEvent.name}`
+              );
+            } else if (window.formUtils && window.formUtils.createMediaEntry) {
+              mediaEntry = await window.formUtils.createMediaEntry(
+                'event_media',
+                insertedEvent.id,
+                imageUrl,
+                `Primary image for ${insertedEvent.name}`
+              );
+            } else {
+              throw new Error('No media entry service available');
+            }
             
             if (mediaEntry) {
               console.log('Event media entry created:', mediaEntry);
@@ -622,24 +644,24 @@ const pianos = await getAllPianos();
             if (window.parent && window.parent !== window) {
               window.parent.postMessage({
                 type: 'event-added',
-                eventId: data.id,
-                eventName: data.name
+                eventId: insertedEvent.id,
+                eventName: insertedEvent.name
               }, '*');
             }
             
             // Show a success toast
-            window.formUtils.showToast(`Event "${data.name}" added successfully!`, 'success');
+            window.formUtils.showToast(`Event "${insertedEvent.name}" added successfully!`, 'success');
             
             // Redirect to the event details page instead of reloading
             setTimeout(() => {
-              window.location.href = `/events/${data.id}`;
+              window.location.href = `/events/${insertedEvent.id}`;
             }, 1000);
           } else {
             // Show a success toast
-            window.formUtils.showToast(`Event "${data.name}" added successfully!`, 'success');
+            window.formUtils.showToast(`Event "${insertedEvent.name}" added successfully!`, 'success');
             
             // Check if the event details page exists before redirecting
-            const eventDetailsUrl = `/events/${data.id}`;
+            const eventDetailsUrl = `/events/${insertedEvent.id}`;
             
             if (window.checkUrlExists) {
               window.checkUrlExists(eventDetailsUrl, (exists) => {
