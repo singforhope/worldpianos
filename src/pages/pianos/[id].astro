@@ -1,20 +1,29 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
-import { getPianoById } from "../../utils/dataService";
+import { getPianoById, getPianoMedia } from "../../utils/dataService";
 
 const { id } = Astro.params;
 let piano = null;
 let error = null;
+let pianoMedia = [];
 
 try {
   if (!id) {
     throw new Error("Piano ID is required");
   }
   piano = await getPianoById(id);
+  
+  // Fetch piano media if piano exists
+  if (piano) {
+    pianoMedia = await getPianoMedia(id);
+  }
 } catch (err) {
   console.error(`Error fetching piano with id ${id}:`, err);
   error = err instanceof Error ? err.message : "Failed to load piano data";
 }
+
+// Get the primary image (first one) if any exist
+const primaryImage = pianoMedia.length > 0 ? pianoMedia[0].url : null;
 ---
 
 <MainLayout>
@@ -51,6 +60,15 @@ try {
                 <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
                     {/* Piano Information Card */}
                     <div class="card bg-base-100 shadow-xl">
+                        {primaryImage && (
+                            <figure>
+                                <img 
+                                    src={primaryImage} 
+                                    alt={`Image of ${piano.name}`} 
+                                    class="w-full h-64 object-cover"
+                                />
+                            </figure>
+                        )}
                         <div class="card-body">
                             <h1 class="card-title text-3xl">{piano.name}</h1>
                             <div class="flex flex-wrap gap-2 mt-4">
@@ -125,6 +143,27 @@ try {
                             />
                         </div>
                     </div>
+                    
+                    {/* Piano Images Gallery - Show only if we have more than one image */}
+                    {pianoMedia.length > 1 && (
+                        <div class="card bg-base-100 shadow-xl col-span-1 lg:col-span-2 mt-8">
+                            <div class="card-body">
+                                <h2 class="card-title">Piano Gallery</h2>
+                                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                    {pianoMedia.map((media) => (
+                                        <div class="rounded-lg overflow-hidden shadow-md">
+                                            <img 
+                                                src={media.url} 
+                                                alt={media.description || `Image of ${piano.name}`}
+                                                class="w-full h-48 object-cover transition-transform hover:scale-105"
+                                                loading="lazy"
+                                            />
+                                        </div>
+                                    ))}
+                                </div>
+                            </div>
+                        </div>
+                    )}
                 </div>
             ) : (
                 <div class="alert alert-error">
