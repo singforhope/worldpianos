@@ -32,7 +32,7 @@ const categories = [...new Set(pianos.map(piano => piano.category))].sort();
   </div>
   
   <!-- Filter Panel Content (Collapsible) -->
-  <div class="filter-content p-4 border-t border-base-300" id="filter-content">
+  <div class="filter-content p-4 border-t border-base-300 hidden" id="filter-content">
     <!-- Quick Filter Tabs -->
     <div class="tabs tabs-boxed mb-4">
       <a class="tab quick-filter active" data-filters='{"category":null,"type":null,"condition":null,"country":null,"city":null}'>All</a>
@@ -295,11 +295,6 @@ const categories = [...new Set(pianos.map(piano => piano.category))].sort();
       window.dispatchEvent(filterEvent);
     }
     
-    // Initialize with filter panel expanded on desktop, collapsed on mobile
-    if (window.innerWidth < 768) {
-      filterContent?.classList.add('hidden');
-    }
-    
     // Initialize filter count
     updateFilterCount(0);
     
@@ -317,13 +312,15 @@ const categories = [...new Set(pianos.map(piano => piano.category))].sort();
 
 <style>
   .filter-panel {
-    width: 320px;
-    max-height: calc(100vh - 120px);
+    width: 300px;
+    max-height: 600px;
     position: absolute;
-    top: 80px;
-    right: 10px;
+    top: 10px;
+    right: 60px;
     z-index: 10;
     transition: all 0.3s ease;
+    border-radius: 0.75rem;
+    overflow: hidden;
   }
   
   .filter-header {
@@ -374,14 +371,18 @@ const categories = [...new Set(pianos.map(piano => piano.category))].sort();
     background: hsl(var(--p) / 0.8);
   }
   
+  /* Mobile styles - position at bottom right */
   @media (max-width: 768px) {
     .filter-panel {
-      width: calc(100% - 20px);
-      max-height: 80vh;
+      width: calc(100% - 40px);
+      max-height: 500px;
+      top: auto; /* Reset top position */
+      bottom: 20px; /* Position at bottom */
+      right: 20px;
     }
     
     .filter-content {
-      max-height: 60vh;
+      max-height: 400px;
     }
   }
 </style>

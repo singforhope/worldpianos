@@ -46,7 +46,7 @@
   }
 
   // Initialize map
-  const initializeMap = () => {
+  const initializeMap = (): mapboxgl.Map => {
     mapboxgl.accessToken =
       "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ";
 
@@ -110,6 +110,9 @@
     
     // Initialize clustering
     let clusterEnabled = true; // Default to enabled
+    
+    // Flag to track if initial pianos are loaded
+    let mapInitialized = false;
 
     // Wait for map to load before adding markers
     map.on("load", () => {
@@ -371,6 +374,7 @@
       });
       
       // Add all piano markers initially
+      console.log("🔵 INITIAL LOAD: Adding all pianos to map:", pianoData.length);
       addPianoMarkers(pianoData);
       
       // Update cluster data
@@ -378,6 +382,10 @@
       
       // Initialize with clustering enabled
       toggleClustering(true);
+      
+      // Mark the map as initialized now that all pianos are added
+      mapInitialized = true;
+      console.log("🔵 Map initialized with all pianos:", pianoData.length);
 
       // Function to draw lines to nearest pianos
       function drawNearestPianoLines(userLat: number, userLng: number): void {
@@ -483,6 +491,24 @@
         const filters = e.detail;
         console.log("Filters changed:", filters);
         
+        // Make sure all pianos are added at least once before applying any filters
+        if (!mapInitialized) {
+          console.log("Map not yet initialized, ensuring all pianos are added first");
+          if (Object.values(filters).some(val => val !== null)) {
+            // This is a filter request but map isn't initialized
+            // Add all pianos first, then mark as initialized, then apply the filters
+            addPianoMarkers(pianoData);
+            updateClusterData(pianoData);
+            mapInitialized = true;
+          } else {
+            // This is the initial "show all" request
+            addPianoMarkers(pianoData);
+            updateClusterData(pianoData);
+            mapInitialized = true;
+            return; // Don't need to filter, we're showing all
+          }
+        }
+        
         // Filter pianos based on selected criteria
         const filteredPianos = pianoData.filter(piano => {
           // Check each filter criteria
@@ -510,6 +536,8 @@
     map.on("error", (e) => {
       console.error("Map error:", e);
     });
+
+    return map;
   };
 
   // Map style options (defined globally for access in event listeners)
@@ -521,18 +549,22 @@
   };
 
   // Initialize map when DOM is loaded
+  let mapInstance: mapboxgl.Map; // Store map instance globally
+
   document.addEventListener("DOMContentLoaded", () => {
-    initializeMap();
+    mapInstance = initializeMap(); // Save the map instance
     
     // Set up map style switcher
     document.querySelectorAll('[id^="style-"]').forEach(element => {
       element.addEventListener('click', (e) => {
         const styleId = (e.currentTarget as HTMLElement).id.replace('style-', '');
-        const mapElement = document.getElementById('map');
-        const mapInstance = (mapElement as any).__mapboxgl;
+        console.log('Style clicked:', styleId);
+        console.log('Map instance available:', !!mapInstance);
+        console.log('Style exists in mapStyles:', styleId in mapStyles);
         
         if (mapInstance && styleId in mapStyles) {
           // Update map style
+          console.log('Setting map style to:', mapStyles[styleId as keyof typeof mapStyles]);
           mapInstance.setStyle(mapStyles[styleId as keyof typeof mapStyles]);
           
           // Update active class
@@ -540,6 +572,9 @@
             el.classList.remove('active');
           });
           (e.currentTarget as HTMLElement).classList.add('active');
+          console.log('Style updated successfully');
+        } else {
+          console.error('Map instance not found or invalid style:', styleId);
         }
       });
     });

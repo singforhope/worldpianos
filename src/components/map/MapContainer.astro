@@ -11,7 +11,7 @@ interface Props {
 const { pianos, pianoId = null, error = null } = Astro.props;
 ---
 
-<div class="w-full h-screen">
+<div class="w-full h-[700px]">
   {
     error && (
       <div class="alert alert-error m-4">
@@ -53,5 +53,21 @@ const { pianos, pianoId = null, error = null } = Astro.props;
   /* Ensure map container has a minimum height */
   #map {
     min-height: 500px;
+  }
+</style>
+
+<style>
+  /* Ensure map container has a responsive height */
+  #map {
+    min-height: 500px;
+    height: 100%;
+    border-radius: 0.75rem;
+  }
+  
+  /* Responsive height adjustments */
+  @media (max-width: 768px) {
+    #map {
+      min-height: 400px;
+    }
   }
 </style>

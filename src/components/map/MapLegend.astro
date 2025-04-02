@@ -2,7 +2,7 @@
 // MapLegend.astro - Component for the map legend
 ---
 
-<div class="absolute top-[10px] left-4 bg-base-100 rounded-lg shadow-lg p-2 z-50">
+<div class="map-legend bg-base-100 rounded-lg shadow-lg p-2">
     <h3 class="font-bold text-sm mb-2">Map Legend</h3>
     <div class="flex items-center gap-2 mb-2">
         <svg
@@ -83,3 +83,23 @@
         <span class="text-xs">Nearest Pianos</span>
     </div>
 </div>
+
+<style>
+    /* Position legend at bottom left on desktop */
+    .map-legend {
+        position: absolute;
+        bottom: 5rem;
+        left: 1rem;
+        z-index: 50;
+    }
+    
+    /* Reposition to top right on mobile */
+    @media (max-width: 768px) {
+        .map-legend {
+            bottom: auto;
+            top: 0.5rem;
+            left: auto;
+            right: 3rem;
+        }
+    }
+</style>
