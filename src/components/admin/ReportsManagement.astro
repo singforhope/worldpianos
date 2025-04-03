@@ -1,0 +1,184 @@
+---
+import { supabase } from "../../utils/supabase";
+
+// Fetch recent reports
+const { data: recentReports, error: reportsError } = await supabase
+    .from('piano_reports')
+    .select('*, pianos:piano_id(name), user_profiles:user_id(display_name)')
+    .eq('status', 'pending')
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+// Format date for display
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+---
+
+<div class="card bg-base-100 shadow-xl">
+    <div class="card-body">
+        <h2 class="card-title">Recent Reports</h2>
+        
+        {reportsError && (
+            <div class="alert alert-error">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Error loading reports: {reportsError.message}</span>
+            </div>
+        )}
+        
+        {!reportsError && (!recentReports || recentReports.length === 0) && (
+            <div class="alert alert-success">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>No pending reports found.</span>
+            </div>
+        )}
+        
+        {!reportsError && recentReports && recentReports.length > 0 && (
+            <div class="space-y-4 mt-4">
+                {recentReports.map((report) => (
+                    <div class="card bg-base-200">
+                        <div class="card-body p-4">
+                            <div class="flex justify-between items-start">
+                                <h3 class="font-bold">{report.pianos?.name || 'Unknown Piano'}</h3>
+                                <span class="badge badge-warning">
+                                    {report.status}
+                                </span>
+                            </div>
+                            <p class="text-sm mt-2"><span class="font-semibold">Issue:</span> {report.issue_type}</p>
+                            <p class="text-sm mt-2">{report.description}</p>
+                            <div class="text-xs opacity-70 mt-2">
+                                Reported by {report.user_profiles?.display_name || 'Anonymous'} on {formatDate(report.created_at)}
+                            </div>
+                            
+                            <div class="card-actions justify-end mt-2">
+                                <a href={`/admin/reports/${report.id}`} class="btn btn-xs btn-primary">Review</a>
+                                <button 
+                                    class="btn btn-xs btn-success resolve-btn"
+                                    data-id={report.id}
+                                    data-type="report"
+                                >
+                                    Resolve
+                                </button>
+                                <button 
+                                    class="btn btn-xs btn-error delete-btn"
+                                    data-id={report.id}
+                                    data-type="report"
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+        
+        <div class="card-actions justify-end mt-4">
+            <a href="/admin/reports" class="btn btn-primary">View All Reports</a>
+        </div>
+    </div>
+</div>
+
+<script>
+    import { supabase } from '../../utils/supabase';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Resolve buttons
+        const resolveButtons = document.querySelectorAll('.resolve-btn');
+        resolveButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                
+                if (!id) return;
+                
+                try {
+                    // Update report status
+                    const { error } = await supabase
+                        .from('piano_reports')
+                        .update({ status: 'resolved' })
+                        .eq('id', id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Update UI
+                    const card = btn.closest('.card');
+                    if (card) {
+                        const statusBadge = card.querySelector('.badge');
+                        if (statusBadge) {
+                            statusBadge.classList.remove('badge-warning');
+                            statusBadge.classList.add('badge-success');
+                            statusBadge.textContent = 'resolved';
+                        }
+                        
+                        // Remove resolve button
+                        btn.remove();
+                    }
+                    
+                    // Show success message
+                    alert('Report resolved successfully!');
+                } catch (error) {
+                    console.error('Error resolving report:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        alert(`Error: ${error.message}`);
+                    } else {
+                        alert('Failed to resolve report');
+                    }
+                }
+            });
+        });
+        
+        // Delete buttons
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (!id || !type) return;
+                
+                // Confirm deletion
+                if (!confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+                    return;
+                }
+                
+                try {
+                    // Delete report
+                    const { error } = await supabase
+                        .from('piano_reports')
+                        .delete()
+                        .eq('id', id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Remove card from DOM
+                    const card = btn.closest('.card');
+                    if (card) {
+                        card.remove();
+                    }
+                    
+                    // Show success message
+                    alert('Report deleted successfully!');
+                } catch (error) {
+                    console.error('Error deleting report:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        alert(`Error: ${error.message}`);
+                    } else {
+                        alert('Failed to delete report');
+                    }
+                }
+            });
+        });
+    });
+</script>

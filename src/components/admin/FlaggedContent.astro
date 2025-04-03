@@ -1,0 +1,339 @@
+---
+import { supabase } from "../../utils/supabase";
+
+// Fetch flagged content
+const { data: flaggedPianos, error: pianosError } = await supabase
+    .from('pianos')
+    .select('*, user_profiles:created_by(display_name)')
+    .eq('flagged', true)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+const { data: flaggedEvents, error: eventsError } = await supabase
+    .from('events')
+    .select('*, user_profiles:created_by(display_name)')
+    .eq('flagged', true)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+const { data: flaggedMedia, error: mediaError } = await supabase
+    .from('piano_media')
+    .select('*, pianos:piano_id(name), user_profiles:user_id(display_name)')
+    .eq('flagged', true)
+    .order('created_at', { ascending: false })
+    .limit(10);
+
+// Format date for display
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+---
+
+<div class="space-y-8">
+    <!-- Flagged Pianos -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Flagged Pianos</h2>
+            
+            {pianosError && (
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Error loading flagged pianos: {pianosError.message}</span>
+                </div>
+            )}
+            
+            {!pianosError && (!flaggedPianos || flaggedPianos.length === 0) && (
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>No flagged pianos found.</span>
+                </div>
+            )}
+            
+            {!pianosError && flaggedPianos && flaggedPianos.length > 0 && (
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Created By</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {flaggedPianos.map((piano) => (
+                                <tr>
+                                    <td>{piano.name}</td>
+                                    <td>{piano.location}</td>
+                                    <td>{piano.user_profiles?.display_name || 'Unknown'}</td>
+                                    <td>{formatDate(piano.created_at)}</td>
+                                    <td>
+                                        <div class="flex gap-2">
+                                            <a href={`/admin/pianos/${piano.id}`} class="btn btn-xs btn-primary">Review</a>
+                                            <button 
+                                                class="btn btn-xs btn-outline btn-success unflag-btn"
+                                                data-id={piano.id}
+                                                data-type="piano"
+                                            >
+                                                Unflag
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    </div>
+    
+    <!-- Flagged Events -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Flagged Events</h2>
+            
+            {eventsError && (
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Error loading flagged events: {eventsError.message}</span>
+                </div>
+            )}
+            
+            {!eventsError && (!flaggedEvents || flaggedEvents.length === 0) && (
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>No flagged events found.</span>
+                </div>
+            )}
+            
+            {!eventsError && flaggedEvents && flaggedEvents.length > 0 && (
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Created By</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {flaggedEvents.map((event) => (
+                                <tr>
+                                    <td>{event.name}</td>
+                                    <td>{event.location}</td>
+                                    <td>{event.user_profiles?.display_name || 'Unknown'}</td>
+                                    <td>{formatDate(event.created_at)}</td>
+                                    <td>
+                                        <div class="flex gap-2">
+                                            <a href={`/admin/events/${event.id}`} class="btn btn-xs btn-primary">Review</a>
+                                            <button 
+                                                class="btn btn-xs btn-outline btn-success unflag-btn"
+                                                data-id={event.id}
+                                                data-type="event"
+                                            >
+                                                Unflag
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    </div>
+    
+    <!-- Flagged Media -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Flagged Media</h2>
+            
+            {mediaError && (
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Error loading flagged media: {mediaError.message}</span>
+                </div>
+            )}
+            
+            {!mediaError && (!flaggedMedia || flaggedMedia.length === 0) && (
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>No flagged media found.</span>
+                </div>
+            )}
+            
+            {!mediaError && flaggedMedia && flaggedMedia.length > 0 && (
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                    {flaggedMedia.map((media) => (
+                        <div class="card bg-base-200">
+                            <figure class="h-48 overflow-hidden">
+                                {media.media_type.startsWith('image/') ? (
+                                    <img src={media.url} alt={media.description || 'Piano image'} class="object-cover w-full h-full" />
+                                ) : media.media_type.startsWith('video/') ? (
+                                    <video src={media.url} controls class="object-cover w-full h-full">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                ) : (
+                                    <div class="flex items-center justify-center w-full h-full bg-base-300">
+                                        <span>Unsupported media type</span>
+                                    </div>
+                                )}
+                            </figure>
+                            <div class="card-body p-4">
+                                <h3 class="card-title text-sm">{media.pianos?.name || 'Unknown Piano'}</h3>
+                                <p class="text-xs">{media.description || 'No description'}</p>
+                                <p class="text-xs opacity-70">Uploaded by {media.user_profiles?.display_name || 'Unknown'}</p>
+                                <div class="card-actions justify-end mt-2">
+                                    <button 
+                                        class="btn btn-xs btn-outline btn-success unflag-btn"
+                                        data-id={media.id}
+                                        data-type="media"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button 
+                                        class="btn btn-xs btn-error delete-btn"
+                                        data-id={media.id}
+                                        data-type="media"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+</div>
+
+<script>
+    import { supabase } from '../../utils/supabase';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Unflag buttons
+        const unflagButtons = document.querySelectorAll('.unflag-btn');
+        unflagButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (!id || !type) return;
+                
+                try {
+                    let table;
+                    switch (type) {
+                        case 'piano':
+                            table = 'pianos';
+                            break;
+                        case 'event':
+                            table = 'events';
+                            break;
+                        case 'media':
+                            table = 'piano_media';
+                            break;
+                        default:
+                            throw new Error('Invalid content type');
+                    }
+                    
+                    // Update flagged status
+                    const { error } = await supabase
+                        .from(table)
+                        .update({ flagged: false })
+                        .eq('id', id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Remove row from table or card from grid
+                    const row = btn.closest('tr');
+                    const card = btn.closest('.card');
+                    
+                    if (row) {
+                        row.remove();
+                    } else if (card) {
+                        card.remove();
+                    }
+                    
+                    // Show success message
+                    alert('Content unflagged successfully!');
+                } catch (error) {
+                    console.error('Error unflagging content:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        alert(`Error: ${error.message}`);
+                    } else {
+                        alert('Failed to unflag content');
+                    }
+                }
+            });
+        });
+        
+        // Delete buttons
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (!id || !type) return;
+                
+                // Confirm deletion
+                if (!confirm('Are you sure you want to delete this content? This action cannot be undone.')) {
+                    return;
+                }
+                
+                try {
+                    let table;
+                    switch (type) {
+                        case 'media':
+                            table = 'piano_media';
+                            break;
+                        default:
+                            throw new Error('Invalid content type');
+                    }
+                    
+                    // Delete content
+                    const { error } = await supabase
+                        .from(table)
+                        .delete()
+                        .eq('id', id);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Remove card from grid
+                    const card = btn.closest('.card');
+                    if (card) {
+                        card.remove();
+                    }
+                    
+                    // Show success message
+                    alert('Content deleted successfully!');
+                } catch (error) {
+                    console.error('Error deleting content:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        alert(`Error: ${error.message}`);
+                    } else {
+                        alert('Failed to delete content');
+                    }
+                }
+            });
+        });
+    });
+</script>

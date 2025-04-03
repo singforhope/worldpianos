@@ -232,6 +232,17 @@ const cityInputId = `${id}-city`;
           // Set values
           countryInput.value = country;
           cityInput.value = city;
+          
+          // Dispatch a custom event with the location data
+          window.dispatchEvent(new CustomEvent('location-selected', {
+            detail: {
+              latitude: coordinates[1],
+              longitude: coordinates[0],
+              address: result.place_name,
+              country: country,
+              city: city
+            }
+          }));
         }
       });
     }

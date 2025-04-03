@@ -1,0 +1,224 @@
+---
+// No server-side data fetching needed for this component
+---
+
+<div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+    <!-- Content Scanning -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Content Scanning</h2>
+            
+            <p class="mt-4">
+                Scan the database for potentially inappropriate content based on keywords.
+            </p>
+            
+            <form id="scan-form" class="mt-6">
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Keywords (comma separated)</span>
+                    </label>
+                    <input 
+                        type="text" 
+                        name="keywords" 
+                        class="input input-bordered" 
+                        placeholder="inappropriate, offensive, etc."
+                        required
+                    />
+                </div>
+                
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Content Type</span>
+                    </label>
+                    <select name="content_type" class="select select-bordered" required>
+                        <option value="all">All Content</option>
+                        <option value="pianos">Pianos Only</option>
+                        <option value="events">Events Only</option>
+                        <option value="media">Media Only</option>
+                    </select>
+                </div>
+                
+                <div class="card-actions justify-end mt-4">
+                    <button type="submit" class="btn btn-primary">Scan Content</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Bulk Actions -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Bulk Actions</h2>
+            
+            <p class="mt-4">
+                Perform bulk actions on content based on criteria.
+            </p>
+            
+            <form id="bulk-action-form" class="mt-6">
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Action</span>
+                    </label>
+                    <select name="action" class="select select-bordered" required>
+                        <option value="" disabled selected>Select an action</option>
+                        <option value="flag">Flag Content</option>
+                        <option value="unflag">Unflag Content</option>
+                        <option value="delete">Delete Content</option>
+                    </select>
+                </div>
+                
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Content Type</span>
+                    </label>
+                    <select name="content_type" class="select select-bordered" required>
+                        <option value="" disabled selected>Select content type</option>
+                        <option value="pianos">Pianos</option>
+                        <option value="events">Events</option>
+                        <option value="media">Media</option>
+                        <option value="reports">Reports</option>
+                    </select>
+                </div>
+                
+                <div class="form-control mb-4">
+                    <label class="label">
+                        <span class="label-text">Filter Criteria</span>
+                    </label>
+                    <select name="filter" class="select select-bordered" required>
+                        <option value="" disabled selected>Select filter criteria</option>
+                        <option value="all">All Content</option>
+                        <option value="flagged">Flagged Content</option>
+                        <option value="reported">Reported Content</option>
+                        <option value="unverified">Unverified Content</option>
+                        <option value="older_than">Older Than...</option>
+                    </select>
+                </div>
+                
+                <div class="form-control mb-4 hidden" id="date-filter">
+                    <label class="label">
+                        <span class="label-text">Date Threshold</span>
+                    </label>
+                    <input 
+                        type="date" 
+                        name="date_threshold" 
+                        class="input input-bordered" 
+                    />
+                </div>
+                
+                <div class="card-actions justify-end mt-4">
+                    <button type="submit" class="btn btn-primary">Execute Bulk Action</button>
+                </div>
+            </form>
+        </div>
+    </div>
+    
+    <!-- Moderation Log -->
+    <div class="card bg-base-100 shadow-xl lg:col-span-2">
+        <div class="card-body">
+            <h2 class="card-title">Moderation Log</h2>
+            
+            <p class="mt-4">
+                Recent moderation actions performed by administrators.
+            </p>
+            
+            <div class="overflow-x-auto mt-6">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>Action</th>
+                            <th>Content</th>
+                            <th>Admin</th>
+                            <th>Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <tr>
+                            <td>
+                                <span class="badge badge-warning">Flagged</span>
+                            </td>
+                            <td>Piano: "Grand Piano at Central Station"</td>
+                            <td>Admin User</td>
+                            <td>April 2, 2025</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="badge badge-success">Resolved</span>
+                            </td>
+                            <td>Report: "Piano out of tune"</td>
+                            <td>Admin User</td>
+                            <td>April 1, 2025</td>
+                        </tr>
+                        <tr>
+                            <td>
+                                <span class="badge badge-error">Deleted</span>
+                            </td>
+                            <td>Media: "Image of piano"</td>
+                            <td>Admin User</td>
+                            <td>March 30, 2025</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+    document.addEventListener('DOMContentLoaded', () => {
+        // Content scanning form
+        const scanForm = document.getElementById('scan-form') as HTMLFormElement;
+        if (scanForm) {
+            scanForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                // Get form data
+                const formData = new FormData(scanForm);
+                const keywords = formData.get('keywords') as string;
+                const contentType = formData.get('content_type') as string;
+                
+                // Show alert for demo purposes
+                alert(`Scanning ${contentType} for keywords: ${keywords}\n\nThis feature is not yet implemented.`);
+            });
+        }
+        
+        // Bulk action form
+        const bulkActionForm = document.getElementById('bulk-action-form') as HTMLFormElement;
+        const dateFilter = document.getElementById('date-filter');
+        
+        if (bulkActionForm) {
+            // Show/hide date filter based on selected filter
+            const filterSelect = bulkActionForm.querySelector('select[name="filter"]') as HTMLSelectElement;
+            if (filterSelect && dateFilter) {
+                filterSelect.addEventListener('change', () => {
+                    if (filterSelect.value === 'older_than') {
+                        dateFilter.classList.remove('hidden');
+                    } else {
+                        dateFilter.classList.add('hidden');
+                    }
+                });
+            }
+            
+            // Handle form submission
+            bulkActionForm.addEventListener('submit', (e) => {
+                e.preventDefault();
+                
+                // Get form data
+                const formData = new FormData(bulkActionForm);
+                const action = formData.get('action') as string;
+                const contentType = formData.get('content_type') as string;
+                const filter = formData.get('filter') as string;
+                const dateThreshold = formData.get('date_threshold') as string;
+                
+                // Show confirmation dialog
+                const confirmMessage = `Are you sure you want to ${action} all ${contentType} that are ${filter}${dateThreshold ? ` older than ${dateThreshold}` : ''}?`;
+                
+                if (!confirm(confirmMessage)) {
+                    return;
+                }
+                
+                // Show alert for demo purposes
+                alert(`Executing bulk action: ${action} on ${contentType} with filter ${filter}${dateThreshold ? ` and date threshold ${dateThreshold}` : ''}\n\nThis feature is not yet implemented.`);
+            });
+        }
+    });
+</script>

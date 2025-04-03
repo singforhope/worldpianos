@@ -1,0 +1,977 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { supabase } from "../../../utils/supabase";
+import { auth } from "../../../utils/auth";
+import LocationPicker from "../../../components/community/LocationPicker.astro";
+
+// Authentication check
+const user = await auth.getCurrentUser();
+
+// Access environment variables via import.meta.env
+const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "support@worldpianos.org";
+---
+
+<AdminLayout>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li><a href="/admin/pianos">Manage Pianos</a></li>
+            <li>Add New Piano</li>
+        </ul>
+    </div>
+    
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h1 class="card-title text-3xl mb-2">Add New Piano</h1>
+            <p class="text-base-content/70 mb-6">Fill in the details below to add a new piano to the database.</p>
+            
+            <!-- Duplicate submission message -->
+            <div id="duplicate-submission-message" class="hidden">
+                <div class="alert alert-warning shadow-lg fixed top-4 left-1/2 transform -translate-x-1/2 z-50 w-auto max-w-md fade-in">
+                    <div>
+                        <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                        <span>Form is already being submitted, please wait...</span>
+                    </div>
+                    <div class="flex-none">
+                        <button onclick="window.hideDuplicateSubmissionMessage()" class="btn btn-sm btn-ghost">×</button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Form Status Messages -->
+            <div id="form-status" class="hidden alert mt-4 mb-4"></div>
+            
+            <form id="piano-form" class="space-y-8" enctype="multipart/form-data">
+                <!-- Basic Information Section -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="badge badge-primary mr-2">1</span> Basic Information
+                    </h2>
+                    <div class="divider mt-0 mb-4"></div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="form-control">
+                            <label for="piano-name" class="label">
+                                <span class="label-text font-medium">Piano Name</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="piano-name"
+                                name="name" 
+                                class="input input-bordered" 
+                                placeholder="e.g. Grand Piano at Central Station"
+                                required 
+                            />
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">Enter a descriptive name for the piano</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-control">
+                            <label for="piano-type" class="label">
+                                <span class="label-text font-medium">Piano Type</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <select id="piano-type" name="type" class="select select-bordered" required>
+                                <option value="" disabled selected>Select piano type</option>
+                                <option value="grand">Grand Piano</option>
+                                <option value="upright">Upright Piano</option>
+                                <option value="digital">Digital Piano</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">Select the type of piano</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="form-control mt-4">
+                        <label for="description" class="label">
+                            <span class="label-text font-medium">Description</span>
+                            <span class="label-text-alt text-error">*</span>
+                        </label>
+                        <textarea 
+                            id="description"
+                            name="description" 
+                            class="textarea textarea-bordered h-32" 
+                            placeholder="Provide a detailed description of the piano, including its appearance, history, and any notable features."
+                            required
+                        ></textarea>
+                        <label class="label">
+                            <span class="label-text-alt text-base-content/60">Detailed information helps users find and identify the piano</span>
+                        </label>
+                    </div>
+                </div>
+                
+                <!-- Location Section -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="badge badge-primary mr-2">2</span> Location Details
+                    </h2>
+                    <div class="divider mt-0 mb-4"></div>
+                    
+                    <!-- LocationPicker Component -->
+                    <LocationPicker id="piano-location" label="Location" required={true} />
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mt-6">
+                        <div class="form-control">
+                            <label for="city" class="label">
+                                <span class="label-text font-medium">City</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="city"
+                                name="city" 
+                                class="input input-bordered" 
+                                placeholder="e.g. New York"
+                                required 
+                            />
+                        </div>
+                        
+                        <div class="form-control">
+                            <label for="country" class="label">
+                                <span class="label-text font-medium">Country</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="country"
+                                name="country" 
+                                class="input input-bordered" 
+                                placeholder="e.g. United States"
+                                required 
+                            />
+                        </div>
+                        
+                        <div class="form-control">
+                            <label for="airport-code" class="label">
+                                <span class="label-text font-medium">Airport Code</span>
+                                <span class="label-text-alt">(if applicable)</span>
+                            </label>
+                            <input 
+                                type="text" 
+                                id="airport-code"
+                                name="airport_code" 
+                                class="input input-bordered" 
+                                placeholder="e.g. JFK"
+                            />
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">For pianos located in airports</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Additional Details Section -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="badge badge-primary mr-2">3</span> Additional Details
+                    </h2>
+                    <div class="divider mt-0 mb-4"></div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                        <div class="form-control">
+                            <label for="condition" class="label">
+                                <span class="label-text font-medium">Condition</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <select id="condition" name="condition" class="select select-bordered" required>
+                                <option value="" disabled selected>Select condition</option>
+                                <option value="excellent">Excellent (Like new)</option>
+                                <option value="good">Good (Minor wear)</option>
+                                <option value="fair">Fair (Playable but worn)</option>
+                                <option value="poor">Poor (Needs maintenance)</option>
+                            </select>
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">Current physical condition of the piano</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-control">
+                            <label for="access" class="label">
+                                <span class="label-text font-medium">Access</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <select id="access" name="access" class="select select-bordered" required>
+                                <option value="" disabled selected>Select access type</option>
+                                <option value="public">Public (Open to everyone)</option>
+                                <option value="limited">Limited (Restricted hours/conditions)</option>
+                                <option value="private">Private (Permission required)</option>
+                            </select>
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">Indicates how accessible the piano is to visitors</span>
+                            </label>
+                        </div>
+                    </div>
+                    
+                    <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                        <div class="form-control">
+                            <label for="category" class="label">
+                                <span class="label-text font-medium">Category</span>
+                                <span class="label-text-alt text-error">*</span>
+                            </label>
+                            <select id="category" name="category" class="select select-bordered" required>
+                                <option value="" disabled selected>Select category</option>
+                                <option value="street">Street Piano</option>
+                                <option value="station">Station Piano</option>
+                                <option value="airport">Airport Piano</option>
+                                <option value="mall">Mall Piano</option>
+                                <option value="hotel">Hotel Piano</option>
+                                <option value="school">School Piano</option>
+                                <option value="other">Other</option>
+                            </select>
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">Type of location where the piano is situated</span>
+                            </label>
+                        </div>
+                        
+                        <div class="form-control">
+                            <label for="last-maintained" class="label">
+                                <span class="label-text font-medium">Last Maintained</span>
+                            </label>
+                            <input 
+                                type="date" 
+                                id="last-maintained"
+                                name="last_maintained" 
+                                class="input input-bordered" 
+                                max={new Date().toISOString().split('T')[0]}
+                            />
+                            <label class="label">
+                                <span class="label-text-alt text-base-content/60">When was the piano last tuned or maintained?</span>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Media Section -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="badge badge-primary mr-2">4</span> Media
+                    </h2>
+                    <div class="divider mt-0 mb-4"></div>
+                    
+                    <div class="form-control w-full">
+                        <label for="piano-picture" class="label">
+                            <span class="label-text font-medium">Piano Picture</span>
+                        </label>
+                        <input 
+                            type="file" 
+                            id="piano-picture" 
+                            name="piano_picture" 
+                            accept="image/*" 
+                            class="file-input file-input-bordered w-full" 
+                        />
+                        <label class="label">
+                            <span class="label-text-alt text-base-content/60">Upload a clear image of the piano (max 5MB)</span>
+                        </label>
+                        <div class="mt-2">
+                            <div id="image-preview" class="hidden mt-2">
+                                <img id="preview-img" src="" alt="Preview" class="max-h-48 rounded-lg" />
+                                <button type="button" id="remove-image" class="btn btn-sm btn-error mt-2">Remove</button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Verification Section -->
+                <div>
+                    <h2 class="text-xl font-semibold mb-4 flex items-center">
+                        <span class="badge badge-primary mr-2">5</span> Verification
+                    </h2>
+                    <div class="divider mt-0 mb-4"></div>
+                    
+                    <div class="form-control">
+                        <div class="bg-base-200 rounded-lg p-4 flex items-center">
+                            <label class="label cursor-pointer justify-start gap-4">
+                                <input type="checkbox" name="verified" class="toggle toggle-primary" checked />
+                                <div>
+                                    <span class="font-medium">Verified</span>
+                                    <p class="text-xs text-base-content/70 mt-1">
+                                        Mark as verified if this piano has been confirmed to exist
+                                    </p>
+                                </div>
+                            </label>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Form Actions -->
+                <div class="pt-4 border-t border-base-300">
+                    <div class="flex flex-col sm:flex-row justify-end gap-3">
+                        <a href="/admin/pianos" class="btn btn-outline">Cancel</a>
+                        <button type="submit" id="submit-btn" class="btn btn-primary">
+                            <span id="submit-text">Add Piano</span>
+                            <span id="loading-spinner" class="loading loading-spinner hidden"></span>
+                        </button>
+                    </div>
+                </div>
+            </form>
+        </div>
+    </div>
+</AdminLayout>
+
+<!-- Add Toastify CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+
+<!-- Add Toastify JS -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
+<style>
+    .fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    
+    @keyframes fadeIn {
+        from {
+            opacity: 0;
+            transform: translate(-50%, -20px);
+        }
+        to {
+            opacity: 1;
+            transform: translate(-50%, 0);
+        }
+    }
+</style>
+
+<script>
+    import { supabase } from '../../../utils/supabase';
+    import { auth } from '../../../utils/auth';
+    
+    // Declare Toastify type
+    declare const Toastify: any;
+    
+    // Create a showToast function
+    function showToast(message: string, type: 'info' | 'success' | 'error' | 'warning' = 'info'): void {
+        // Check if Toastify is available
+        if (typeof Toastify === 'function') {
+            Toastify({
+                text: message,
+                duration: 3000, // 3 seconds
+                close: true, // Show close button
+                gravity: "top",
+                position: "right",
+                className: `toastify-${type}`,
+                onClick: function() { this.hideToast(); }, // Click to dismiss
+                style: {
+                    background: type === "success" ? "#36d399" :
+                              type === "error" ? "#f87272" :
+                              type === "warning" ? "#fbbd23" : "#3abff8",
+                    borderRadius: "8px",
+                    boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                }
+            }).showToast();
+        } else {
+            // Fallback to alert if Toastify is not available
+            console.log(`Toast (${type}): ${message}`);
+        }
+    }
+    
+    // Create functions to show/hide duplicate submission message
+    function hideDuplicateSubmissionMessage(): void {
+        const msgEl = document.getElementById('duplicate-submission-message');
+        if (msgEl) {
+            msgEl.style.display = 'none';
+        }
+    }
+    
+    function showDuplicateSubmissionMessage(): void {
+        const msgEl = document.getElementById('duplicate-submission-message');
+        if (msgEl) {
+            msgEl.style.display = 'block';
+            
+            // Auto-hide after 3 seconds
+            setTimeout(() => {
+                msgEl.style.display = 'none';
+            }, 3000);
+        }
+    }
+    
+    // Assign functions to window object
+    if (typeof window !== 'undefined') {
+        (window as any).hideDuplicateSubmissionMessage = hideDuplicateSubmissionMessage;
+        (window as any).showDuplicateSubmissionMessage = showDuplicateSubmissionMessage;
+    }
+    
+    // Create a function to validate the form
+    function validateForm(formData: FormData): string[] {
+        const requiredFields = [
+            'name', 'type', 'description', 'city', 'country',
+            'condition', 'access', 'category'
+        ];
+        
+        const missingFields: string[] = [];
+        
+        for (const field of requiredFields) {
+            if (!formData.get(field)) {
+                missingFields.push(field);
+                
+                // Highlight the missing field
+                const element = document.querySelector(`[name="${field}"]`) as HTMLInputElement | null;
+                if (element) {
+                    element.classList.add('input-error');
+                    
+                    // Add event listener to remove error class when field is filled
+                    element.addEventListener('input', () => {
+                        if (element.value.trim()) {
+                            element.classList.remove('input-error');
+                        }
+                    });
+                }
+            }
+        }
+        
+        // Check if location is selected
+        const latElement = document.getElementById("piano-location-lat") as HTMLInputElement | null;
+        const lngElement = document.getElementById("piano-location-lng") as HTMLInputElement | null;
+        
+        const lat = latElement?.value || latElement?.getAttribute('value');
+        const lng = lngElement?.value || lngElement?.getAttribute('value');
+        
+        if (!lat || !lng) {
+            missingFields.push('location');
+            
+            // Highlight the map container
+            const mapContainer = document.querySelector('.location-picker-container');
+            if (mapContainer) {
+                mapContainer.classList.add('border-error');
+                mapContainer.classList.add('border-2');
+            }
+        }
+        
+        return missingFields;
+    }
+    
+    // Function to show form status message
+    function showFormStatus(message: string, type: 'success' | 'error' | 'warning' | 'info'): void {
+        const formStatus = document.getElementById('form-status');
+        if (formStatus) {
+            formStatus.textContent = message;
+            formStatus.classList.remove('hidden', 'alert-success', 'alert-error', 'alert-warning', 'alert-info');
+            formStatus.classList.add(`alert-${type}`);
+        }
+    }
+    
+    // Function to hide form status message
+    function hideFormStatus(): void {
+        const formStatus = document.getElementById('form-status');
+        if (formStatus) {
+            formStatus.classList.add('hidden');
+        }
+    }
+    
+    // Function to upload image to Supabase storage
+    async function uploadImage(file: File, bucketName: string): Promise<string | null> {
+        if (!file || file.size === 0) {
+            return null;
+        }
+        
+        try {
+            // Generate a unique file name
+            const fileName = `${Date.now()}-${file.name.replace(/[^a-zA-Z0-9.]/g, '_')}`;
+            
+            console.log('Uploading file:', file.name);
+            console.log('File type:', file.type);
+            console.log('File size:', file.size);
+            console.log('Generated filename:', fileName);
+            
+            // METHOD 1: Direct fetch to Supabase Storage API
+            try {
+                // Get the JWT token
+                const { data: { session } } = await supabase.auth.getSession();
+                if (!session) throw new Error('No active session');
+                
+                const token = session.access_token;
+                
+                // Create FormData
+                const formData = new FormData();
+                formData.append('file', file);
+                
+                // Set proper URL for upload
+                const supabaseUrl = import.meta.env.PUBLIC_SUPABASE_URL || 'https://epdkmtgrcqreqewpnzaf.supabase.co';
+                const storageUrl = `${supabaseUrl}/storage/v1/object/${bucketName}/${fileName}`;
+                
+                console.log(`Uploading to ${bucketName}:`, storageUrl);
+                
+                // Upload with fetch
+                const uploadResponse = await fetch(storageUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Authorization': `Bearer ${token}`
+                    },
+                    body: formData
+                });
+                
+                if (!uploadResponse.ok) {
+                    const errorData = await uploadResponse.json();
+                    throw new Error(`Upload failed: ${JSON.stringify(errorData)}`);
+                }
+                
+                console.log('Upload successful with direct fetch');
+                
+                // Get public URL
+                const { data: urlData } = supabase.storage
+                    .from(bucketName)
+                    .getPublicUrl(fileName);
+                    
+                if (!urlData) throw new Error('Failed to get public URL');
+                
+                return urlData.publicUrl;
+            } catch (fetchError) {
+                console.error('Direct fetch upload failed:', fetchError);
+                
+                // METHOD 2: Fallback to Supabase client with Blob
+                console.log('Trying fallback upload with supabase client...');
+                
+                // Create a clean Blob with the correct MIME type
+                const fileExt = file.name.split('.').pop();
+                const arrayBuffer = await file.arrayBuffer();
+                const blob = new Blob([arrayBuffer], {
+                    type: file.type || `image/${fileExt}`
+                });
+                
+                console.log('Created Blob with type:', blob.type);
+                
+                // Upload to Supabase Storage with the blob
+                const { data: uploadData, error: uploadError } = await supabase.storage
+                    .from(bucketName)
+                    .upload(fileName, blob, {
+                        contentType: file.type || `image/${fileExt}`,
+                        cacheControl: '3600',
+                        upsert: true
+                    });
+                    
+                if (uploadError) {
+                    console.error('Blob upload error:', uploadError);
+                    throw uploadError;
+                }
+                
+                console.log('Fallback upload successful:', uploadData);
+                
+                // Get public URL
+                const { data: urlData } = supabase.storage
+                    .from(bucketName)
+                    .getPublicUrl(fileName);
+                    
+                console.log('Public URL from fallback:', urlData.publicUrl);
+                return urlData.publicUrl;
+            }
+        } catch (error) {
+            console.error('All upload methods failed:', error);
+            throw error;
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        // Set up location picker to auto-fill city and country fields
+        const setupLocationAutoFill = () => {
+            // Get the hidden inputs from LocationPicker
+            const locationCityInput = document.getElementById('piano-location-city');
+            const locationCountryInput = document.getElementById('piano-location-country');
+            
+            // Get the visible form fields
+            const cityField = document.getElementById('city') as HTMLInputElement | null;
+            const countryField = document.getElementById('country') as HTMLInputElement | null;
+            
+            if (locationCityInput && locationCountryInput && cityField && countryField) {
+                // Create a MutationObserver to watch for changes to the value attribute
+                const observer = new MutationObserver((mutations) => {
+                    mutations.forEach((mutation) => {
+                        if (mutation.type === 'attributes' && mutation.attributeName === 'value') {
+                            const target = mutation.target as HTMLInputElement;
+                            if (target.id === 'piano-location-city' && cityField) {
+                                cityField.value = target.value;
+                            } else if (target.id === 'piano-location-country' && countryField) {
+                                countryField.value = target.value;
+                            }
+                        }
+                    });
+                });
+                
+                // Observe both hidden inputs for changes to the value attribute
+                observer.observe(locationCityInput, { attributes: true });
+                observer.observe(locationCountryInput, { attributes: true });
+                
+                // Also listen for input events on the hidden fields
+                locationCityInput.addEventListener('input', () => {
+                    if (cityField && locationCityInput instanceof HTMLInputElement) {
+                        cityField.value = locationCityInput.value;
+                    }
+                });
+                
+                locationCountryInput.addEventListener('input', () => {
+                    if (countryField && locationCountryInput instanceof HTMLInputElement) {
+                        countryField.value = locationCountryInput.value;
+                    }
+                });
+                
+                // Custom event listener for location selection
+                window.addEventListener('location-selected', (e: Event) => {
+                    const customEvent = e as CustomEvent;
+                    if (customEvent.detail) {
+                        const { city, country } = customEvent.detail;
+                        if (city && cityField) {
+                            cityField.value = city;
+                            // Trigger change event to update any validation
+                            cityField.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        if (country && countryField) {
+                            countryField.value = country;
+                            // Trigger change event to update any validation
+                            countryField.dispatchEvent(new Event('input', { bubbles: true }));
+                        }
+                        
+                        // Remove any error styling that might have been applied
+                        cityField?.classList.remove('input-error');
+                        countryField?.classList.remove('input-error');
+                    }
+                });
+            }
+        };
+        
+        // Call the setup function
+        setupLocationAutoFill();
+        
+        // Also set up a listener for the mapbox-loaded event to ensure the fields exist
+        window.addEventListener('mapbox-loaded', () => {
+            // Wait a bit for the geocoder to be fully initialized
+            setTimeout(setupLocationAutoFill, 500);
+        });
+        // Get current user
+        const user = await auth.getCurrentUser();
+        
+        // Handle image preview
+        const fileInput = document.getElementById('piano-picture') as HTMLInputElement | null;
+        const imagePreview = document.getElementById('image-preview');
+        const previewImg = document.getElementById('preview-img') as HTMLImageElement | null;
+        const removeImageBtn = document.getElementById('remove-image');
+        
+        if (fileInput) {
+            fileInput.addEventListener('change', (e: Event) => {
+                const target = e.target as HTMLInputElement;
+                const file = target.files?.[0];
+                if (file) {
+                    // Check if file is an image
+                    if (!file.type.startsWith('image/')) {
+                        showToast('Please select an image file (JPEG, PNG, GIF, etc.).', 'error');
+                        fileInput.value = '';
+                        return;
+                    }
+                    
+                    // Check file size (max 5MB)
+                    if (file.size > 5 * 1024 * 1024) {
+                        showToast('Image size exceeds 5MB limit. Please choose a smaller image.', 'error');
+                        fileInput.value = '';
+                        return;
+                    }
+                    
+                    console.log('Selected file:', file.name);
+                    console.log('File type:', file.type);
+                    console.log('File size:', file.size);
+                    
+                    const reader = new FileReader();
+                    reader.onload = (e: ProgressEvent<FileReader>) => {
+                        if (previewImg && imagePreview && e.target?.result) {
+                            previewImg.src = e.target.result as string;
+                            imagePreview.classList.remove('hidden');
+                        }
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+        }
+        
+        // Handle remove image button
+        if (removeImageBtn) {
+            removeImageBtn.addEventListener('click', () => {
+                if (fileInput && imagePreview) {
+                    fileInput.value = '';
+                    imagePreview.classList.add('hidden');
+                }
+            });
+        }
+        
+        // Piano form submission
+        const pianoForm = document.getElementById('piano-form') as HTMLFormElement | null;
+        if (pianoForm) {
+            pianoForm.addEventListener('submit', async (e: Event) => {
+                e.preventDefault();
+                
+                // Get form data
+                const formData = new FormData(pianoForm);
+                
+                // Validate form
+                const missingFields = validateForm(formData);
+                if (missingFields.length > 0) {
+                    showFormStatus(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+                    showToast(`Please fill in all required fields: ${missingFields.join(', ')}`, 'error');
+                    return;
+                }
+                
+                // Hide form status
+                hideFormStatus();
+                
+                // Show loading state
+                const submitBtn = document.getElementById('submit-btn') as HTMLButtonElement | null;
+                const submitText = document.getElementById('submit-text');
+                const loadingSpinner = document.getElementById('loading-spinner');
+                
+                if (submitBtn && submitText && loadingSpinner) {
+                    submitBtn.disabled = true;
+                    submitText.textContent = 'Sending...';
+                    loadingSpinner.classList.remove('hidden');
+                }
+                
+                try {
+                    // Get location data
+                    const latElement = document.getElementById('piano-location-lat') as HTMLInputElement | null;
+                    const lngElement = document.getElementById('piano-location-lng') as HTMLInputElement | null;
+                    const addressElement = document.getElementById('piano-location-address') as HTMLInputElement | null;
+                    
+                    const lat = latElement?.value;
+                    const lng = lngElement?.value;
+                    const locationAddress = addressElement?.value || 'Unknown location';
+                    
+                    // Handle image upload if present
+                    const imageFile = formData.get('piano_picture') as File | null;
+                    let imageUrl = null;
+                    
+                    if (imageFile && imageFile instanceof File && imageFile.size > 0) {
+                        try {
+                            imageUrl = await uploadImage(imageFile, 'piano-images');
+                            console.log('Image uploaded successfully:', imageUrl);
+                        } catch (uploadError) {
+                            console.error('Error uploading image:', uploadError);
+                            showToast('Error uploading image. Please try again.', 'error');
+                        }
+                    }
+                    
+                    // Validate coordinates
+                    if (!lat || !lng) {
+                        showFormStatus('Please select a location on the map', 'error');
+                        showToast('Please select a location on the map', 'error');
+                        throw new Error('Location coordinates are required');
+                    }
+                    
+                    // Parse coordinates safely
+                    const longitude = parseFloat(lng);
+                    const latitude = parseFloat(lat);
+                    
+                    // Validate parsed coordinates
+                    if (isNaN(longitude) || isNaN(latitude)) {
+                        showFormStatus('Invalid coordinates. Please select a location again.', 'error');
+                        showToast('Invalid coordinates. Please select a location again.', 'error');
+                        throw new Error('Invalid coordinates');
+                    }
+                    
+                    // Ensure coordinates are within valid range
+                    if (longitude < -180 || longitude > 180 || latitude < -90 || latitude > 90) {
+                        showFormStatus('Coordinates out of range. Please select a valid location.', 'error');
+                        showToast('Coordinates out of range. Please select a valid location.', 'error');
+                        throw new Error('Coordinates out of range');
+                    }
+                    
+                    // Create coordinates array and validate it
+                    const coordinates = [longitude, latitude];
+                    if (!Array.isArray(coordinates) || coordinates.length !== 2) {
+                        showFormStatus('Invalid coordinates format.', 'error');
+                        showToast('Invalid coordinates format.', 'error');
+                        throw new Error('Invalid coordinates format');
+                    }
+                    
+                    // Ensure coordinates are numeric values, not strings
+                    // This is important because the database expects NUMERIC[] not STRING[]
+                    const numericCoordinates = coordinates.map(coord => Number(coord));
+                    console.log('Numeric coordinates:', numericCoordinates);
+                    
+                    // Generate a UUID for the piano
+                    const generateUUID = () => {
+                        // Use crypto.randomUUID() if available (modern browsers)
+                        if (window.crypto && typeof window.crypto.randomUUID === 'function') {
+                            return window.crypto.randomUUID();
+                        }
+                        
+                        // Fallback implementation for older browsers
+                        return 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+                            const r = Math.random() * 16 | 0;
+                            const v = c === 'x' ? r : (r & 0x3 | 0x8);
+                            return v.toString(16);
+                        });
+                    };
+                    
+                    // Validate all required fields
+                    const requiredFields = [
+                        { name: 'name', label: 'Piano Name' },
+                        { name: 'type', label: 'Piano Type' },
+                        { name: 'condition', label: 'Condition' },
+                        { name: 'access', label: 'Access' },
+                        { name: 'category', label: 'Category' },
+                        { name: 'city', label: 'City' },
+                        { name: 'country', label: 'Country' }
+                    ];
+                    
+                    const missingFields = requiredFields.filter(field => {
+                        const value = formData.get(field.name);
+                        return !value || (typeof value === 'string' && value.trim() === '');
+                    });
+                    
+                    if (missingFields.length > 0) {
+                        const missingFieldLabels = missingFields.map(f => f.label).join(', ');
+                        showFormStatus(`Missing required fields: ${missingFieldLabels}`, 'error');
+                        showToast(`Missing required fields: ${missingFieldLabels}`, 'error');
+                        throw new Error(`Missing required fields: ${missingFieldLabels}`);
+                    }
+                    
+                    // Build piano data object with explicit ID
+                    const pianoData: any = {
+                        id: generateUUID(), // Explicitly set the ID
+                        name: formData.get('name'),
+                        location: locationAddress,
+                        description: formData.get('description'),
+                        type: formData.get('type'),
+                        condition: formData.get('condition'),
+                        access: formData.get('access'),
+                        category: formData.get('category'),
+                        city: formData.get('city'),
+                        country: formData.get('country'),
+                        airport_code: formData.get('airport_code') || null,
+                        verified: formData.get('verified') === 'on',
+                        coordinates: numericCoordinates,
+                        created_by: user?.id || null,
+                        verification_count: formData.get('verified') === 'on' ? 1 : 0
+                    };
+                    
+                    // Validate the UUID
+                    if (!pianoData.id || typeof pianoData.id !== 'string' || pianoData.id.length < 10) {
+                        console.error('Invalid UUID generated:', pianoData.id);
+                        showFormStatus('Error generating unique ID for piano', 'error');
+                        showToast('Error generating unique ID for piano', 'error');
+                        throw new Error('Invalid UUID generated');
+                    }
+                    
+                    // Log the data being sent to help debug
+                    console.log('Submitting piano data with UUID:', pianoData.id);
+                    console.log('Full piano data:', pianoData);
+                    
+                    // Add last_maintained if provided
+                    const lastMaintained = formData.get('last_maintained') as string | null;
+                    if (lastMaintained) {
+                        pianoData.last_maintained = new Date(lastMaintained).toISOString();
+                    }
+                    
+                    // Create piano and handle media upload
+                    // Define an interface for the piano data
+                    interface PianoData {
+                        id: string;
+                        name: string;
+                        [key: string]: any;
+                    }
+                    
+                    let createdPiano: PianoData | null = null;
+                    
+                    try {
+                        // Insert piano data
+                        console.log('Sending request to Supabase...');
+                        const { data: piano, error } = await supabase
+                            .from('pianos')
+                            .insert(pianoData)
+                            .select();
+                        
+                        if (error) {
+                            console.error('Supabase error details:', error);
+                            throw error;
+                        }
+                        
+                        if (!piano || piano.length === 0) {
+                            console.error('No piano data returned after insert');
+                            throw new Error('Failed to create piano: No data returned');
+                        }
+                        
+                        console.log('Piano created successfully:', piano);
+                        createdPiano = piano[0];
+                        
+                        // If we have an image and piano data, create media entry
+                        if (imageUrl && createdPiano) {
+                            // Ensure we have the correct media type
+                            const fileExt = imageFile?.name?.split('.').pop()?.toLowerCase() || 'jpg';
+                            const mediaType = imageFile?.type || `image/${fileExt}`;
+                            console.log('Media type for database:', mediaType);
+                            
+                            // Create media entry
+                            const mediaData = {
+                                piano_id: createdPiano.id,
+                                user_id: user?.id || null,
+                                media_type: mediaType,
+                                url: imageUrl,
+                                description: `Primary image for ${createdPiano.name}`
+                                // Note: content_type column doesn't exist in the piano_media table
+                            };
+                            
+                            console.log('Creating media entry with data:', mediaData);
+                            
+                            try {
+                                // Insert the media entry
+                                const mediaResult = await supabase
+                                    .from('piano_media')
+                                    .insert(mediaData)
+                                    .select();
+                                
+                                if (mediaResult.error) {
+                                    console.error('Error creating media entry:', mediaResult.error);
+                                    // Continue anyway since the piano was created successfully
+                                } else {
+                                    console.log('Media entry created successfully:', mediaResult.data);
+                                }
+                            } catch (mediaError) {
+                                console.error('Exception creating media entry:', mediaError);
+                                // Continue anyway since the piano was created successfully
+                            }
+                        } else if (imageUrl) {
+                            console.error('Image URL exists but piano data is missing');
+                        } else if (createdPiano) {
+                            console.log('Piano created but no image was uploaded');
+                        }
+                        
+                        // Show success message
+                        showToast('Piano created successfully!', 'success');
+                        
+                        // Redirect to piano detail page
+                        setTimeout(() => {
+                            if (createdPiano) {
+                                window.location.href = `/admin/pianos/${createdPiano.id}`;
+                            } else {
+                                window.location.href = '/admin/pianos';
+                            }
+                        }, 1500);
+                        
+                    } catch (insertError: any) {
+                        console.error('Detailed insert error:', insertError);
+                        showFormStatus(`Database error: ${insertError.message || 'Unknown error'}`, 'error');
+                        showToast(`Database error: ${insertError.message || 'Unknown error'}`, 'error');
+                        
+                        // Redirect to pianos list after error
+                        setTimeout(() => {
+                            window.location.href = '/admin/pianos';
+                        }, 3000);
+                    }
+                } catch (error: any) {
+                    console.error('Error creating piano:', error);
+                    
+                    // Show error message
+                    const errorMessage = error.message || 'An unknown error occurred';
+                    showFormStatus(`Error: ${errorMessage}`, 'error');
+                    showToast(`Error: ${errorMessage}`, 'error');
+                } finally {
+                    // Reset button state
+                    if (submitBtn && submitText && loadingSpinner) {
+                        submitBtn.disabled = false;
+                        submitText.textContent = 'Add Piano';
+                        loadingSpinner.classList.add('hidden');
+                    }
+                }
+            });
+        }
+    });
+</script>

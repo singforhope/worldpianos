@@ -1,0 +1,268 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { supabase } from "../../../utils/supabase";
+
+// Get query parameters
+const { searchParams } = Astro.url;
+const page = parseInt(searchParams.get('page') || '1');
+const limit = 20;
+const offset = (page - 1) * limit;
+const search = searchParams.get('search') || '';
+const filter = searchParams.get('filter') || 'all';
+
+// Build query
+let query = supabase
+    .from('user_profiles')
+    .select('*', { count: 'exact' });
+
+// Apply search if provided
+if (search) {
+    query = query.or(`display_name.ilike.%${search}%`);
+}
+
+// Apply filter if provided
+if (filter === 'admin') {
+    query = query.eq('role', 'admin');
+} else if (filter === 'user') {
+    query = query.eq('role', 'user');
+}
+
+// Get paginated results
+const { data: users, count, error } = await query
+    .order('created_at', { ascending: false })
+    .range(offset, offset + limit - 1);
+
+// Calculate pagination
+const totalPages = count ? Math.ceil(count / limit) : 0;
+const showPagination = totalPages > 1;
+const prevPage = page > 1 ? page - 1 : null;
+const nextPage = page < totalPages ? page + 1 : null;
+
+// Build pagination URLs
+const buildUrl = (newPage: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    return `?${params.toString()}`;
+};
+
+// Format date for display
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+---
+
+<AdminLayout>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li>Manage Users</li>
+        </ul>
+    </div>
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 class="text-3xl font-bold">Manage Users</h1>
+    </div>
+    
+    <!-- Search and Filter -->
+    <div class="bg-base-100 shadow-lg rounded-lg p-4 mb-8">
+        <form class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Search -->
+            <div class="form-control">
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        name="search" 
+                        placeholder="Search users..." 
+                        class="input input-bordered w-full" 
+                        value={search}
+                    />
+                    <button type="submit" class="btn btn-square">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+                        </svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Filter -->
+            <div class="form-control">
+                <select name="filter" class="select select-bordered w-full" onchange="this.form.submit()">
+                    <option value="all" selected={filter === 'all'}>All Users</option>
+                    <option value="admin" selected={filter === 'admin'}>Admins Only</option>
+                    <option value="user" selected={filter === 'user'}>Regular Users Only</option>
+                </select>
+            </div>
+            
+            <!-- Reset -->
+            <div class="form-control">
+                <a href="/admin/users" class="btn btn-outline w-full">Reset Filters</a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Users Table -->
+    <div class="bg-base-100 shadow-lg rounded-lg overflow-hidden">
+        {error && (
+            <div class="alert alert-error">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Error loading users: {error.message}</span>
+            </div>
+        )}
+        
+        {!error && users && users.length === 0 && (
+            <div class="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>No users found matching your criteria.</span>
+            </div>
+        )}
+        
+        {!error && users && users.length > 0 && (
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>User</th>
+                            <th>Role</th>
+                            <th>Joined</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {users.map((user) => (
+                            <tr>
+                                <td>
+                                    <div class="flex items-center space-x-3">
+                                        <div class="avatar">
+                                            <div class="mask mask-squircle w-12 h-12">
+                                                <img src={user.avatar_url || `https://ui-avatars.com/api/?name=${user.display_name || 'User'}`} alt="User avatar" />
+                                            </div>
+                                        </div>
+                                        <div>
+                                            <div class="font-bold">{user.display_name || 'Unnamed User'}</div>
+                                            <div class="text-sm opacity-50">ID: {user.id.substring(0, 8)}...</div>
+                                        </div>
+                                    </div>
+                                </td>
+                                <td>
+                                    <span class={`badge ${user.role === 'admin' ? 'badge-primary' : 'badge-ghost'}`}>
+                                        {user.role}
+                                    </span>
+                                </td>
+                                <td>{formatDate(user.created_at)}</td>
+                                <td>
+                                    <div class="flex gap-2">
+                                        <a href={`/admin/users/${user.id}`} class="btn btn-xs btn-primary">View</a>
+                                        <button 
+                                            class="btn btn-xs btn-outline toggle-role-btn" 
+                                            data-user-id={user.id}
+                                            data-current-role={user.role}
+                                        >
+                                            {user.role === 'admin' ? 'Remove Admin' : 'Make Admin'}
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+        
+        <!-- Pagination -->
+        {showPagination && (
+            <div class="flex justify-center py-4">
+                <div class="join">
+                    {prevPage && (
+                        <a href={buildUrl(prevPage)} class="join-item btn">«</a>
+                    )}
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                        <a 
+                            href={buildUrl(pageNum)} 
+                            class={`join-item btn ${pageNum === page ? 'btn-active' : ''}`}
+                        >
+                            {pageNum}
+                        </a>
+                    ))}
+                    
+                    {nextPage && (
+                        <a href={buildUrl(nextPage)} class="join-item btn">»</a>
+                    )}
+                </div>
+            </div>
+        )}
+    </div>
+</AdminLayout>
+
+<script>
+    // Handle role toggle buttons
+    document.addEventListener('DOMContentLoaded', () => {
+        const toggleRoleButtons = document.querySelectorAll('.toggle-role-btn');
+        
+        toggleRoleButtons.forEach(button => {
+            button.addEventListener('click', async () => {
+                const userId = button.getAttribute('data-user-id');
+                const currentRole = button.getAttribute('data-current-role');
+                
+                if (!userId || !currentRole) return;
+                
+                const newRole = currentRole === 'admin' ? 'user' : 'admin';
+                
+                // Confirm action
+                if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
+                    return;
+                }
+                
+                try {
+                    // Import supabase client
+                    const { supabase } = await import('../../../utils/supabase');
+                    
+                    // Update user role
+                    const { error } = await supabase
+                        .from('user_profiles')
+                        .update({ role: newRole })
+                        .eq('id', userId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Update UI
+                    const roleBadge = button.closest('tr')?.querySelector('.badge');
+                    if (roleBadge) {
+                        roleBadge.textContent = newRole;
+                        
+                        if (newRole === 'admin') {
+                            roleBadge.classList.remove('badge-ghost');
+                            roleBadge.classList.add('badge-primary');
+                        } else {
+                            roleBadge.classList.remove('badge-primary');
+                            roleBadge.classList.add('badge-ghost');
+                        }
+                    }
+                    
+                    // Update button text and data attribute
+                    button.textContent = newRole === 'admin' ? 'Remove Admin' : 'Make Admin';
+                    button.setAttribute('data-current-role', newRole);
+                    
+                    // Show success message
+                    alert(`User role updated to ${newRole} successfully!`);
+                } catch (error) {
+                    console.error('Error updating user role:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        alert(`Error: ${error.message}`);
+                    } else {
+                        alert('Failed to update user role');
+                    }
+                }
+            });
+        });
+    });
+</script>

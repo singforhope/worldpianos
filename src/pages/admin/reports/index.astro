@@ -1,0 +1,555 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { supabase } from "../../../utils/supabase";
+
+// Get query parameters
+const { searchParams } = Astro.url;
+const page = parseInt(searchParams.get('page') || '1');
+const limit = 10;
+const offset = (page - 1) * limit;
+const search = searchParams.get('search') || '';
+const filter = searchParams.get('filter') || 'all';
+const type = searchParams.get('type') || 'piano';
+
+// Build query for piano reports
+let pianosQuery = supabase
+    .from('piano_reports')
+    .select('*, pianos:piano_id(*), user_profiles:user_id(display_name)', { count: 'exact' });
+
+// Build query for event reports
+let eventsQuery = supabase
+    .from('event_reports')
+    .select('*, events:event_id(*), user_profiles:user_id(display_name)', { count: 'exact' });
+
+// Apply filter if provided
+if (filter === 'pending') {
+    pianosQuery = pianosQuery.eq('status', 'pending');
+    eventsQuery = eventsQuery.eq('status', 'pending');
+} else if (filter === 'resolved') {
+    pianosQuery = pianosQuery.eq('status', 'resolved');
+    eventsQuery = eventsQuery.eq('status', 'resolved');
+}
+
+// Get paginated results based on type
+let pianoReports = [];
+let eventReports = [];
+let count = 0;
+let error = null;
+
+if (type === 'piano' || type === 'all') {
+    const pianoResult = await pianosQuery
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+    
+    pianoReports = pianoResult.data || [];
+    count = pianoResult.count || 0;
+    error = pianoResult.error;
+}
+
+if (type === 'event' || type === 'all') {
+    const eventResult = await eventsQuery
+        .order('created_at', { ascending: false })
+        .range(offset, offset + limit - 1);
+    
+    eventReports = eventResult.data || [];
+    
+    if (type === 'event') {
+        count = eventResult.count || 0;
+        error = eventResult.error;
+    }
+}
+
+// Calculate pagination
+const totalPages = count ? Math.ceil(count / limit) : 0;
+const showPagination = totalPages > 1;
+const prevPage = page > 1 ? page - 1 : null;
+const nextPage = page < totalPages ? page + 1 : null;
+
+// Build pagination URLs
+const buildUrl = (newPage: number) => {
+    const params = new URLSearchParams(searchParams);
+    params.set('page', newPage.toString());
+    return `?${params.toString()}`;
+};
+
+// Format date for display
+const formatDate = (dateString: string) => {
+    return new Date(dateString).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+---
+
+<AdminLayout>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li>Manage Reports</li>
+        </ul>
+    </div>
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 class="text-3xl font-bold">Manage Reports</h1>
+    </div>
+    
+    <!-- Search and Filter -->
+    <div class="bg-base-100 shadow-lg rounded-lg p-4 mb-8">
+        <form class="grid grid-cols-1 md:grid-cols-3 gap-4">
+            <!-- Report Type -->
+            <div class="form-control">
+                <select name="type" class="select select-bordered w-full" onchange="this.form.submit()">
+                    <option value="piano" selected={type === 'piano'}>Piano Reports</option>
+                    <option value="event" selected={type === 'event'}>Event Reports</option>
+                </select>
+            </div>
+            
+            <!-- Filter -->
+            <div class="form-control">
+                <select name="filter" class="select select-bordered w-full" onchange="this.form.submit()">
+                    <option value="all" selected={filter === 'all'}>All Reports</option>
+                    <option value="pending" selected={filter === 'pending'}>Pending Reports</option>
+                    <option value="resolved" selected={filter === 'resolved'}>Resolved Reports</option>
+                </select>
+            </div>
+            
+            <!-- Reset -->
+            <div class="form-control">
+                <a href="/admin/reports" class="btn btn-outline w-full">Reset Filters</a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Reports Table -->
+    <div class="bg-base-100 shadow-lg rounded-lg overflow-hidden">
+        {error && (
+            <div class="alert alert-error">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                <span>Error loading reports: {error.message}</span>
+            </div>
+        )}
+        
+        {!error && type === 'piano' && pianoReports.length === 0 && (
+            <div class="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>No piano reports found matching your criteria.</span>
+            </div>
+        )}
+        
+        {!error && type === 'event' && eventReports.length === 0 && (
+            <div class="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                <span>No event reports found matching your criteria.</span>
+            </div>
+        )}
+        
+        {!error && type === 'piano' && pianoReports.length > 0 && (
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>Piano</th>
+                            <th>Issue Type</th>
+                            <th>Reported By</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {pianoReports.map((report) => (
+                            <tr>
+                                <td>
+                                    <a href={`/pianos/${report.piano_id}`} class="link link-hover">
+                                        {report.pianos?.name || 'Unknown Piano'}
+                                    </a>
+                                </td>
+                                <td>{report.issue_type}</td>
+                                <td>{report.user_profiles?.display_name || 'Anonymous'}</td>
+                                <td>{formatDate(report.created_at)}</td>
+                                <td>
+                                    <span class={`badge ${report.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
+                                        {report.status}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="flex gap-2">
+                                        <button 
+                                            class="btn btn-xs btn-primary view-report-btn"
+                                            data-report-id={report.id}
+                                            data-report-type="piano"
+                                        >
+                                            View
+                                        </button>
+                                        {report.status === 'pending' && (
+                                            <button 
+                                                class="btn btn-xs btn-success resolve-report-btn"
+                                                data-report-id={report.id}
+                                                data-report-type="piano"
+                                            >
+                                                Resolve
+                                            </button>
+                                        )}
+                                        <button 
+                                            class="btn btn-xs btn-error delete-report-btn"
+                                            data-report-id={report.id}
+                                            data-report-type="piano"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+        
+        {!error && type === 'event' && eventReports.length > 0 && (
+            <div class="overflow-x-auto">
+                <table class="table table-zebra w-full">
+                    <thead>
+                        <tr>
+                            <th>Event</th>
+                            <th>Issue Type</th>
+                            <th>Reported By</th>
+                            <th>Date</th>
+                            <th>Status</th>
+                            <th>Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {eventReports.map((report) => (
+                            <tr>
+                                <td>
+                                    <a href={`/events/${report.event_id}`} class="link link-hover">
+                                        {report.events?.name || 'Unknown Event'}
+                                    </a>
+                                </td>
+                                <td>{report.issue_type}</td>
+                                <td>{report.user_profiles?.display_name || 'Anonymous'}</td>
+                                <td>{formatDate(report.created_at)}</td>
+                                <td>
+                                    <span class={`badge ${report.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
+                                        {report.status}
+                                    </span>
+                                </td>
+                                <td>
+                                    <div class="flex gap-2">
+                                        <button 
+                                            class="btn btn-xs btn-primary view-report-btn"
+                                            data-report-id={report.id}
+                                            data-report-type="event"
+                                        >
+                                            View
+                                        </button>
+                                        {report.status === 'pending' && (
+                                            <button 
+                                                class="btn btn-xs btn-success resolve-report-btn"
+                                                data-report-id={report.id}
+                                                data-report-type="event"
+                                            >
+                                                Resolve
+                                            </button>
+                                        )}
+                                        <button 
+                                            class="btn btn-xs btn-error delete-report-btn"
+                                            data-report-id={report.id}
+                                            data-report-type="event"
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
+                                </td>
+                            </tr>
+                        ))}
+                    </tbody>
+                </table>
+            </div>
+        )}
+        
+        <!-- Pagination -->
+        {showPagination && (
+            <div class="flex justify-center py-4">
+                <div class="join">
+                    {prevPage && (
+                        <a href={buildUrl(prevPage)} class="join-item btn">«</a>
+                    )}
+                    
+                    {Array.from({ length: totalPages }, (_, i) => i + 1).map((pageNum) => (
+                        <a 
+                            href={buildUrl(pageNum)} 
+                            class={`join-item btn ${pageNum === page ? 'btn-active' : ''}`}
+                        >
+                            {pageNum}
+                        </a>
+                    ))}
+                    
+                    {nextPage && (
+                        <a href={buildUrl(nextPage)} class="join-item btn">»</a>
+                    )}
+                </div>
+            </div>
+        )}
+    </div>
+    
+    <!-- Report View Modal -->
+    <dialog id="report-modal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg" id="report-modal-title">Report Details</h3>
+            <div class="py-4" id="report-modal-content">
+                <!-- Content will be populated by JavaScript -->
+                <div class="skeleton h-32 w-full"></div>
+            </div>
+            <div class="modal-action">
+                <form method="dialog">
+                    <button class="btn">Close</button>
+                </form>
+            </div>
+        </div>
+    </dialog>
+</AdminLayout>
+
+<script>
+    import { supabase } from '../../../utils/supabase';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        const reportModal = document.getElementById('report-modal') as HTMLDialogElement;
+        const reportModalTitle = document.getElementById('report-modal-title');
+        const reportModalContent = document.getElementById('report-modal-content');
+        
+        // View report buttons
+        const viewReportBtns = document.querySelectorAll('.view-report-btn');
+        viewReportBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const reportId = btn.getAttribute('data-report-id');
+                const reportType = btn.getAttribute('data-report-type');
+                
+                if (!reportId || !reportType || !reportModal || !reportModalContent) return;
+                
+                try {
+                    // Show loading state
+                    reportModalContent.innerHTML = '<div class="skeleton h-32 w-full"></div>';
+                    reportModal.showModal();
+                    
+                    // Fetch report details
+                    let report;
+                    if (reportType === 'piano') {
+                        const { data, error } = await supabase
+                            .from('piano_reports')
+                            .select('*, pianos:piano_id(*), user_profiles:user_id(*)')
+                            .eq('id', reportId)
+                            .single();
+                        
+                        if (error) throw error;
+                        report = data;
+                        
+                        if (reportModalTitle) {
+                            reportModalTitle.textContent = `Piano Report: ${report.pianos?.name || 'Unknown Piano'}`;
+                        }
+                    } else {
+                        const { data, error } = await supabase
+                            .from('event_reports')
+                            .select('*, events:event_id(*), user_profiles:user_id(*)')
+                            .eq('id', reportId)
+                            .single();
+                        
+                        if (error) throw error;
+                        report = data;
+                        
+                        if (reportModalTitle) {
+                            reportModalTitle.textContent = `Event Report: ${report.events?.name || 'Unknown Event'}`;
+                        }
+                    }
+                    
+                    // Format date
+                    const reportDate = new Date(report.created_at).toLocaleDateString(undefined, {
+                        year: 'numeric',
+                        month: 'long',
+                        day: 'numeric',
+                        hour: '2-digit',
+                        minute: '2-digit'
+                    });
+                    
+                    // Build report content
+                    reportModalContent.innerHTML = `
+                        <div class="space-y-4">
+                            <div class="flex justify-between">
+                                <div>
+                                    <span class="font-semibold">Issue Type:</span> ${report.issue_type}
+                                </div>
+                                <div>
+                                    <span class="badge ${report.status === 'pending' ? 'badge-warning' : 'badge-success'}">
+                                        ${report.status}
+                                    </span>
+                                </div>
+                            </div>
+                            
+                            <div>
+                                <span class="font-semibold">Reported By:</span> 
+                                ${report.user_profiles?.display_name || 'Anonymous'} 
+                                on ${reportDate}
+                            </div>
+                            
+                            <div class="divider my-2"></div>
+                            
+                            <div>
+                                <span class="font-semibold">Description:</span>
+                                <p class="mt-2 p-4 bg-base-200 rounded-lg">${report.description}</p>
+                            </div>
+                            
+                            <div class="divider my-2"></div>
+                            
+                            <div class="flex justify-end gap-2">
+                                ${report.status === 'pending' ? `
+                                    <button 
+                                        class="btn btn-sm btn-success modal-resolve-btn"
+                                        data-report-id="${report.id}"
+                                        data-report-type="${reportType}"
+                                    >
+                                        Mark as Resolved
+                                    </button>
+                                ` : ''}
+                                <button 
+                                    class="btn btn-sm btn-error modal-delete-btn"
+                                    data-report-id="${report.id}"
+                                    data-report-type="${reportType}"
+                                >
+                                    Delete Report
+                                </button>
+                            </div>
+                        </div>
+                    `;
+                    
+                    // Add event listeners to modal buttons
+                    const modalResolveBtn = reportModalContent.querySelector('.modal-resolve-btn');
+                    if (modalResolveBtn) {
+                        modalResolveBtn.addEventListener('click', () => {
+                            resolveReport(reportId, reportType);
+                        });
+                    }
+                    
+                    const modalDeleteBtn = reportModalContent.querySelector('.modal-delete-btn');
+                    if (modalDeleteBtn) {
+                        modalDeleteBtn.addEventListener('click', () => {
+                            deleteReport(reportId, reportType);
+                            reportModal.close();
+                        });
+                    }
+                } catch (error) {
+                    console.error('Error fetching report details:', error);
+                    
+                    if (reportModalContent) {
+                        reportModalContent.innerHTML = `
+                            <div class="alert alert-error">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Error loading report details</span>
+                            </div>
+                        `;
+                    }
+                }
+            });
+        });
+        
+        // Resolve report buttons
+        const resolveReportBtns = document.querySelectorAll('.resolve-report-btn');
+        resolveReportBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const reportId = btn.getAttribute('data-report-id');
+                const reportType = btn.getAttribute('data-report-type');
+                
+                if (!reportId || !reportType) return;
+                
+                resolveReport(reportId, reportType);
+            });
+        });
+        
+        // Delete report buttons
+        const deleteReportBtns = document.querySelectorAll('.delete-report-btn');
+        deleteReportBtns.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const reportId = btn.getAttribute('data-report-id');
+                const reportType = btn.getAttribute('data-report-type');
+                
+                if (!reportId || !reportType) return;
+                
+                deleteReport(reportId, reportType);
+            });
+        });
+        
+        // Function to resolve a report
+        async function resolveReport(reportId: string, reportType: string) {
+            // Confirm action
+            if (!confirm('Are you sure you want to mark this report as resolved?')) {
+                return;
+            }
+            
+            try {
+                // Update report status
+                const table = reportType === 'piano' ? 'piano_reports' : 'event_reports';
+                const { error } = await supabase
+                    .from(table)
+                    .update({ status: 'resolved' })
+                    .eq('id', reportId);
+                
+                if (error) {
+                    throw error;
+                }
+                
+                // Show success message
+                alert('Report marked as resolved successfully!');
+                
+                // Reload page to show updated status
+                window.location.reload();
+            } catch (error) {
+                console.error('Error resolving report:', error);
+                
+                // Show error message
+                if (error instanceof Error) {
+                    alert(`Error: ${error.message}`);
+                } else {
+                    alert('Failed to resolve report');
+                }
+            }
+        }
+        
+        // Function to delete a report
+        async function deleteReport(reportId: string, reportType: string) {
+            // Confirm action
+            if (!confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
+                return;
+            }
+            
+            try {
+                // Delete report
+                const table = reportType === 'piano' ? 'piano_reports' : 'event_reports';
+                const { error } = await supabase
+                    .from(table)
+                    .delete()
+                    .eq('id', reportId);
+                
+                if (error) {
+                    throw error;
+                }
+                
+                // Show success message
+                alert('Report deleted successfully!');
+                
+                // Reload page to show updated list
+                window.location.reload();
+            } catch (error) {
+                console.error('Error deleting report:', error);
+                
+                // Show error message
+                if (error instanceof Error) {
+                    alert(`Error: ${error.message}`);
+                } else {
+                    alert('Failed to delete report');
+                }
+            }
+        }
+    });
+</script>
