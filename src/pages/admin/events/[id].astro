@@ -1,0 +1,601 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { supabase } from "../../../utils/supabaseClient";
+
+// Get event ID from URL
+const { id } = Astro.params;
+
+// Fetch event data
+const { data: event, error: eventError } = await supabase
+    .from('events')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+// Fetch related piano
+let pianoDetails = null;
+if (event && event.piano_id) {
+    const { data: piano } = await supabase
+        .from('pianos')
+        .select('id, name, location')
+        .eq('id', event.piano_id)
+        .single();
+    
+    pianoDetails = piano;
+}
+
+// If event exists, fetch creator info
+let creatorInfo = null;
+if (event && event.created_by) {
+    const { data: creator } = await supabase
+        .from('user_profiles')
+        .select('display_name, email')
+        .eq('id', event.created_by)
+        .single();
+    
+    creatorInfo = creator;
+}
+
+// Fetch event media
+const { data: eventMedia, error: mediaError } = await supabase
+    .from('event_media')
+    .select('*')
+    .eq('event_id', id)
+    .order('created_at', { ascending: false });
+
+// Fetch available pianos for dropdown
+const { data: pianos, error: pianosError } = await supabase
+    .from('pianos')
+    .select('id, name, location')
+    .order('name', { ascending: true });
+
+// Check if event exists
+const notFound = !event || eventError;
+
+// Format date for display
+const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+
+// Convert date to YYYY-MM-DD format for input fields
+const formatDateForInput = (dateString: string | null | undefined) => {
+    if (!dateString) return '';
+    try {
+        const date = new Date(dateString);
+        return date.toISOString().split('T')[0];
+    } catch (e) {
+        return '';
+    }
+};
+---
+
+<AdminLayout>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li><a href="/admin/events">Manage Events</a></li>
+            <li>{notFound ? 'Event Not Found' : event.name}</li>
+        </ul>
+    </div>
+    
+    {notFound ? (
+        <div class="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Event not found or you don't have permission to view it.</span>
+        </div>
+    ) : (
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Event Information -->
+            <div class="lg:col-span-2">
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="flex justify-between items-center">
+                            <h1 class="card-title text-2xl">{event.name}</h1>
+                            <div class="flex gap-2">
+                                <a href={`/events/${id}`} class="btn btn-sm btn-outline" target="_blank">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View
+                                </a>
+                                <button id="delete-event-btn" class="btn btn-sm btn-error">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <form id="event-form">
+                            <input type="hidden" name="id" value={event.id} />
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Event Name</span>
+                                    </label>
+                                    <input type="text" name="name" class="input input-bordered" value={event.name} required />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Event Type</span>
+                                    </label>
+                                    <select name="type" class="select select-bordered" required>
+                                        <option value="Concert" selected={event.type === 'Concert'}>Concert</option>
+                                        <option value="Recital" selected={event.type === 'Recital'}>Recital</option>
+                                        <option value="Festival" selected={event.type === 'Festival'}>Festival</option>
+                                        <option value="Workshop" selected={event.type === 'Workshop'}>Workshop</option>
+                                        <option value="Competition" selected={event.type === 'Competition'}>Competition</option>
+                                        <option value="Other" selected={event.type === 'Other'}>Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Date</span>
+                                    </label>
+                                    <input 
+                                        type="date" 
+                                        name="date" 
+                                        class="input input-bordered" 
+                                        value={formatDateForInput(event.date)} 
+                                        required 
+                                    />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Time</span>
+                                    </label>
+                                    <input type="time" name="time" class="input input-bordered" value={event.time} required />
+                                </div>
+                            </div>
+                            
+                            <div class="form-control mb-4">
+                                <label class="label">
+                                    <span class="label-text">Location</span>
+                                </label>
+                                <input type="text" name="location" class="input input-bordered" value={event.location} required />
+                            </div>
+                            
+                            <div class="form-control mb-4">
+                                <label class="label">
+                                    <span class="label-text">Description</span>
+                                </label>
+                                <textarea name="description" class="textarea textarea-bordered h-24" required>{event.description}</textarea>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Status</span>
+                                    </label>
+                                    <select name="status" class="select select-bordered" required>
+                                        <option value="upcoming" selected={event.status === 'upcoming'}>Upcoming</option>
+                                        <option value="ongoing" selected={event.status === 'ongoing'}>Ongoing</option>
+                                        <option value="completed" selected={event.status === 'completed'}>Completed</option>
+                                        <option value="cancelled" selected={event.status === 'cancelled'}>Cancelled</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Related Piano</span>
+                                    </label>
+                                    <select name="piano_id" class="select select-bordered" required>
+                                        {pianos && pianos.map((piano) => (
+                                            <option 
+                                                value={piano.id} 
+                                                selected={event.piano_id === piano.id}
+                                            >
+                                                {piano.name} - {piano.location}
+                                            </option>
+                                        ))}
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Coordinates [longitude, latitude]</span>
+                                </label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <input 
+                                        type="number" 
+                                        name="longitude" 
+                                        class="input input-bordered" 
+                                        value={event.coordinates ? event.coordinates[0] : ''} 
+                                        step="0.000001"
+                                        required
+                                    />
+                                    <input 
+                                        type="number" 
+                                        name="latitude" 
+                                        class="input input-bordered" 
+                                        value={event.coordinates ? event.coordinates[1] : ''} 
+                                        step="0.000001"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div class="card-actions justify-end mt-6">
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Event Media -->
+                <div class="card bg-base-100 shadow-xl mt-8">
+                    <div class="card-body">
+                        <h2 class="card-title">Event Media</h2>
+                        
+                        {mediaError && (
+                            <div class="alert alert-error">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Error loading media: {mediaError.message}</span>
+                            </div>
+                        )}
+                        
+                        {!mediaError && (!eventMedia || eventMedia.length === 0) && (
+                            <div class="alert">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>No media found for this event.</span>
+                            </div>
+                        )}
+                        
+                        {!mediaError && eventMedia && eventMedia.length > 0 && (
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                {eventMedia.map((media) => (
+                                    <div class="card bg-base-200">
+                                        <figure class="h-48 overflow-hidden">
+                                            {media.media_type && media.media_type.startsWith('image/') ? (
+                                                <img src={media.url} alt={media.description || 'Event image'} class="object-cover w-full h-full" />
+                                            ) : media.media_type && media.media_type.startsWith('video/') ? (
+                                                <video src={media.url} controls class="object-cover w-full h-full">
+                                                    Your browser does not support the video tag.
+                                                </video>
+                                            ) : (
+                                                <div class="flex items-center justify-center w-full h-full bg-base-300">
+                                                    <span>Unsupported media type</span>
+                                                </div>
+                                            )}
+                                        </figure>
+                                        <div class="card-body p-4">
+                                            <p class="text-sm">{media.description || 'No description'}</p>
+                                            <div class="card-actions justify-end mt-2">
+                                                <button 
+                                                    class="btn btn-xs btn-error delete-media-btn" 
+                                                    data-media-id={media.id}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar Information -->
+            <div class="lg:col-span-1">
+                <!-- Event Details -->
+                <div class="card bg-base-100 shadow-xl mb-8">
+                    <div class="card-body">
+                        <h2 class="card-title">Event Details</h2>
+                        
+                        <div class="divider my-2"></div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="text-sm opacity-70">Created By:</div>
+                            <div>{creatorInfo?.display_name || 'Unknown'}</div>
+                            
+                            <div class="text-sm opacity-70">Created On:</div>
+                            <div>{formatDate(event.created_at)}</div>
+                            
+                            <div class="text-sm opacity-70">Last Updated:</div>
+                            <div>{formatDate(event.updated_at)}</div>
+                            
+                            <div class="text-sm opacity-70">Status:</div>
+                            <div>
+                                <span class={`badge ${
+                                    event.status === 'upcoming' ? 'badge-primary' : 
+                                    event.status === 'ongoing' ? 'badge-success' : 
+                                    event.status === 'completed' ? 'badge-secondary' :
+                                    'badge-warning'
+                                }`}>
+                                    {event.status || 'unknown'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Related Piano -->
+                {pianoDetails && (
+                    <div class="card bg-base-100 shadow-xl mb-8">
+                        <div class="card-body">
+                            <h2 class="card-title">Related Piano</h2>
+                            
+                            <div class="divider my-2"></div>
+                            
+                            <div class="grid grid-cols-2 gap-2">
+                                <div class="text-sm opacity-70">Name:</div>
+                                <div>{pianoDetails.name}</div>
+                                
+                                <div class="text-sm opacity-70">Location:</div>
+                                <div>{pianoDetails.location}</div>
+                            </div>
+                            
+                            <div class="card-actions justify-end mt-4">
+                                <a href={`/admin/pianos/${pianoDetails.id}`} class="btn btn-sm btn-outline">
+                                    View Piano Details
+                                </a>
+                            </div>
+                        </div>
+                    </div>
+                )}
+            </div>
+        </div>
+    )}
+</AdminLayout>
+
+<!-- Notification Modal -->
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- Confirm Delete Modal -->
+<dialog id="confirm-delete-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg text-error">Delete Event</h3>
+        <p class="py-4">Are you sure you want to delete this event? This action cannot be undone.</p>
+        <div class="modal-action">
+            <button class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button id="confirm-delete-btn" class="btn btn-error">Delete Event</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    // Add Supabase global type declaration
+    declare global {
+        interface Window {
+            supabase: any;
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Elements
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        
+        const confirmDeleteModal = document.getElementById('confirm-delete-modal') as HTMLDialogElement;
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        
+        // Helper function to show notifications
+        const showNotification = (title: string, message: string, isSuccess: boolean, redirectOnClose: string | null = null) => {
+            if (notificationTitle) {
+                notificationTitle.textContent = title;
+                notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            }
+            
+            if (notificationMessage) {
+                notificationMessage.textContent = message;
+            }
+            
+            if (redirectOnClose && notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                    window.location.href = redirectOnClose;
+                };
+            } else if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
+        // Event form submission
+        const eventForm = document.getElementById('event-form');
+        if (eventForm) {
+            eventForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Show loading state
+                const submitBtn = eventForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                }
+                
+                try {
+                    // Get form data
+                    const formData = new FormData(eventForm as HTMLFormElement);
+                    const eventId = formData.get('id');
+                    
+                    // Build event data object
+                    const eventData = {
+                        name: formData.get('name'),
+                        type: formData.get('type'),
+                        date: formData.get('date'),
+                        time: formData.get('time'),
+                        location: formData.get('location'),
+                        description: formData.get('description'),
+                        status: formData.get('status'),
+                        piano_id: formData.get('piano_id'),
+                        coordinates: [
+                            parseFloat(formData.get('longitude') as string),
+                            parseFloat(formData.get('latitude') as string)
+                        ]
+                    };
+                    
+                    // Update event
+                    const { error } = await window.supabase
+                        .from('events')
+                        .update(eventData)
+                        .eq('id', eventId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success message
+                    showNotification('Success', 'Event updated successfully!', true, null);
+                    
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                    
+                    // Reload data after closing notification
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error updating event:', error);
+                    
+                    // Show error message
+                    let errorMessage = 'An error occurred while updating the event.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    
+                    showNotification('Error', errorMessage, false);
+                    
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                }
+            });
+        }
+        
+        // Delete event button
+        const deleteEventBtn = document.getElementById('delete-event-btn');
+        if (deleteEventBtn) {
+            deleteEventBtn.addEventListener('click', () => {
+                confirmDeleteModal.showModal();
+            });
+        }
+        
+        // Confirm delete event button
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', async () => {
+                try {
+                    // Set button to loading state
+                    (confirmDeleteBtn as HTMLButtonElement).classList.add('loading');
+                    (confirmDeleteBtn as HTMLButtonElement).disabled = true;
+                    
+                    const eventId = new URLSearchParams(window.location.search).get('id') || 
+                                   window.location.pathname.split('/').pop();
+                    
+                    if (!eventId) {
+                        throw new Error('Event ID not found');
+                    }
+                    
+                    // Delete event
+                    const { error } = await window.supabase
+                        .from('events')
+                        .delete()
+                        .eq('id', eventId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success notification and redirect
+                    showNotification('Success', 'Event has been deleted successfully.', true, '/admin/events');
+                } catch (error) {
+                    console.error('Error deleting event:', error);
+                    
+                    // Reset button state
+                    (confirmDeleteBtn as HTMLButtonElement).classList.remove('loading');
+                    (confirmDeleteBtn as HTMLButtonElement).disabled = false;
+                    
+                    // Close the modal
+                    confirmDeleteModal.close();
+                    
+                    // Show error notification
+                    let errorMessage = 'Failed to delete event.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    showNotification('Error', errorMessage, false);
+                }
+            });
+        }
+        
+        // Delete media buttons
+        const deleteMediaBtns = document.querySelectorAll('.delete-media-btn');
+        deleteMediaBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const mediaId = btn.getAttribute('data-media-id');
+                if (!mediaId) return;
+                
+                try {
+                    // Delete media record from database
+                    const { error } = await window.supabase
+                        .from('event_media')
+                        .delete()
+                        .eq('id', mediaId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Remove media from DOM
+                    const mediaCard = btn.closest('.card');
+                    if (mediaCard) {
+                        mediaCard.remove();
+                    }
+                    
+                    // Show success notification
+                    showNotification('Success', 'Media deleted successfully!', true);
+                } catch (error) {
+                    console.error('Error deleting media:', error);
+                    
+                    // Show error notification
+                    let errorMessage = 'An error occurred while deleting the media.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    
+                    showNotification('Error', errorMessage, false);
+                }
+            });
+        });
+    });
+</script> 
