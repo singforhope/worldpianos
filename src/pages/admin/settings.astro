@@ -285,10 +285,42 @@ const currentSettings = settings && settings.length > 0
     </div>
 </AdminLayout>
 
+<!-- Notification Modal -->
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
 <script>
     import { supabase } from '../../utils/supabase';
     
     document.addEventListener('DOMContentLoaded', () => {
+        // Modal Elements
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        
+        // Helper function to show notification
+        const showNotification = (title: string, message: string, isSuccess = true) => {
+            if (notificationTitle) notificationTitle.textContent = title;
+            if (notificationTitle) notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            if (notificationMessage) notificationMessage.textContent = message;
+            
+            if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
         // General settings form
         const generalSettingsForm = document.getElementById('general-settings-form') as HTMLFormElement;
         if (generalSettingsForm) {
@@ -318,15 +350,15 @@ const currentSettings = settings && settings.length > 0
                     await updateSettings(settings);
                     
                     // Show success message
-                    alert('General settings updated successfully!');
+                    showNotification('Success', 'General settings updated successfully!', true);
                 } catch (error) {
                     console.error('Error updating general settings:', error);
                     
                     // Show error message
                     if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
+                        showNotification('Error', `Error: ${error.message}`, false);
                     } else {
-                        alert('An error occurred while updating general settings.');
+                        showNotification('Error', 'An error occurred while updating general settings.', false);
                     }
                 } finally {
                     // Reset button state
@@ -369,15 +401,15 @@ const currentSettings = settings && settings.length > 0
                     await updateSettings(settings);
                     
                     // Show success message
-                    alert('Feature settings updated successfully!');
+                    showNotification('Success', 'Feature settings updated successfully!', true);
                 } catch (error) {
                     console.error('Error updating feature settings:', error);
                     
                     // Show error message
                     if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
+                        showNotification('Error', `Error: ${error.message}`, false);
                     } else {
-                        alert('An error occurred while updating feature settings.');
+                        showNotification('Error', 'An error occurred while updating feature settings.', false);
                     }
                 } finally {
                     // Reset button state
@@ -465,15 +497,15 @@ const currentSettings = settings && settings.length > 0
                 await new Promise(resolve => setTimeout(resolve, 1000));
                 
                 // Show success message
-                alert(`${type === 'all' ? 'All caches' : `${type} cache`} cleared successfully!`);
+                showNotification('Success', `${type === 'all' ? 'All caches' : `${type} cache`} cleared successfully!`, true);
             } catch (error) {
                 console.error(`Error clearing ${type} cache:`, error);
                 
                 // Show error message
                 if (error instanceof Error) {
-                    alert(`Error: ${error.message}`);
+                    showNotification('Error', `Error: ${error.message}`, false);
                 } else {
-                    alert(`An error occurred while clearing ${type} cache.`);
+                    showNotification('Error', `An error occurred while clearing ${type} cache.`, false);
                 }
             } finally {
                 // Reset button state

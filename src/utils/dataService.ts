@@ -26,6 +26,7 @@ export type Piano = {
   created_by?: string; // UUID string in the database
   verified?: boolean;
   verification_count?: number;
+  status?: string; // 'active' or 'archived'
 };
 
 export type Event = {
@@ -120,6 +121,7 @@ export async function getAllPianos() {
     const { data, error } = await supabase
       .from('pianos')
       .select('*')
+      .neq('status', 'archived')
       .order('name');
     
     if (error) {
@@ -142,6 +144,11 @@ export async function getPianoById(id: string) {
     
     if (error) {
       throw error;
+    }
+    
+    // Return null if the piano is archived
+    if (data && data.status === 'archived') {
+      throw new Error("This piano is no longer available");
     }
     
     return handleSingleResult(data);

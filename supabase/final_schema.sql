@@ -75,6 +75,7 @@ BEGIN
             city TEXT NOT NULL,
             verified BOOLEAN DEFAULT FALSE,
             verification_count INTEGER DEFAULT 0,
+            status TEXT DEFAULT 'active',
             created_by UUID REFERENCES auth.users(id),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()

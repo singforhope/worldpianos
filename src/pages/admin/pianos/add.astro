@@ -840,7 +840,8 @@ const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "support@worldpiano
                         verified: formData.get('verified') === 'on',
                         coordinates: numericCoordinates,
                         created_by: user?.id || null,
-                        verification_count: formData.get('verified') === 'on' ? 1 : 0
+                        verification_count: formData.get('verified') === 'on' ? 1 : 0,
+                        status: 'active' // Default status for new pianos
                     };
                     
                     // Validate the UUID

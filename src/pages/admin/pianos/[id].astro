@@ -98,6 +98,21 @@ const formatDate = (dateString: string | null | undefined) => {
                                     </svg>
                                     View
                                 </a>
+                                {piano.status !== 'archived' ? (
+                                    <button id="archive-piano-btn" class="btn btn-sm btn-warning">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                        </svg>
+                                        Archive
+                                    </button>
+                                ) : (
+                                    <button id="activate-piano-btn" class="btn btn-sm btn-success">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Activate
+                                    </button>
+                                )}
                                 <button id="delete-piano-btn" class="btn btn-sm btn-error">
                                     <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                                         <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
@@ -347,6 +362,13 @@ const formatDate = (dateString: string | null | undefined) => {
                                     <span class="badge badge-warning">Unverified</span>
                                 )}
                             </div>
+                            
+                            <div class="text-sm opacity-70">Availability:</div>
+                            <div>
+                                <span class={`badge ${piano.status === 'archived' ? 'badge-error' : 'badge-success'}`}>
+                                    {piano.status === 'archived' ? 'Archived' : 'Active'}
+                                </span>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -432,6 +454,17 @@ const formatDate = (dateString: string | null | undefined) => {
     </div>
 </dialog>
 
+<dialog id="confirm-delete-report-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg text-error">Delete Report</h3>
+        <p class="py-4">Are you sure you want to delete this report? This action cannot be undone.</p>
+        <div class="modal-action">
+            <button class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button id="confirm-delete-report-btn" class="btn btn-error">Delete Report</button>
+        </div>
+    </div>
+</dialog>
+
 <dialog id="notification-modal" class="modal">
     <div class="modal-box">
         <h3 id="notification-title" class="font-bold text-lg"></h3>
@@ -454,6 +487,10 @@ const formatDate = (dateString: string | null | undefined) => {
         const notificationOkBtn = document.getElementById('notification-ok-btn');
         const notificationTitle = document.getElementById('notification-title');
         const notificationMessage = document.getElementById('notification-message');
+        
+        // Archive and Activate Piano buttons
+        const archivePianoBtn = document.getElementById('archive-piano-btn');
+        const activatePianoBtn = document.getElementById('activate-piano-btn');
         
         // Helper function to show notification
         const showNotification = (title: string, message: string, isSuccess = true, redirectOnClose: string | null = null) => {
@@ -569,6 +606,110 @@ const formatDate = (dateString: string | null | undefined) => {
         if (deletePianoBtn) {
             deletePianoBtn.addEventListener('click', () => {
                 confirmDeleteModal.showModal();
+            });
+        }
+        
+        // Archive piano button
+        if (archivePianoBtn) {
+            archivePianoBtn.addEventListener('click', async () => {
+                try {
+                    // Set button to loading state
+                    (archivePianoBtn as HTMLButtonElement).classList.add('loading');
+                    (archivePianoBtn as HTMLButtonElement).disabled = true;
+                    
+                    const pianoId = new URLSearchParams(window.location.search).get('id') || 
+                                   window.location.pathname.split('/').pop();
+                    
+                    if (!pianoId) {
+                        throw new Error('Piano ID not found');
+                    }
+                    
+                    // Update piano status to archived
+                    const { error } = await supabase
+                        .from('pianos')
+                        .update({ status: 'archived' })
+                        .eq('id', pianoId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success notification and reload page
+                    showNotification('Success', 'Piano has been archived successfully.', true, null);
+                    
+                    // Set notification close action
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error archiving piano:', error);
+                    
+                    // Reset button state
+                    (archivePianoBtn as HTMLButtonElement).classList.remove('loading');
+                    (archivePianoBtn as HTMLButtonElement).disabled = false;
+                    
+                    // Show error notification
+                    let errorMessage = 'Failed to archive piano.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    showNotification('Error', errorMessage, false);
+                }
+            });
+        }
+        
+        // Activate piano button
+        if (activatePianoBtn) {
+            activatePianoBtn.addEventListener('click', async () => {
+                try {
+                    // Set button to loading state
+                    (activatePianoBtn as HTMLButtonElement).classList.add('loading');
+                    (activatePianoBtn as HTMLButtonElement).disabled = true;
+                    
+                    const pianoId = new URLSearchParams(window.location.search).get('id') || 
+                                   window.location.pathname.split('/').pop();
+                    
+                    if (!pianoId) {
+                        throw new Error('Piano ID not found');
+                    }
+                    
+                    // Update piano status to active
+                    const { error } = await supabase
+                        .from('pianos')
+                        .update({ status: 'active' })
+                        .eq('id', pianoId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success notification and reload page
+                    showNotification('Success', 'Piano has been activated successfully.', true, null);
+                    
+                    // Set notification close action
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error activating piano:', error);
+                    
+                    // Reset button state
+                    (activatePianoBtn as HTMLButtonElement).classList.remove('loading');
+                    (activatePianoBtn as HTMLButtonElement).disabled = false;
+                    
+                    // Show error notification
+                    let errorMessage = 'Failed to activate piano.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    showNotification('Error', errorMessage, false);
+                }
             });
         }
         
@@ -899,15 +1040,15 @@ const formatDate = (dateString: string | null | undefined) => {
                     }
                     
                     // Show success message
-                    alert('Report marked as resolved!');
+                    showNotification('Success', 'Report marked as resolved!', true);
                 } catch (error) {
                     console.error('Error resolving report:', error);
                     
                     // Show error message
                     if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
+                        showNotification('Error', `Error: ${error.message}`, false);
                     } else {
-                        alert('An error occurred while resolving the report.');
+                        showNotification('Error', 'An error occurred while resolving the report.', false);
                     }
                 }
             });
@@ -921,39 +1062,47 @@ const formatDate = (dateString: string | null | undefined) => {
                 if (!reportId) return;
                 
                 // Confirm deletion
-                if (!confirm('Are you sure you want to delete this report? This action cannot be undone.')) {
-                    return;
+                const confirmDeleteReportModal = document.getElementById('confirm-delete-report-modal') as HTMLDialogElement;
+                const confirmDeleteReportBtn = document.getElementById('confirm-delete-report-btn');
+                
+                // Set up confirmation action
+                if (confirmDeleteReportBtn) {
+                    confirmDeleteReportBtn.onclick = async () => {
+                        confirmDeleteReportModal.close();
+                        
+                        try {
+                            // Delete report
+                            const { error } = await supabase
+                                .from('piano_reports')
+                                .delete()
+                                .eq('id', reportId);
+                            
+                            if (error) {
+                                throw error;
+                            }
+                            
+                            // Remove report from DOM
+                            const reportCard = btn.closest('.card');
+                            if (reportCard) {
+                                reportCard.remove();
+                            }
+                            
+                            // Show success message
+                            showNotification('Success', 'Report deleted successfully!', true);
+                        } catch (error) {
+                            console.error('Error deleting report:', error);
+                            
+                            // Show error message
+                            if (error instanceof Error) {
+                                showNotification('Error', `Error: ${error.message}`, false);
+                            } else {
+                                showNotification('Error', 'An error occurred while deleting the report.', false);
+                            }
+                        }
+                    };
                 }
                 
-                try {
-                    // Delete report
-                    const { error } = await supabase
-                        .from('piano_reports')
-                        .delete()
-                        .eq('id', reportId);
-                    
-                    if (error) {
-                        throw error;
-                    }
-                    
-                    // Remove report from DOM
-                    const reportCard = btn.closest('.card');
-                    if (reportCard) {
-                        reportCard.remove();
-                    }
-                    
-                    // Show success message
-                    alert('Report deleted successfully!');
-                } catch (error) {
-                    console.error('Error deleting report:', error);
-                    
-                    // Show error message
-                    if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
-                    } else {
-                        alert('An error occurred while deleting the report.');
-                    }
-                }
+                confirmDeleteReportModal.showModal();
             });
         });
     });

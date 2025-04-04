@@ -149,7 +149,7 @@ const formatDate = (dateString: string) => {
                                     </div>
                                 </td>
                                 <td>
-                                    <span class={`badge ${user.role === 'admin' ? 'badge-primary' : 'badge-ghost'}`}>
+                                    <span class={`badge role-badge ${user.role === 'admin' ? 'badge-primary' : 'badge-ghost'}`}>
                                         {user.role}
                                     </span>
                                 </td>
@@ -158,7 +158,7 @@ const formatDate = (dateString: string) => {
                                     <div class="flex gap-2">
                                         <a href={`/admin/users/${user.id}`} class="btn btn-xs btn-primary">View</a>
                                         <button 
-                                            class="btn btn-xs btn-outline toggle-role-btn" 
+                                            class="btn btn-xs btn-outline role-toggle-btn" 
                                             data-user-id={user.id}
                                             data-current-role={user.role}
                                         >
@@ -199,12 +199,59 @@ const formatDate = (dateString: string) => {
     </div>
 </AdminLayout>
 
+<!-- Notification Modal -->
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- Confirm Role Change Modal -->
+<dialog id="confirm-role-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="role-change-title" class="font-bold text-lg"></h3>
+        <p id="role-change-message" class="py-4"></p>
+        <div class="modal-action">
+            <button class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button id="confirm-role-btn" class="btn"></button>
+        </div>
+    </div>
+</dialog>
+
 <script>
-    // Handle role toggle buttons
     document.addEventListener('DOMContentLoaded', () => {
-        const toggleRoleButtons = document.querySelectorAll('.toggle-role-btn');
+        // Modal Elements
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const confirmRoleModal = document.getElementById('confirm-role-modal') as HTMLDialogElement;
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        const roleChangeTitle = document.getElementById('role-change-title');
+        const roleChangeMessage = document.getElementById('role-change-message');
+        const confirmRoleBtn = document.getElementById('confirm-role-btn');
         
-        toggleRoleButtons.forEach(button => {
+        // Helper function to show notification
+        const showNotification = (title: string, message: string, isSuccess = true) => {
+            if (notificationTitle) notificationTitle.textContent = title;
+            if (notificationTitle) notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            if (notificationMessage) notificationMessage.textContent = message;
+            
+            if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
+        // Handle role toggle buttons
+        const roleToggleButtons = document.querySelectorAll('.role-toggle-btn');
+        roleToggleButtons.forEach(button => {
             button.addEventListener('click', async () => {
                 const userId = button.getAttribute('data-user-id');
                 const currentRole = button.getAttribute('data-current-role');
@@ -213,55 +260,75 @@ const formatDate = (dateString: string) => {
                 
                 const newRole = currentRole === 'admin' ? 'user' : 'admin';
                 
-                // Confirm action
-                if (!confirm(`Are you sure you want to change this user's role to ${newRole}?`)) {
-                    return;
+                // Set up confirmation dialog
+                if (roleChangeTitle) {
+                    roleChangeTitle.textContent = `${newRole === 'admin' ? 'Promote to Admin' : 'Remove Admin Rights'}`;
+                    roleChangeTitle.className = `font-bold text-lg ${newRole === 'admin' ? 'text-primary' : 'text-warning'}`;
                 }
                 
-                try {
-                    // Import supabase client
-                    const { supabase } = await import('../../../utils/supabase');
-                    
-                    // Update user role
-                    const { error } = await supabase
-                        .from('user_profiles')
-                        .update({ role: newRole })
-                        .eq('id', userId);
-                    
-                    if (error) {
-                        throw error;
-                    }
-                    
-                    // Update UI
-                    const roleBadge = button.closest('tr')?.querySelector('.badge');
-                    if (roleBadge) {
-                        roleBadge.textContent = newRole;
-                        
-                        if (newRole === 'admin') {
-                            roleBadge.classList.remove('badge-ghost');
-                            roleBadge.classList.add('badge-primary');
-                        } else {
-                            roleBadge.classList.remove('badge-primary');
-                            roleBadge.classList.add('badge-ghost');
-                        }
-                    }
-                    
-                    // Update button text and data attribute
-                    button.textContent = newRole === 'admin' ? 'Remove Admin' : 'Make Admin';
-                    button.setAttribute('data-current-role', newRole);
-                    
-                    // Show success message
-                    alert(`User role updated to ${newRole} successfully!`);
-                } catch (error) {
-                    console.error('Error updating user role:', error);
-                    
-                    // Show error message
-                    if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
-                    } else {
-                        alert('Failed to update user role');
-                    }
+                if (roleChangeMessage) {
+                    roleChangeMessage.textContent = `Are you sure you want to ${newRole === 'admin' ? 'promote this user to administrator?' : 'remove administrator rights from this user?'}`;
                 }
+                
+                if (confirmRoleBtn) {
+                    confirmRoleBtn.textContent = newRole === 'admin' ? 'Promote to Admin' : 'Remove Admin';
+                    confirmRoleBtn.className = `btn ${newRole === 'admin' ? 'btn-primary' : 'btn-warning'}`;
+                    
+                    confirmRoleBtn.onclick = async () => {
+                        confirmRoleModal.close();
+                        
+                        try {
+                            // Import supabase client
+                            const { supabase } = await import('../../../utils/supabase');
+                            
+                            // Update user role
+                            const { error } = await supabase
+                                .from('users')
+                                .update({ role: newRole })
+                                .eq('id', userId);
+                            
+                            if (error) {
+                                throw error;
+                            }
+                            
+                            // Update UI
+                            const row = button.closest('tr');
+                            if (row) {
+                                const roleBadge = row.querySelector('.role-badge');
+                                if (roleBadge) {
+                                    roleBadge.textContent = newRole;
+                                    
+                                    // Update badge style
+                                    if (newRole === 'admin') {
+                                        roleBadge.classList.remove('badge-ghost');
+                                        roleBadge.classList.add('badge-primary');
+                                    } else {
+                                        roleBadge.classList.remove('badge-primary');
+                                        roleBadge.classList.add('badge-ghost');
+                                    }
+                                }
+                                
+                                // Update button text and data attribute
+                                button.textContent = newRole === 'admin' ? 'Remove Admin' : 'Make Admin';
+                                button.setAttribute('data-current-role', newRole);
+                                
+                                // Show success message
+                                showNotification('Success', `User role updated to ${newRole} successfully!`, true);
+                            }
+                        } catch (error) {
+                            console.error('Error updating user role:', error);
+                            
+                            // Show error message
+                            if (error instanceof Error) {
+                                showNotification('Error', `Error: ${error.message}`, false);
+                            } else {
+                                showNotification('Error', 'Failed to update user role', false);
+                            }
+                        }
+                    };
+                }
+                
+                confirmRoleModal.showModal();
             });
         });
     });

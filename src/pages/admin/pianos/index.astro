@@ -127,6 +127,7 @@ const buildUrl = (newPage: number) => {
                             <th>Location</th>
                             <th>Created By</th>
                             <th>Verified</th>
+                            <th>Status</th>
                             <th>Created</th>
                             <th>Actions</th>
                         </tr>
@@ -145,6 +146,13 @@ const buildUrl = (newPage: number) => {
                                         <span class="badge badge-success">Yes</span>
                                     ) : (
                                         <span class="badge badge-warning">No</span>
+                                    )}
+                                </td>
+                                <td>
+                                    {piano.status === 'archived' ? (
+                                        <span class="badge badge-error">Archived</span>
+                                    ) : (
+                                        <span class="badge badge-success">Active</span>
                                     )}
                                 </td>
                                 <td>{new Date(piano.created_at).toLocaleDateString()}</td>
@@ -191,22 +199,104 @@ const buildUrl = (newPage: number) => {
     </div>
 </AdminLayout>
 
+<!-- Notification Modal -->
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
+<!-- Confirm Verification Modal -->
+<dialog id="confirm-verification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="verification-title" class="font-bold text-lg"></h3>
+        <p id="verification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="cancel-verification-btn" class="btn">Cancel</button>
+            <button id="confirm-verification-btn" class="btn"></button>
+        </div>
+    </div>
+</dialog>
+
 <script>
     // Handle verify/unverify buttons
     document.addEventListener('DOMContentLoaded', () => {
+        // Modal Elements
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const confirmVerificationModal = document.getElementById('confirm-verification-modal') as HTMLDialogElement;
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        const verificationTitle = document.getElementById('verification-title');
+        const verificationMessage = document.getElementById('verification-message');
+        const confirmVerificationBtn = document.getElementById('confirm-verification-btn');
+        const cancelVerificationBtn = document.getElementById('cancel-verification-btn');
+        
+        // Current piano info for verification
+        let currentPianoId = '';
+        let currentIsVerified = false;
+        
+        // Helper function to show notification
+        const showNotification = (title: string, message: string, isSuccess = true, redirectOnClose: string | null = null) => {
+            if (notificationTitle) notificationTitle.textContent = title;
+            if (notificationTitle) notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            if (notificationMessage) notificationMessage.textContent = message;
+            
+            if (redirectOnClose && notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                    window.location.href = redirectOnClose;
+                };
+            } else if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
         const verifyButtons = document.querySelectorAll('.verify-btn');
         
         verifyButtons.forEach(button => {
-            button.addEventListener('click', async () => {
+            button.addEventListener('click', () => {
                 const pianoId = button.getAttribute('data-piano-id');
                 const isVerified = button.getAttribute('data-verified') === 'true';
                 
                 if (!pianoId) return;
                 
-                // Confirm action
-                if (!confirm(`Are you sure you want to ${isVerified ? 'unverify' : 'verify'} this piano?`)) {
-                    return;
+                // Store piano info for the verification operation
+                currentPianoId = pianoId;
+                currentIsVerified = isVerified;
+                
+                // Setup confirmation dialog
+                if (verificationTitle) {
+                    verificationTitle.textContent = isVerified ? 'Unverify Piano' : 'Verify Piano';
+                    verificationTitle.className = `font-bold text-lg ${isVerified ? 'text-warning' : 'text-success'}`;
                 }
+                
+                if (verificationMessage) {
+                    verificationMessage.textContent = `Are you sure you want to ${isVerified ? 'unverify' : 'verify'} this piano?`;
+                }
+                
+                if (confirmVerificationBtn) {
+                    confirmVerificationBtn.textContent = isVerified ? 'Unverify' : 'Verify';
+                    confirmVerificationBtn.className = `btn ${isVerified ? 'btn-warning' : 'btn-success'}`;
+                }
+                
+                // Show confirmation modal
+                confirmVerificationModal.showModal();
+            });
+        });
+        
+        // Confirm verification button
+        if (confirmVerificationBtn) {
+            confirmVerificationBtn.addEventListener('click', async () => {
+                confirmVerificationModal.close();
                 
                 try {
                     // Import supabase client
@@ -216,27 +306,34 @@ const buildUrl = (newPage: number) => {
                     const { error } = await supabase
                         .from('pianos')
                         .update({ 
-                            verified: !isVerified,
-                            verification_count: isVerified ? 0 : 1
+                            verified: !currentIsVerified,
+                            verification_count: currentIsVerified ? 0 : 1
                         })
-                        .eq('id', pianoId);
+                        .eq('id', currentPianoId);
                     
                     if (error) {
                         throw error;
                     }
                     
-                    // Reload page to show updated status
-                    window.location.reload();
+                    // Show success notification and reload page
+                    showNotification('Success', `Piano ${currentIsVerified ? 'unverified' : 'verified'} successfully!`, true, window.location.href);
                 } catch (error) {
                     console.error('Error updating piano verification:', error);
                     // Handle error with proper type checking
                     if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
+                        showNotification('Error', `Error: ${error.message}`, false);
                     } else {
-                        alert('Failed to update piano verification status');
+                        showNotification('Error', 'Failed to update piano verification status', false);
                     }
                 }
             });
-        });
+        }
+        
+        // Cancel verification button
+        if (cancelVerificationBtn) {
+            cancelVerificationBtn.addEventListener('click', () => {
+                confirmVerificationModal.close();
+            });
+        }
     });
 </script>
