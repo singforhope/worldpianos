@@ -1,0 +1,684 @@
+---
+import MainLayout from "../../layouts/MainLayout.astro";
+import { supabase } from "../../utils/supabase";
+import { auth, profile } from "../../utils/auth";
+import PianoForm from "../../components/piano/PianoForm.astro";
+
+// Add a class to the body to indicate this is an auth-required page
+const authRequiredClass = 'auth-required';
+
+// Authentication check
+const authenticated = await auth.isAuthenticated();
+
+// Get current user
+const user = await auth.getCurrentUser();
+
+// For server-side rendering, we'll set a flag but not redirect immediately
+// Client-side JS will handle the redirect if needed
+let authFailed = false;
+
+if (!authenticated || !user) {
+    authFailed = true;
+    // We'll add a special class that client-side JS can detect
+    // But we won't redirect immediately to allow client-side auth to take precedence
+}
+
+// Initialize variables
+let userProfile = null;
+let userPianos = [];
+
+// Only fetch data if user is authenticated
+if (user && !authFailed) {
+    // Get user profile
+    userProfile = await profile.getUserProfile(user.id);
+    
+    // Create profile if it doesn't exist
+    if (!userProfile) {
+        const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+        const { data, error } = await profile.createUserProfile(user.id, displayName);
+        
+        if (data) {
+            userProfile = Array.isArray(data) ? data[0] : data;
+        }
+    }
+    
+    // Get user's pianos with error handling
+    try {
+        const { data: pianos, error: pianosError } = await supabase
+            .from('pianos')
+            .select('*')
+            .eq('created_by', user.id)
+            .order('created_at', { ascending: false });
+            
+        if (!pianosError) {
+            userPianos = pianos || [];
+        } else {
+            // Set empty array on error
+            userPianos = [];
+        }
+    } catch (err) {
+        // Set empty array on exception
+        userPianos = [];
+    }
+}
+
+// Define body classes for authentication state
+const bodyClasses = [
+    authRequiredClass,
+    authFailed ? 'auth-required-not-authenticated' : 'auth-required-authenticated'
+].join(' ');
+---
+
+<MainLayout bodyClasses={bodyClasses}>
+    <div class="container mx-auto px-4 py-8">
+        <div class="text-sm breadcrumbs mb-6">
+            <ul>
+                <li><a href="/">Home</a></li>
+                <li><a href="/user/dashboard">User Dashboard</a></li>
+                <li>My Pianos</li>
+            </ul>
+        </div>
+        
+        <!-- Loading state that will be hidden when auth check completes -->
+        <div id="loading-state" class="flex flex-col items-center justify-center py-12">
+            <div class="loading loading-spinner loading-lg"></div>
+            <p class="mt-4 text-lg">Loading your pianos...</p>
+        </div>
+        
+        <!-- Dashboard content that will be shown when auth check completes -->
+        <div id="pianos-content" class="hidden">
+            <div class="grid grid-cols-1 lg:grid-cols-4 gap-8">
+                <!-- Sidebar -->
+                <div class="lg:col-span-1">
+                    <div class="card bg-base-100 shadow-xl">
+                        <div class="card-body">
+                            <div class="flex flex-col items-center mb-6">
+                                <div class="avatar mb-4">
+                                    <div class="w-24 rounded-full">
+                                        <img id="sidebar-avatar" src={userProfile?.avatar_url || `https://ui-avatars.com/api/?name=${userProfile?.display_name || 'User'}`} alt="User avatar" />
+                                    </div>
+                                </div>
+                                <h2 id="sidebar-name" class="text-xl font-bold">{userProfile?.display_name || user?.email?.split('@')[0] || 'User'}</h2>
+                                <p id="sidebar-email" class="text-base-content/70">{user?.email || 'No email available'}</p>
+                            </div>
+                            
+                            <div class="divider"></div>
+                            
+                            <ul class="menu bg-base-100 w-full">
+                                <li>
+                                    <a href="/user/dashboard">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" />
+                                        </svg>
+                                        Dashboard
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="/user/profile">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 7a4 4 0 11-8 0 4 4 0 018 0zM12 14a7 7 0 00-7 7h14a7 7 0 00-7-7z" />
+                                        </svg>
+                                        Edit Profile
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="/user/pianos" class="active">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 17V7m0 10a2 2 0 01-2 2H5a2 2 0 01-2-2V7a2 2 0 012-2h2a2 2 0 012 2m0 10a2 2 0 002 2h2a2 2 0 002-2M9 7a2 2 0 012-2h2a2 2 0 012 2m0 10V7m0 10a2 2 0 002 2h2a2 2 0 002-2V7a2 2 0 00-2-2h-2a2 2 0 00-2 2" />
+                                        </svg>
+                                        My Pianos
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="/user/events">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 7V3m8 4V3m-9 8h10M5 21h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+                                        </svg>
+                                        My Events
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="/user/passport">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 6l3 1m0 0l-3 9a5.002 5.002 0 006.001 0M6 7l3 9M6 7l6-2m6 2l3-1m-3 1l-3 9a5.002 5.002 0 006.001 0M18 7l3 9m-3-9l-6-2m0-2v2m0 16V5m0 16H9m3 0h3" />
+                                        </svg>
+                                        Piano Passport
+                                    </a>
+                                </li>
+                                <li>
+                                    <a href="/user/settings">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z" />
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        </svg>
+                                        Settings
+                                    </a>
+                                </li>
+                            </ul>
+                            
+                            <div class="divider"></div>
+                            
+                            <button id="logout-btn" class="btn btn-outline btn-error w-full">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+                                </svg>
+                                Logout
+                            </button>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Main Content -->
+                <div class="lg:col-span-3">
+                    <div class="flex justify-between items-center mb-6">
+                        <h1 class="text-2xl font-bold">My Pianos</h1>
+                        <button class="btn btn-primary btn-sm" onclick="document.getElementById('user-piano-modal').showModal()">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4" />
+                            </svg>
+                            Add Piano
+                        </button>
+                    </div>
+                    
+                    <!-- Search and filters -->
+                    <div class="bg-base-100 rounded-lg mb-4">
+                        <div class="flex flex-col gap-4">
+                            <!-- Search bar -->
+                            <div class="relative">
+                                <input type="text" id="piano-search" placeholder="Search by name, location, or description..." class="input input-bordered w-full pr-10" />
+                                <div class="absolute inset-y-0 right-0 flex items-center pr-3 pointer-events-none">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-base-content/60" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                                        <circle cx="11" cy="11" r="8"></circle>
+                                        <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+                                    </svg>
+                                </div>
+                            </div>
+                            
+                            <!-- Filter buttons and sort -->
+                            <div class="flex flex-wrap items-center justify-between gap-2">
+                                <div class="flex flex-wrap gap-2">
+                                    <div class="rounded-full px-4 py-1 bg-primary text-primary-content cursor-pointer" data-filter="all">All</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="verified">Verified</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="pending">Pending</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="public">Public</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="private">Private</div>
+                                    <div class="rounded-full px-4 py-1 bg-base-300 text-base-content cursor-pointer" data-filter="archived">Archived</div>
+                                </div>
+                                
+                                <div class="flex items-center">
+                                    <select id="piano-sort" class="select select-bordered">
+                                        <option value="newest">Newest First</option>
+                                        <option value="oldest">Oldest First</option>
+                                        <option value="name">Name (A-Z)</option>
+                                        <option value="name-desc">Name (Z-A)</option>
+                                    </select>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <div id="pianos-list">
+                        {userPianos && userPianos.length > 0 ? (
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+                                {userPianos.map((piano) => (
+                                    <div class="card bg-base-100 border border-base-200 hover:shadow-md transition-shadow">
+                                        <div class="card-body p-4">
+                                            <div class="flex justify-between items-start">
+                                                <h2 class="card-title text-base font-medium">{piano.name}</h2>
+                                                <div class="flex gap-1">
+                                                    <span class={`badge badge-sm ${piano.verified ? 'badge-success' : 'badge-warning'}`}>
+                                                        {piano.verified ? 'Verified' : 'Pending'}
+                                                    </span>
+                                                    {piano.status === 'archived' && (
+                                                        <span class="badge badge-sm badge-error">Archived</span>
+                                                    )}
+                                                    {piano.public && (
+                                                        <span class="badge badge-sm badge-info">Public</span>
+                                                    )}
+                                                </div>
+                                            </div>
+                                            <div class="text-xs text-base-content/70 flex items-center gap-1 mt-1">
+                                                <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                                                </svg>
+                                                {piano.location || 'No location specified'}
+                                            </div>
+                                            <p class="text-sm mt-2 line-clamp-2">{piano.description || 'No description provided'}</p>
+                                            <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                                                {piano.status !== 'archived' ? (
+                                                    <a href={`/pianos/${piano.id}`} class="btn btn-primary btn-xs">View</a>
+                                                ) : (
+                                                    <span class="text-xs text-error">Not publicly visible</span>
+                                                )}
+                                                <a href={`/pianos/edit/${piano.id}`} class="btn btn-ghost btn-xs">Edit</a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        ) : (
+                            <div class="card bg-base-100 shadow-sm">
+                                <div class="card-body p-6">
+                                    <div class="alert alert-info shadow-sm">
+                                        <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                        <span>You haven't added any pianos yet.</span>
+                                        <button class="btn btn-sm btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
+                                            Add Your First Piano
+                                        </button>
+                                    </div>
+                                </div>
+                            </div>
+                        )}
+                    </div>
+                    
+                    <!-- Pagination for future use -->
+                    <div class="flex justify-center mt-6">
+                        <div class="join">
+                            <button class="join-item btn btn-sm">Prev</button>
+                            <button class="join-item btn btn-sm btn-primary">1</button>
+                            <button class="join-item btn btn-sm">2</button>
+                            <button class="join-item btn btn-sm">3</button>
+                            <button class="join-item btn btn-sm">Next</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Piano Modal -->
+    <dialog id="user-piano-modal" class="modal">
+        <div class="modal-box w-11/12 max-w-6xl h-[90vh]">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="font-bold text-lg">Add a New Piano</h3>
+                <form method="dialog">
+                    <button class="btn btn-sm btn-outline absolute right-4 top-4 shadow-md">Close(Esc)</button>
+                </form>
+            </div>
+            <div class="divider mt-0 mb-4"></div>
+            <div class="py-2">
+                <div class="container mx-auto px-4">
+                    <div class="mx-auto">
+                        <PianoForm isModal={true} />
+                    </div>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop">
+            <button>close</button>
+        </form>
+    </dialog>
+
+    <script>
+        // Add event listeners for the modal buttons
+        document.addEventListener('DOMContentLoaded', () => {
+            // Close button event listener
+            const closeButtons = document.querySelectorAll('.modal form[method="dialog"] button');
+            closeButtons.forEach(button => {
+                button.addEventListener('click', () => {
+                    const modal = document.getElementById('user-piano-modal') as HTMLDialogElement;
+                    if (modal) {
+                        modal.close();
+                    }
+                });
+            });
+            
+            // The open button is handled by the Header component
+            // We don't need to add an event listener here
+        });
+    </script>
+</MainLayout>
+
+<script>
+    import { auth, profile } from '../../utils/auth';
+    import { supabase } from '../../utils/supabase';
+    
+    // Define Piano interface
+    interface Piano {
+        id: string;
+        name: string;
+        location?: string;
+        description?: string;
+        verified?: boolean;
+        public?: boolean;
+        status?: string;
+        created_by: string;
+        created_at: string;
+    }
+    
+    // Global state to store all pianos
+    let allPianos: Piano[] = [];
+    
+    // Listen for messages from the iframe
+    window.addEventListener('message', function(event) {
+        // Handle piano added message
+        if (event.data && event.data.type === 'piano-added') {
+            // Close the modal
+            const pianoModal = document.getElementById('user-piano-modal') as HTMLDialogElement;
+            if (pianoModal) pianoModal.close();
+            // Show a success message
+            alert(`Piano "${event.data.pianoName}" added successfully!`);
+            // Reload the page to show the new piano
+            window.location.reload();
+        }
+    });
+    
+    // Function to fetch user pianos
+    const fetchUserPianos = async (userId: string): Promise<Piano[]> => {
+        try {
+            const { data: pianos, error } = await supabase
+                .from('pianos')
+                .select('*')
+                .eq('created_by', userId)
+                .order('created_at', { ascending: false });
+                
+            if (error) {
+                console.error('Error fetching pianos:', error);
+                return [];
+            }
+            
+            return pianos || [];
+        } catch (err) {
+            console.error('Exception when fetching pianos:', err);
+            return [];
+        }
+    };
+    
+    // Function to filter pianos based on search and filter criteria
+    const filterPianos = (pianos: Piano[], searchTerm: string, filterValue: string, sortValue: string): Piano[] => {
+        // First apply the search filter
+        let filteredPianos = searchTerm
+            ? pianos.filter(piano => 
+                piano.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+                (piano.location && piano.location.toLowerCase().includes(searchTerm.toLowerCase())) ||
+                (piano.description && piano.description.toLowerCase().includes(searchTerm.toLowerCase()))
+              )
+            : pianos;
+            
+        // Apply status filter
+        if (filterValue === 'verified') {
+            filteredPianos = filteredPianos.filter(piano => piano.verified);
+        } else if (filterValue === 'pending') {
+            filteredPianos = filteredPianos.filter(piano => !piano.verified);
+        } else if (filterValue === 'public') {
+            filteredPianos = filteredPianos.filter(piano => piano.public);
+        } else if (filterValue === 'private') {
+            filteredPianos = filteredPianos.filter(piano => !piano.public);
+        } else if (filterValue === 'archived') {
+            filteredPianos = filteredPianos.filter(piano => piano.status === 'archived');
+        }
+        
+        // Apply sorting
+        if (sortValue === 'newest') {
+            filteredPianos.sort((a, b) => new Date(b.created_at).getTime() - new Date(a.created_at).getTime());
+        } else if (sortValue === 'oldest') {
+            filteredPianos.sort((a, b) => new Date(a.created_at).getTime() - new Date(b.created_at).getTime());
+        } else if (sortValue === 'name') {
+            filteredPianos.sort((a, b) => a.name.localeCompare(b.name));
+        } else if (sortValue === 'name-desc') {
+            filteredPianos.sort((a, b) => b.name.localeCompare(a.name));
+        }
+        
+        return filteredPianos;
+    };
+    
+    // Function to update the UI with the pianos
+    const updatePianosList = (pianos: Piano[]): void => {
+        const pianosListElement = document.getElementById('pianos-list');
+        if (!pianosListElement) return;
+        
+        if (pianos.length > 0) {
+            // Create grid for piano cards
+            const grid = document.createElement('div');
+            grid.className = 'grid grid-cols-1 md:grid-cols-2 gap-3';
+            
+            // Add piano cards
+            pianos.forEach(piano => {
+                const card = document.createElement('div');
+                card.className = 'card bg-base-100 border border-base-200 hover:shadow-md transition-shadow';
+                
+                const description = piano.description ? 
+                    (piano.description.length > 120 ? 
+                        `${piano.description.substring(0, 120)}...` : 
+                        piano.description) : 
+                    'No description provided';
+                
+                card.innerHTML = `
+                    <div class="card-body p-4">
+                        <div class="flex justify-between items-start">
+                            <h2 class="card-title text-base font-medium">${piano.name}</h2>
+                            <div class="flex gap-1">
+                                <span class="badge badge-sm ${piano.verified ? 'badge-success' : 'badge-warning'}">
+                                    ${piano.verified ? 'Verified' : 'Pending'}
+                                </span>
+                                ${piano.status === 'archived' ? '<span class="badge badge-sm badge-error">Archived</span>' : ''}
+                                ${piano.public ? '<span class="badge badge-sm badge-info">Public</span>' : ''}
+                            </div>
+                        </div>
+                        <div class="text-xs text-base-content/70 flex items-center gap-1 mt-1">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+                            </svg>
+                            ${piano.location || 'No location specified'}
+                        </div>
+                        <p class="text-sm mt-2 line-clamp-2">${description}</p>
+                        <div class="card-actions justify-end mt-3 pt-2 border-t border-base-200">
+                            ${piano.status !== 'archived' 
+                                ? `<a href="/pianos/${piano.id}" class="btn btn-primary btn-xs">View</a>`
+                                : `<span class="text-xs text-error">Not publicly visible</span>`
+                            }
+                            <a href="/pianos/edit/${piano.id}" class="btn btn-ghost btn-xs">Edit</a>
+                        </div>
+                    </div>
+                `;
+                
+                grid.appendChild(card);
+            });
+            
+            // Clear the current content and add the grid
+            pianosListElement.innerHTML = '';
+            pianosListElement.appendChild(grid);
+        } else {
+            // Show empty state
+            pianosListElement.innerHTML = `
+                <div class="card bg-base-100 shadow-sm">
+                    <div class="card-body p-6">
+                        <div class="alert alert-info shadow-sm">
+                            <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-5 h-5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                            <span>No pianos found matching your criteria.</span>
+                            <button class="btn btn-sm btn-primary" onclick="document.getElementById('user-piano-modal').showModal()">
+                                Add Piano
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            `;
+        }
+        
+        // Update the pagination visibility
+        const paginationElement = document.querySelector('.join')?.parentElement;
+        if (paginationElement) {
+            paginationElement.style.display = pianos.length > 0 ? 'flex' : 'none';
+        }
+        
+        // Update the result count badge
+        const resultCountElement = document.getElementById('result-count');
+        if (resultCountElement) {
+            resultCountElement.textContent = `${pianos.length} ${pianos.length === 1 ? 'piano' : 'pianos'}`;
+            
+            // Apply appropriate styling based on results count
+            if (pianos.length === 0) {
+                resultCountElement.className = 'badge badge-sm bg-error text-error-content self-center min-w-[60px] justify-center';
+            } else if (pianos.length < 5) {
+                resultCountElement.className = 'badge badge-sm bg-warning text-warning-content self-center min-w-[60px] justify-center';
+            } else {
+                resultCountElement.className = 'badge badge-sm bg-primary text-primary-content self-center min-w-[60px] justify-center';
+            }
+        }
+    };
+    
+    // Setup search and filter event listeners with enhanced functionality
+    const setupFilterListeners = () => {
+        const searchInput = document.getElementById('piano-search') as HTMLInputElement;
+        const filterButtons = document.querySelectorAll('[data-filter]');
+        const sortSelect = document.getElementById('piano-sort') as HTMLSelectElement;
+        
+        if (!searchInput || !sortSelect) return;
+        
+        // Track active filter
+        let activeFilter = 'all';
+        
+        // Function to apply all filters and update UI
+        const applyFilters = () => {
+            const searchTerm = searchInput.value;
+            const filterValue = activeFilter;
+            const sortValue = sortSelect.value;
+            
+            const filteredPianos = filterPianos(allPianos, searchTerm, filterValue, sortValue);
+            updatePianosList(filteredPianos);
+        };
+        
+        // Set up search input
+        searchInput.addEventListener('input', applyFilters);
+        
+        // Set up filter buttons
+        filterButtons.forEach(button => {
+            button.addEventListener('click', (e) => {
+                const target = e.currentTarget as HTMLElement;
+                const filterValue = target.getAttribute('data-filter');
+                
+                if (filterValue) {
+                    // Update active filter
+                    activeFilter = filterValue;
+                    
+                    // Update button styles
+                    filterButtons.forEach(btn => {
+                        btn.classList.remove('bg-primary', 'text-primary-content');
+                        btn.classList.add('bg-base-300', 'text-base-content');
+                    });
+                    
+                    // Apply style to active filter
+                    target.classList.remove('bg-base-300', 'text-base-content');
+                    target.classList.add('bg-primary', 'text-primary-content');
+                    
+                    // Apply filters
+                    applyFilters();
+                }
+            });
+        });
+        
+        // Set up sort select
+        sortSelect.addEventListener('change', applyFilters);
+        
+        // Initialize with 'all' filter selected
+        document.querySelector('[data-filter="all"]')?.classList.add('bg-primary', 'text-primary-content');
+        document.querySelectorAll('[data-filter]:not([data-filter="all"])')?.forEach(btn => {
+            btn.classList.add('bg-base-300', 'text-base-content');
+        });
+    };
+    
+    document.addEventListener('DOMContentLoaded', async () => {
+        try {
+            // Get loading and content elements
+            const loadingState = document.getElementById('loading-state');
+            const pianosContent = document.getElementById('pianos-content');
+            
+            // Check if user is authenticated on client-side
+            const authenticated = await auth.isAuthenticated();
+            const user = await auth.getCurrentUser();
+            
+            // Redirect if not authenticated
+            if (!authenticated || !user) {
+                // Store the current URL to redirect back after login
+                auth.setReturnUrl(window.location.pathname);
+                window.location.href = '/auth?error=You must be logged in to view your pianos';
+                return;
+            }
+            
+            try {
+                // Check if profile exists and create if needed
+                let userProfile = await profile.getUserProfile(user.id);
+                
+                if (!userProfile) {
+                    const displayName = user.user_metadata?.display_name || user.email?.split('@')[0] || 'User';
+                    const { data, error } = await profile.createUserProfile(user.id, displayName);
+                    
+                    if (data) {
+                        userProfile = Array.isArray(data) ? data[0] : data;
+                    }
+                }
+                
+                // Update the UI with the user's data
+                const nameElement = document.getElementById('sidebar-name');
+                const emailElement = document.getElementById('sidebar-email');
+                const avatarImg = document.getElementById('sidebar-avatar') as HTMLImageElement;
+                
+                if (nameElement) {
+                    nameElement.textContent = userProfile?.display_name || user.email?.split('@')[0] || 'User';
+                }
+                
+                if (emailElement) {
+                    emailElement.textContent = user.email || 'No email available';
+                }
+                
+                if (avatarImg && userProfile?.avatar_url) {
+                    avatarImg.src = userProfile.avatar_url;
+                }
+                
+                // Fetch user's pianos and update the UI
+                console.log('Fetching pianos for user:', user.id);
+                allPianos = await fetchUserPianos(user.id);
+                console.log(`Found ${allPianos.length} pianos for user`);
+                updatePianosList(allPianos);
+                
+                // Set up filter listeners
+                setupFilterListeners();
+                
+                // Hide loading state and show pianos content
+                if (loadingState) loadingState.classList.add('hidden');
+                if (pianosContent) pianosContent.classList.remove('hidden');
+            } catch (profileError) {
+                console.error('Error fetching profile:', profileError);
+                
+                // Try to fetch pianos even if profile fetch fails
+                try {
+                    allPianos = await fetchUserPianos(user.id);
+                    updatePianosList(allPianos);
+                    setupFilterListeners();
+                } catch (pianosError) {
+                    console.error('Error fetching pianos:', pianosError);
+                }
+                
+                // Show pianos content even if profile fetch fails
+                if (loadingState) loadingState.classList.add('hidden');
+                if (pianosContent) pianosContent.classList.remove('hidden');
+            }
+            
+            // Setup logout button
+            const logoutBtn = document.getElementById('logout-btn');
+            if (logoutBtn) {
+                logoutBtn.addEventListener('click', async (e) => {
+                    e.preventDefault();
+                    try {
+                        localStorage.removeItem('worldpianos-auth');
+                        console.log('Logged out, redirecting to homepage');
+                        window.location.href = '/';
+                    } catch (error) {
+                        console.error('Error signing out:', error);
+                        window.location.href = '/';  // Redirect anyway
+                    }
+                });
+            }
+        } catch (error) {
+            console.error('Unhandled error in pianos page:', error);
+            // Fallback error handling - ensure UI is not stuck in loading state
+            const loadingState = document.getElementById('loading-state');
+            const pianosContent = document.getElementById('pianos-content');
+            
+            if (loadingState) loadingState.classList.add('hidden');
+            if (pianosContent) pianosContent.classList.remove('hidden');
+        }
+    });
+</script>

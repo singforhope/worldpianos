@@ -31,28 +31,55 @@ const { className = "" } = Astro.props;
 
 <!-- Location Modal -->
 <dialog id="location-modal" class="modal">
-    <div class="modal-box">
-        <h3 class="font-bold text-lg mb-4">Set Your Location</h3>
-        <div class="flex gap-4">
+    <div class="modal-box max-w-3xl">
+        <div class="flex justify-between items-center mb-4">
+            <h3 class="font-bold text-lg flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                Set Your Location
+            </h3>
+            <form method="dialog">
+                <button class="btn btn-sm btn-outline">
+                    Close <span class="text-xs opacity-60 ml-1">(Esc)</span>
+                </button>
+            </form>
+        </div>
+        
+        <!-- Current Location Display (if set) -->
+        <div id="current-location-display" class="hidden mb-6 p-3 bg-base-200 rounded-lg">
+            <div class="flex items-center gap-2">
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 text-primary" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"></path>
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                </svg>
+                <div>
+                    <div class="text-sm opacity-70">Current Location:</div>
+                    <div id="current-location-name" class="font-semibold"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="flex flex-col md:flex-row gap-6">
             <!-- Left Column: Manual Input -->
             <div class="flex-1">
                 <div class="form-control">
-                    <label class="label">
-                        <span class="label-text">Enter your location</span>
-                    </label>
-                    <div id="geocoder-container"></div>
+                    <div id="geocoder-container" class="w-full"></div>
                 </div>
                 <p class="text-sm text-base-content/70 mt-2">
-                    Search for a city, address, or landmark
+                    Enter a city, address, or landmark to find pianos nearby
                 </p>
             </div>
 
-            <!-- Divider -->
-            <div class="divider divider-horizontal"></div>
+            <!-- Divider - only visible on md screens and up -->
+            <div class="hidden md:flex divider divider-horizontal"></div>
+            <!-- Divider for mobile -->
+            <div class="divider md:hidden">OR</div>
 
             <!-- Right Column: Auto-detect -->
             <div class="flex-1 flex flex-col items-center justify-center">
-                <button id="locate-me" class="btn btn-primary gap-2">
+                <button id="locate-me" class="btn btn-primary gap-2 w-full md:w-auto">
                     <svg
                         xmlns="http://www.w3.org/2000/svg"
                         class="h-5 w-5"
@@ -64,8 +91,13 @@ const { className = "" } = Astro.props;
                             stroke-linecap="round"
                             stroke-linejoin="round"
                             stroke-width="2"
-                            d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z"
+                            d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"
                         ></path>
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"></path>
                     </svg>
                     Use My Location
                 </button>
@@ -75,249 +107,359 @@ const { className = "" } = Astro.props;
             </div>
         </div>
 
+        <!-- Status Messages -->
+        <div id="location-status" class="mt-4 hidden alert"></div>
+        
         <!-- Clear Location Button (hidden by default) -->
         <div id="clear-location-container" class="mt-6 text-center hidden">
             <div class="divider">or</div>
-            <button
-                id="clear-location"
-                class="btn btn-ghost btn-sm text-error gap-2"
-            >
-                <svg
-                    xmlns="http://www.w3.org/2000/svg"
-                    class="h-5 w-5"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                    stroke="currentColor"
+            <div class="flex justify-center">
+                <button
+                    id="clear-location"
+                    class="btn btn-outline btn-error btn-sm gap-2"
                 >
-                    <path
-                        stroke-linecap="round"
-                        stroke-linejoin="round"
-                        stroke-width="2"
-                        d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
-                    ></path>
-                </svg>
-                Clear Current Location
-            </button>
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"
+                        ></path>
+                    </svg>
+                    Clear Current Location
+                </button>
+            </div>
         </div>
     </div>
 </dialog>
 
-<script>
-    import mapboxgl from "mapbox-gl";
-    import MapboxGeocoder from "@mapbox/mapbox-gl-geocoder";
-    import "@mapbox/mapbox-gl-geocoder/dist/mapbox-gl-geocoder.css";
+<!-- Load Mapbox GL JS and Geocoder from CDN -->
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css" rel="stylesheet">
+<script src="https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js"></script>
+<script src="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js"></script>
+<link rel="stylesheet" href="https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css">
 
-    const locationButton = document.getElementById("location-button");
-    const locationModal = document.getElementById(
-        "location-modal",
-    ) as HTMLDialogElement;
-    const locationText = document.getElementById("location-text");
-    const geocoderContainer = document.getElementById("geocoder-container");
-    const locateMeButton = document.getElementById(
-        "locate-me",
-    ) as HTMLButtonElement;
-    const locationIcon = locationButton?.querySelector("svg");
-    const clearLocationContainer = document.getElementById(
-        "clear-location-container",
-    );
-    const clearLocationButton = document.getElementById("clear-location");
-
-    // Initialize Mapbox Geocoder
-    const geocoder = new MapboxGeocoder({
-        accessToken:
-            "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ",
-        countries: "us,ca,gb,fr,de,it,es,pt,au,nz,jp,kr,cn",
-        language: "en",
-        placeholder: "Search for a location...",
-        types: "place,locality,neighborhood,address",
-        bbox: [-180, -90, 180, 90],
-        limit: 5,
-        minLength: 2,
-        flyTo: false,
-        marker: false,
-        mapboxgl: mapboxgl,
-    });
-
-    // Function to update UI based on saved location
-    function updateLocationUI() {
-        const savedLocation = localStorage.getItem("userLocation");
-        if (savedLocation && locationText && locationIcon) {
-            locationText.textContent = savedLocation;
-            locationIcon.classList.remove("text-base-content/70");
-            locationIcon.classList.add("text-primary");
-            clearLocationContainer?.classList.remove("hidden");
-        } else {
-            locationText.textContent = "Set a Location";
-            locationIcon.classList.remove("text-primary");
-            locationIcon.classList.add("text-base-content/70");
-            clearLocationContainer?.classList.add("hidden");
+<script is:inline>
+    document.addEventListener("DOMContentLoaded", () => {
+        const locationButton = document.getElementById("location-button");
+        const locationModal = document.getElementById("location-modal");
+        const locationText = document.getElementById("location-text");
+        const geocoderContainer = document.getElementById("geocoder-container");
+        const locateMeButton = document.getElementById("locate-me");
+        const locationIcon = locationButton ? locationButton.querySelector("svg") : null;
+        const clearLocationContainer = document.getElementById("clear-location-container");
+        const clearLocationButton = document.getElementById("clear-location");
+        
+        // New UI elements
+        const currentLocationDisplay = document.getElementById("current-location-display");
+        const currentLocationName = document.getElementById("current-location-name");
+        
+        const locationStatus = document.getElementById("location-status");
+        
+        // Function to show status messages
+        function showStatus(type, message) {
+            if (locationStatus) {
+                locationStatus.textContent = message;
+                locationStatus.classList.remove("hidden", "alert-success", "alert-error", "alert-info");
+                locationStatus.classList.add(type === "success" ? "alert-success" : type === "error" ? "alert-error" : "alert-info");
+                
+                // Hide message after 5 seconds if it's a success message
+                if (type === "success") {
+                    setTimeout(() => {
+                        locationStatus.classList.add("hidden");
+                    }, 5000);
+                }
+            }
         }
-    }
+        
+        // Initialize Mapbox Geocoder
+        if (geocoderContainer && mapboxgl && MapboxGeocoder) {
+            const geocoder = new MapboxGeocoder({
+                accessToken: "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ",
+                countries: "us,ca,gb,fr,de,it,es,pt,au,nz,jp,kr,cn",
+                language: "en",
+                placeholder: "Search for a location...",
+                types: "place,locality,neighborhood,address",
+                bbox: [-180, -90, 180, 90],
+                limit: 5,
+                minLength: 2,
+                flyTo: false,
+                marker: false,
+                mapboxgl: mapboxgl,
+                showResultsWhileTyping: true,
+                render: function(item) {
+                    // Customize the rendering of each result
+                    return `<div class="mapboxgl-ctrl-geocoder--suggestion">
+                        <div class="mapboxgl-ctrl-geocoder--suggestion-title">${item.text}</div>
+                        <div class="mapboxgl-ctrl-geocoder--suggestion-address">${item.place_name.replace(item.text + ', ', '')}</div>
+                    </div>`;
+                }
+            });
 
-    // Initialize UI
-    updateLocationUI();
+            // Function to update UI based on saved location
+            function updateLocationUI() {
+                const savedLocation = localStorage.getItem("userLocation");
+                if (savedLocation) {
+                    // Update button text and icon
+                    if (locationText && locationIcon) {
+                        locationText.textContent = savedLocation;
+                        locationIcon.classList.remove("text-base-content/70");
+                        locationIcon.classList.add("text-primary");
+                    }
+                    
+                    // Show clear location button
+                    if (clearLocationContainer) {
+                        clearLocationContainer.classList.remove("hidden");
+                    }
+                    
+                    // Update current location display in modal
+                    if (currentLocationDisplay && currentLocationName) {
+                        currentLocationName.textContent = savedLocation;
+                        currentLocationDisplay.classList.remove("hidden");
+                    }
+                } else {
+                    // Reset button text and icon
+                    if (locationText) {
+                        locationText.textContent = "Set a Location";
+                    }
+                    if (locationIcon) {
+                        locationIcon.classList.remove("text-primary");
+                        locationIcon.classList.add("text-base-content/70");
+                    }
+                    
+                    // Hide clear location button
+                    if (clearLocationContainer) {
+                        clearLocationContainer.classList.add("hidden");
+                    }
+                    
+                    // Hide current location display in modal
+                    if (currentLocationDisplay) {
+                        currentLocationDisplay.classList.add("hidden");
+                    }
+                }
+            }
 
-    // Open modal when clicking the location button
-    locationButton?.addEventListener("click", () => {
-        locationModal.showModal();
-        updateLocationUI();
-    });
-
-    // Close modal when clicking outside
-    locationModal?.addEventListener("click", (e) => {
-        if (e.target === locationModal) {
-            locationModal.close();
-        }
-    });
-
-    // Handle clear location
-    clearLocationButton?.addEventListener("click", () => {
-        localStorage.removeItem("userLocation");
-        localStorage.removeItem("userCoordinates");
-        updateLocationUI();
-        locationModal.close();
-    });
-
-    // Add geocoder to the container
-    if (geocoderContainer) {
-        geocoderContainer.appendChild(geocoder.onAdd());
-
-        // Handle geocoder result
-        geocoder.on("result", (event) => {
-            const result = event.result;
-            const locationName = result.place_name.split(",")[0];
-            const coordinates = result.center;
-
-            // Save to localStorage
-            localStorage.setItem("userLocation", locationName);
-            localStorage.setItem(
-                "userCoordinates",
-                JSON.stringify({
-                    lat: coordinates[1],
-                    lng: coordinates[0],
-                }),
-            );
-
-            // Dispatch custom event for map update
-            window.dispatchEvent(
-                new CustomEvent("locationChanged", {
-                    detail: {
-                        lat: coordinates[1],
-                        lng: coordinates[0],
-                    },
-                }),
-            );
-
-            // Update UI and close modal
+            // Initialize UI
             updateLocationUI();
-            locationModal.close();
-        });
-    }
 
-    // Handle auto-detect location
-    locateMeButton?.addEventListener("click", () => {
-        if (navigator.geolocation) {
-            locateMeButton.disabled = true;
-            locateMeButton.innerHTML = `
-                <span class="loading loading-spinner loading-sm"></span>
-                Detecting location...
-            `;
+            // Open modal when clicking the location button
+            locationButton?.addEventListener("click", () => {
+                if (locationModal) {
+                    locationModal.showModal();
+                    updateLocationUI();
+                }
+            });
 
-            navigator.geolocation.getCurrentPosition(
-                async (position) => {
-                    try {
-                        // Reverse geocode to get location name
-                        const response = await fetch(
-                            `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`,
-                        );
-                        const data = await response.json();
+            // Close modal when clicking outside
+            locationModal?.addEventListener("click", (e) => {
+                if (e.target === locationModal) {
+                    locationModal.close();
+                }
+            });
 
-                        // Extract city and state/country from address components
-                        const address = data.address;
-                        let locationName = "";
+            // Handle clear location
+            clearLocationButton?.addEventListener("click", () => {
+                localStorage.removeItem("userLocation");
+                localStorage.removeItem("userCoordinates");
+                updateLocationUI();
+                showStatus("success", "Location cleared successfully");
+                if (locationModal) {
+                    locationModal.close();
+                }
+                
+                // Dispatch event to notify map of location change
+                window.dispatchEvent(
+                    new CustomEvent("locationCleared")
+                );
+            });
 
-                        if (address.country_code === "us") {
-                            // For US locations, show city and state
-                            const city =
-                                address.city || address.town || address.village;
-                            const state = address.state;
-                            if (city && state) {
-                                locationName = `${city}, ${state}`;
+            // Add geocoder to the container
+            if (geocoderContainer) {
+                geocoderContainer.appendChild(geocoder.onAdd());
+
+                // Handle geocoder result
+                geocoder.on("result", (event) => {
+                    const result = event.result;
+                    const locationName = result.place_name.split(",")[0];
+                    const coordinates = result.center;
+
+                    // Save to localStorage
+                    localStorage.setItem("userLocation", locationName);
+                    localStorage.setItem(
+                        "userCoordinates",
+                        JSON.stringify({
+                            lat: coordinates[1],
+                            lng: coordinates[0],
+                        }),
+                    );
+
+                    // Dispatch custom event for map update
+                    window.dispatchEvent(
+                        new CustomEvent("locationChanged", {
+                            detail: {
+                                lat: coordinates[1],
+                                lng: coordinates[0],
+                            },
+                        }),
+                    );
+
+                    // Show success message
+                    showStatus("success", `Location set to ${locationName}`);
+
+                    // Update UI and close modal
+                    updateLocationUI();
+                    if (locationModal) {
+                        locationModal.close();
+                    }
+                });
+                
+                // Handle geocoder error
+                geocoder.on("error", () => {
+                    showStatus("error", "Error searching for location. Please try again.");
+                });
+            }
+        }
+
+        // Handle auto-detect location
+        locateMeButton?.addEventListener("click", () => {
+            if (navigator.geolocation) {
+                if (locateMeButton) {
+                    locateMeButton.disabled = true;
+                    locateMeButton.innerHTML = `
+                        <span class="loading loading-spinner loading-sm"></span>
+                        Detecting location...
+                    `;
+                }
+
+                navigator.geolocation.getCurrentPosition(
+                    async (position) => {
+                        try {
+                            // Reverse geocode to get location name
+                            const response = await fetch(
+                                `https://nominatim.openstreetmap.org/reverse?format=json&lat=${position.coords.latitude}&lon=${position.coords.longitude}`,
+                            );
+                            const data = await response.json();
+
+                            // Extract city and state/country from address components
+                            const address = data.address;
+                            let locationName = "";
+
+                            if (address.country_code === "us") {
+                                // For US locations, show city and state
+                                const city =
+                                    address.city || address.town || address.village;
+                                const state = address.state;
+                                if (city && state) {
+                                    locationName = `${city}, ${state}`;
+                                }
+                            } else {
+                                // For non-US locations, show city and country
+                                const city =
+                                    address.city || address.town || address.village;
+                                const country = address.country;
+                                if (city && country) {
+                                    locationName = `${city}, ${country}`;
+                                }
                             }
-                        } else {
-                            // For non-US locations, show city and country
-                            const city =
-                                address.city || address.town || address.village;
-                            const country = address.country;
-                            if (city && country) {
-                                locationName = `${city}, ${country}`;
+
+                            // Fallback to display_name if we couldn't extract city
+                            if (!locationName) {
+                                locationName = data.display_name.split(",")[0];
                             }
-                        }
 
-                        // Fallback to display_name if we couldn't extract city
-                        if (!locationName) {
-                            locationName = data.display_name.split(",")[0];
-                        }
-
-                        // Save to localStorage
-                        localStorage.setItem("userLocation", locationName);
-                        localStorage.setItem(
-                            "userCoordinates",
-                            JSON.stringify({
-                                lat: position.coords.latitude,
-                                lng: position.coords.longitude,
-                            }),
-                        );
-
-                        // Dispatch custom event for map update
-                        window.dispatchEvent(
-                            new CustomEvent("locationChanged", {
-                                detail: {
+                            // Save to localStorage
+                            localStorage.setItem("userLocation", locationName);
+                            localStorage.setItem(
+                                "userCoordinates",
+                                JSON.stringify({
                                     lat: position.coords.latitude,
                                     lng: position.coords.longitude,
-                                },
-                            }),
-                        );
+                                }),
+                            );
 
-                        // Update UI
-                        updateLocationUI();
+                            // Dispatch custom event for map update
+                            window.dispatchEvent(
+                                new CustomEvent("locationChanged", {
+                                    detail: {
+                                        lat: position.coords.latitude,
+                                        lng: position.coords.longitude,
+                                    },
+                                }),
+                            );
 
-                        // Reset button and close modal
-                        locateMeButton.disabled = false;
-                        locateMeButton.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Use My Location
-                        `;
-                        locationModal.close();
-                    } catch (error) {
-                        console.error("Error getting location name:", error);
-                        alert("Could not get location name. Please try again.");
-                        locateMeButton.disabled = false;
-                        locateMeButton.innerHTML = `
-                            <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                            </svg>
-                            Use My Location
-                        `;
-                    }
-                },
-                (error) => {
-                    console.error("Error getting location:", error);
-                    alert("Could not get your location. Please try again.");
-                    locateMeButton.disabled = false;
-                    locateMeButton.innerHTML = `
-                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
-                        </svg>
-                        Use My Location
-                    `;
-                },
-            );
-        } else {
-            alert("Geolocation is not supported by your browser");
-        }
+                            // Update UI
+                            updateLocationUI();
+
+                            // Reset button and close modal
+                            if (locateMeButton) {
+                                locateMeButton.disabled = false;
+                                locateMeButton.innerHTML = `
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Use My Location
+                                `;
+                            }
+                            if (locationModal) {
+                                locationModal.close();
+                            }
+                        } catch (error) {
+                            console.error("Error getting location name:", error);
+                            showStatus("error", "Could not get location name. Please try again.");
+                            if (locateMeButton) {
+                                locateMeButton.disabled = false;
+                                locateMeButton.innerHTML = `
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                    </svg>
+                                    Use My Location
+                                `;
+                            }
+                        }
+                    },
+                    (error) => {
+                        console.error("Error getting location:", error);
+                        
+                        // Provide more specific error messages based on the error code
+                        let errorMessage = "Could not get your location. ";
+                        
+                        switch(error.code) {
+                            case error.PERMISSION_DENIED:
+                                errorMessage += "Location permission was denied. Please enable location services in your browser settings.";
+                                break;
+                            case error.POSITION_UNAVAILABLE:
+                                errorMessage += "Location information is unavailable. Please try again later.";
+                                break;
+                            case error.TIMEOUT:
+                                errorMessage += "The request to get your location timed out. Please try again.";
+                                break;
+                            default:
+                                errorMessage += "An unknown error occurred. Please try again.";
+                        }
+                        
+                        showStatus("error", errorMessage);
+                        
+                        if (locateMeButton) {
+                            locateMeButton.disabled = false;
+                            locateMeButton.innerHTML = `
+                                <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 104 0 2 2 0 012-2h1.064M15 20.488V18a2 2 0 012-2h3.064M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                </svg>
+                                Use My Location
+                            `;
+                        }
+                    },
+                );
+            } else {
+                alert("Geolocation is not supported by your browser");
+            }
+        });
     });
 </script>
 

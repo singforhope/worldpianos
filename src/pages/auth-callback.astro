@@ -1,0 +1,76 @@
+---
+import MainLayout from "../layouts/MainLayout.astro";
+---
+
+<MainLayout>
+  <div class="container mx-auto px-4 py-8 text-center">
+    <h1 class="text-2xl font-bold mb-6">Completing Authentication...</h1>
+    <div class="loading loading-spinner loading-lg"></div>
+  </div>
+</MainLayout>
+
+<script>
+  import { auth, profile } from '../utils/auth';
+  
+  // Handle the auth callback
+  async function handleAuthCallback() {
+    try {
+      // Get the current session
+      const session = await auth.getSession();
+      
+      if (!session) {
+        window.location.href = '/auth?error=No session found';
+        return;
+      }
+      
+      const user = session.user;
+      
+      // Check if user profile exists and create if needed
+      if (user) {
+        const userProfile = await profile.getUserProfile(user.id);
+        
+        if (!userProfile) {
+          // Get user metadata
+          const metadata = user.user_metadata || {};
+          const displayName = metadata.display_name || user.email?.split('@')[0] || 'User';
+          
+          // Create profile via API
+          try {
+            await profile.createUserProfileViaApi(user.id, displayName);
+            // Continue with redirect regardless of result
+          } catch (apiError) {
+            // Continue with redirect despite error
+          }
+        }
+      }
+      
+      // Authentication successful
+      
+      // Check if user is admin and redirect accordingly
+      if (user) {
+        const isAdmin = await profile.isAdmin(user.id);
+        
+        // Determine redirect URL based on role
+        let redirectUrl;
+        if (isAdmin) {
+          redirectUrl = '/admin/dashboard';
+        } else {
+          redirectUrl = auth.getReturnUrl();
+        }
+        
+        // Add a slight delay to ensure session is established
+        setTimeout(() => {
+          window.location.href = redirectUrl;
+        }, 1000);
+      } else {
+        // Fallback to default redirect
+        window.location.href = auth.getReturnUrl();
+      }
+    } catch (error) {
+      window.location.href = '/auth?error=Authentication failed';
+    }
+  }
+  
+  // Run the handler
+  handleAuthCallback();
+</script>

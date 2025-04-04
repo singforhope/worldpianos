@@ -1,0 +1,93 @@
+---
+// ReportService component provides client-side piano report management functions
+---
+
+<script is:inline>
+  // Use a self-executing function to avoid polluting the global scope
+  (function() {
+    // We can't use import statements in inline scripts
+    // Instead, we'll use the global supabaseClient that's set by SupabaseClient.astro
+    let supabase;
+    
+    // Function to initialize the service when Supabase is ready
+    function initReportService() {
+      if (window.supabaseClient) {
+        supabase = window.supabaseClient;
+        console.log('ReportService: Supabase client initialized');
+      } else {
+        console.log('ReportService: Waiting for Supabase client...');
+        // Wait for the supabase-ready event
+        window.addEventListener('supabase-ready', function() {
+          supabase = window.supabaseClient;
+          console.log('ReportService: Supabase client initialized via event');
+        }, { once: true }); // Use once: true to automatically remove the listener after it's triggered
+      }
+    }
+    
+    // Initialize the service
+    initReportService();
+  
+    // Client-side implementation of createPianoReport function
+    async function createPianoReport(reportData) {
+      if (!supabase) {
+        throw new Error('Supabase client not initialized');
+      }
+      
+      // Ensure we have the latest session
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!session) {
+          console.warn('ReportService: No active session found');
+        } else {
+          console.log('ReportService: Active session found for user:', session.user.id);
+        }
+      } catch (sessionError) {
+        console.error('ReportService: Error getting session:', sessionError);
+      }
+      
+      try {
+        // Insert the report data
+        const { data, error } = await supabase
+          .from('piano_reports')
+          .insert({
+            piano_id: reportData.piano_id,
+            user_id: reportData.user_id,
+            issue_type: reportData.issue_type,
+            description: reportData.description,
+            status: 'pending'
+          })
+          .select();
+        
+        if (error) {
+          // Check for specific error types
+          if (error.code === '42501' || error.message?.includes('permission')) {
+            throw new Error('Permission denied: You may need to log in to submit a report');
+          } else if (error.code === '23505') {
+            throw new Error('A report with this information already exists');
+          } else if (error.code === '23502') {
+            throw new Error('Missing required fields: ' + error.details);
+          } else if (error.code === '400') {
+            throw new Error('Bad request: ' + (error.message || 'Check your data format'));
+          } else {
+            // Try to provide a more helpful error message
+            const errorMsg = error.message || 'Unknown error';
+            throw new Error(`Database error (${error.code}): ${errorMsg}`);
+          }
+        }
+        
+        if (!data || data.length === 0) {
+          throw new Error('No data returned after insert');
+        }
+        
+        return data[0];
+      } catch (error) {
+        throw error;
+      }
+    }
+    
+    // Make functions available globally
+    window.reportService = {
+      createPianoReport
+    };
+  })(); // End of self-executing function
+</script>

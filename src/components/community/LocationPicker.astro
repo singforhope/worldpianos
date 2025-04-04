@@ -1,0 +1,269 @@
+---
+// Props for the component
+interface Props {
+  id?: string;
+  required?: boolean;
+  label?: string;
+}
+
+const {
+  id = "location-picker",
+  required = true,
+  label = "Location"
+} = Astro.props;
+
+// Get Mapbox access token from environment variables
+const mapboxAccessToken = import.meta.env.PUBLIC_MAPBOX_ACCESS_TOKEN;
+
+// Generate unique IDs for the form elements
+const geocoderContainerId = `${id}-geocoder-container`;
+const latInputId = `${id}-lat`;
+const lngInputId = `${id}-lng`;
+const addressInputId = `${id}-address`;
+const countryInputId = `${id}-country`;
+const cityInputId = `${id}-city`;
+---
+
+<!-- Load Mapbox GL JS and Geocoder dynamically to prevent duplicates -->
+<script is:inline>
+  // Use a self-executing function to avoid polluting the global scope
+  (function() {
+    // Track if we've already dispatched the mapbox-loaded event
+    let eventDispatched = false;
+    
+    // Function to dispatch the mapbox-loaded event (only once)
+    function dispatchMapboxLoadedEvent() {
+      if (!eventDispatched) {
+        window.dispatchEvent(new CustomEvent('mapbox-loaded'));
+        eventDispatched = true;
+      }
+    }
+    
+    // Function to load a script if it doesn't exist
+    function loadScriptIfNeeded(src, onload) {
+      const existingScript = document.querySelector(`script[src*="${src}"]`);
+      if (!existingScript) {
+        const script = document.createElement('script');
+        script.src = src;
+        if (onload) script.onload = onload;
+        document.head.appendChild(script);
+        return true;
+      }
+      return false;
+    }
+    
+    // Function to load a stylesheet if it doesn't exist
+    function loadStyleIfNeeded(href) {
+      const existingLink = document.querySelector(`link[href*="${href}"]`);
+      if (!existingLink) {
+        const link = document.createElement('link');
+        link.rel = 'stylesheet';
+        link.href = href;
+        document.head.appendChild(link);
+        return true;
+      }
+      return false;
+    }
+    
+    // Check if Mapbox is already loaded
+    if (typeof mapboxgl !== 'undefined' && typeof MapboxGeocoder !== 'undefined') {
+      // If already loaded, dispatch the event immediately
+      dispatchMapboxLoadedEvent();
+    } else {
+      // Load required resources
+      loadStyleIfNeeded('https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.css');
+      loadStyleIfNeeded('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.css');
+      
+      // Load Mapbox GL JS first
+      const mapboxJsLoaded = loadScriptIfNeeded('https://api.mapbox.com/mapbox-gl-js/v2.14.1/mapbox-gl.js', function() {
+        // After Mapbox GL JS is loaded, load the Geocoder
+        loadScriptIfNeeded('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js', function() {
+          // When both are loaded, dispatch the event
+          dispatchMapboxLoadedEvent();
+        });
+      });
+      
+      // If Mapbox JS was already loaded, we need to load Geocoder separately
+      if (!mapboxJsLoaded) {
+        loadScriptIfNeeded('https://api.mapbox.com/mapbox-gl-js/plugins/mapbox-gl-geocoder/v5.0.0/mapbox-gl-geocoder.min.js', function() {
+          dispatchMapboxLoadedEvent();
+        });
+      }
+    }
+  })();
+</script>
+
+<div class="form-control w-full">
+  <label for={geocoderContainerId} class="label">
+    <span class="label-text">{label}</span>
+    {required && <span class="label-text-alt text-error">*</span>}
+  </label>
+  <div id={geocoderContainerId}></div>
+  <input type="hidden" id={latInputId} name="latitude" />
+  <input type="hidden" id={lngInputId} name="longitude" />
+  <input type="hidden" id={addressInputId} name="locationAddress" />
+  <input type="hidden" id={countryInputId} name="country" />
+  <input type="hidden" id={cityInputId} name="city" />
+</div>
+
+<style>
+  /* Mapbox Geocoder styles */
+  .mapboxgl-ctrl-geocoder {
+    box-shadow: none !important;
+    border: 1px solid hsl(var(--bc) / 0.2) !important;
+    border-radius: 0.5rem !important;
+    background-color: hsl(var(--b1)) !important;
+    color: hsl(var(--bc)) !important;
+    font-family: inherit !important;
+    width: 100% !important;
+    min-height: 2.5rem !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions {
+    background-color: hsl(var(--b1)) !important;
+    border: 1px solid hsl(var(--bc) / 0.2) !important;
+    border-radius: 0.5rem !important;
+    margin-top: 0.5rem !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion {
+    padding: 0.5rem 1rem !important;
+    color: hsl(var(--bc)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion.active {
+    background-color: hsl(var(--b2)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion:hover {
+    background-color: hsl(var(--b2)) !important;
+  }
+
+  .mapboxgl-ctrl-geocoder .suggestions .suggestion .address {
+    color: hsl(var(--bc) / 0.7) !important;
+  }
+</style>
+
+<script define:vars={{ geocoderContainerId, latInputId, lngInputId, addressInputId, countryInputId, cityInputId, mapboxAccessToken }}>
+  // Use a self-executing function to avoid polluting the global scope
+  (function() {
+    // Cache DOM elements to avoid repeated lookups
+    let geocoderContainer, locationLat, locationLng, locationAddressInput, countryInput, cityInput;
+    let geocoderInitialized = false;
+    
+    // Function to initialize the geocoder once MapboxGL is loaded
+    function initializeGeocoder() {
+      // Only initialize once
+      if (geocoderInitialized) return;
+      
+      // Get DOM elements if not already cached
+      if (!geocoderContainer) {
+        geocoderContainer = document.getElementById(geocoderContainerId);
+        locationLat = document.getElementById(latInputId);
+        locationLng = document.getElementById(lngInputId);
+        locationAddressInput = document.getElementById(addressInputId);
+        countryInput = document.getElementById(countryInputId);
+        cityInput = document.getElementById(cityInputId);
+      }
+      
+      // Check if we can initialize
+      if (!geocoderContainer ||
+          geocoderContainer.querySelector('.mapboxgl-ctrl-geocoder') ||
+          !window.mapboxgl ||
+          !window.MapboxGeocoder) {
+        return;
+      }
+      
+      // Mark as initialized to prevent duplicate initialization
+      geocoderInitialized = true;
+      
+      // Create the geocoder
+      const geocoder = new window.MapboxGeocoder({
+        accessToken: mapboxAccessToken,
+        language: "en",
+        placeholder: "Search for a location...",
+        types: "place,locality,neighborhood,address",
+        bbox: [-180, -90, 180, 90],
+        limit: 5,
+        minLength: 2,
+        flyTo: false,
+        marker: false,
+        mapboxgl: window.mapboxgl,
+      });
+      
+      // Add the geocoder to the container
+      geocoderContainer.appendChild(geocoder.onAdd());
+      
+      // Handle geocoder result
+      geocoder.on("result", (event) => {
+        const result = event.result;
+        const coordinates = result.center;
+        
+        // Set hidden input values for coordinates
+        if (locationLat && locationLng) {
+          locationLat.value = coordinates[1]; // latitude
+          locationLng.value = coordinates[0]; // longitude
+          
+          // Also set the attribute for form submission
+          locationLat.setAttribute('value', coordinates[1]);
+          locationLng.setAttribute('value', coordinates[0]);
+        }
+        
+        // Store the full address
+        if (locationAddressInput) {
+          locationAddressInput.value = result.place_name;
+        }
+        
+        // Extract country and city from context
+        if (countryInput && cityInput && result.context) {
+          // Find country and city from context
+          const countryContext = result.context.find(c => c.id.startsWith('country'));
+          const placeContext = result.context.find(c => c.id.startsWith('place'));
+          
+          const country = countryContext ? countryContext.text : 'Unknown';
+          let city = 'Unknown';
+          
+          if (placeContext) {
+            city = placeContext.text;
+          } else if (result.place_type.includes('place')) {
+            city = result.text;
+          }
+          
+          // Set values
+          countryInput.value = country;
+          cityInput.value = city;
+          
+          // Dispatch a custom event with the location data
+          window.dispatchEvent(new CustomEvent('location-selected', {
+            detail: {
+              latitude: coordinates[1],
+              longitude: coordinates[0],
+              address: result.place_name,
+              country: country,
+              city: city
+            }
+          }));
+        }
+      });
+    }
+    
+    // Single event listener for initialization
+    function setupInitialization() {
+      // Try to initialize immediately if possible
+      if (window.mapboxgl && window.MapboxGeocoder) {
+        initializeGeocoder();
+      } else {
+        // Set up a single event listener for the mapbox-loaded event
+        window.addEventListener('mapbox-loaded', initializeGeocoder, { once: true });
+      }
+    }
+    
+    // Wait for DOM to be ready
+    if (document.readyState === 'loading') {
+      document.addEventListener('DOMContentLoaded', setupInitialization, { once: true });
+    } else {
+      // DOM already loaded, set up initialization
+      setupInitialization();
+    }
+  })();
+</script>

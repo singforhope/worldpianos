@@ -1,8 +1,360 @@
 ---
 import MainLayout from "../../layouts/MainLayout.astro";
+import { getAllPianos } from "../../utils/dataService";
+import type { Piano } from "../../utils/dataService";
 
+let pianos: Piano[] = [];
+let error: string | null = null;
+
+try {
+  pianos = await getAllPianos();
+} catch (err) {
+  console.error("Error fetching pianos:", err);
+  error = err instanceof Error ? err.message : "Failed to load piano data";
+}
+
+// Group pianos by category
+const airportPianos = pianos.filter(piano => piano.category === "airport");
+const cityPianos = pianos.filter(piano => piano.category === "city");
+const otherPianos = pianos.filter(piano => piano.category !== "airport" && piano.category !== "city");
 ---
 
 <MainLayout>
-    <h1>Pianos</h1>
+    <div class="container mx-auto px-4 py-6">
+        <div class="flex flex-col sm:flex-row justify-between items-center mb-6">
+            <div>
+                <h1 class="text-3xl font-bold">Pianos Directory</h1>
+                <p class="text-base-content/70 mt-1">Browse and discover pianos around the world</p>
+            </div>
+            <button class="open-piano-modal btn btn-primary btn-sm mt-4 sm:mt-0">
+                <svg
+                    xmlns="http://www.w3.org/2000/svg"
+                    class="h-4 w-4 mr-1"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                >
+                    <path
+                        stroke-linecap="round"
+                        stroke-linejoin="round"
+                        stroke-width="2"
+                        d="M12 4v16m8-8H4"></path>
+                </svg>
+                Add Piano
+            </button>
+        </div>
+        
+        <!-- Search and filter bar -->
+        <div class="relative mb-6">
+            <div class="flex flex-col sm:flex-row gap-2">
+                <div class="relative flex-grow">
+                    <input
+                        type="text"
+                        id="piano-search"
+                        placeholder="Search pianos..."
+                        class="input input-bordered w-full pl-10"
+                    />
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="h-5 w-5 absolute left-3 top-1/2 transform -translate-y-1/2 text-base-content/50"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                        stroke="currentColor"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+                        />
+                    </svg>
+                </div>
+                <select class="select select-bordered w-full sm:w-auto" id="condition-filter">
+                    <option value="all">All Conditions</option>
+                    <option value="Excellent">Excellent</option>
+                    <option value="Good">Good</option>
+                    <option value="Fair">Fair</option>
+                    <option value="Poor">Poor</option>
+                    <option value="Unknown">Unknown</option>
+                </select>
+            </div>
+        </div>
+
+        {
+            error && (
+                <div class="alert alert-error mb-4">
+                    <svg
+                        xmlns="http://www.w3.org/2000/svg"
+                        class="stroke-current shrink-0 h-6 w-6"
+                        fill="none"
+                        viewBox="0 0 24 24"
+                    >
+                        <path
+                            stroke-linecap="round"
+                            stroke-linejoin="round"
+                            stroke-width="2"
+                            d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z"
+                        />
+                    </svg>
+                    <span>{error}</span>
+                </div>
+            )
+        }
+
+        {
+            !error && pianos.length === 0 && (
+                <div class="flex justify-center items-center h-64">
+                    <div class="loading loading-spinner loading-lg"></div>
+                </div>
+            )
+        }
+
+        <div class="tabs tabs-lifted mb-6">
+            <a class="tab tab-active font-medium" data-tab="all">All <span class="ml-1 badge badge-sm">{pianos.length}</span></a>
+            <a class="tab font-medium" data-tab="airport">Airport <span class="ml-1 badge badge-sm">{airportPianos.length}</span></a>
+            <a class="tab font-medium" data-tab="city">City <span class="ml-1 badge badge-sm">{cityPianos.length}</span></a>
+            {otherPianos.length > 0 && <a class="tab font-medium" data-tab="other">Other <span class="ml-1 badge badge-sm">{otherPianos.length}</span></a>}
+        </div>
+
+        <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-3" id="pianos-container">
+            {pianos.map(piano => (
+                <div
+                    class="card bg-base-100 shadow-sm hover:shadow-md transition-shadow piano-card border border-base-200"
+                    data-category={piano.category}
+                    data-condition={piano.condition}
+                    data-name={piano.name.toLowerCase()}
+                    data-location={piano.location.toLowerCase()}
+                >
+                    <div class="card-body p-4">
+                        <div class="flex justify-between items-start">
+                            <div>
+                                <h2 class="card-title text-lg">{piano.name}</h2>
+                                <p class="text-xs text-base-content/70 mt-1 line-clamp-1">{piano.location}</p>
+                            </div>
+                            {piano.verified && (
+                                <div class="badge badge-sm badge-secondary">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-3 w-3 mr-1" viewBox="0 0 20 20" fill="currentColor">
+                                        <path fill-rule="evenodd" d="M6.267 3.455a3.066 3.066 0 001.745-.723 3.066 3.066 0 013.976 0 3.066 3.066 0 001.745.723 3.066 3.066 0 012.812 2.812c.051.643.304 1.254.723 1.745a3.066 3.066 0 010 3.976 3.066 3.066 0 00-.723 1.745 3.066 3.066 0 01-2.812 2.812 3.066 3.066 0 00-1.745.723 3.066 3.066 0 01-3.976 0 3.066 3.066 0 00-1.745-.723 3.066 3.066 0 01-2.812-2.812 3.066 3.066 0 00-.723-1.745 3.066 3.066 0 010-3.976 3.066 3.066 0 00.723-1.745 3.066 3.066 0 012.812-2.812zm7.44 5.252a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clip-rule="evenodd" />
+                                    </svg>
+                                    Verified
+                                </div>
+                            )}
+                        </div>
+                        
+                        <div class="flex flex-wrap gap-1 mt-2">
+                            <div class="badge badge-sm badge-outline">
+                                {piano.type}
+                            </div>
+                            <div class={`badge badge-sm ${
+                                piano.condition === 'Excellent' ? 'badge-success' :
+                                piano.condition === 'Good' ? 'badge-info' :
+                                piano.condition === 'Fair' ? 'badge-warning' :
+                                piano.condition === 'Poor' ? 'badge-error' : 'badge-ghost'
+                            }`}>
+                                {piano.condition}
+                            </div>
+                            <div class="badge badge-sm badge-ghost">
+                                {piano.category}
+                            </div>
+                        </div>
+                        
+                        <div class="card-actions justify-end mt-3">
+                            <a href={`/pianos/${piano.id}`} class="btn btn-xs btn-primary">View Details</a>
+                        </div>
+                    </div>
+                </div>
+            ))}
+        </div>
+    </div>
+    
+    <!-- Add Toastify CSS -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+
+    <!-- Add Toastify JS -->
+    <script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
 </MainLayout>
+
+<script>
+    // Type definitions for TypeScript
+    declare global {
+        interface Window {
+            showToast?: (message: string, type: "success" | "error" | "warning" | "info") => void;
+            Toastify: any;
+        }
+    }
+
+    // Tab switching functionality
+    document.addEventListener('DOMContentLoaded', () => {
+        const tabs = document.querySelectorAll('.tab');
+        const pianoCards = document.querySelectorAll('.piano-card');
+        const addPianoBtn = document.querySelector('.open-piano-modal');
+        
+        // Create a showToast function if it doesn't exist
+        if (typeof window.showToast !== 'function') {
+            window.showToast = function(message, type: "success" | "error" | "warning" | "info" = 'info') {
+                // Check if Toastify is available
+                if (typeof window.Toastify === 'function') {
+                    window.Toastify({
+                        text: message,
+                        duration: 3000,
+                        close: true,
+                        gravity: "top",
+                        position: "right",
+                        className: `toastify-${type}`,
+                        style: {
+                            background: type === "success" ? "#36d399" :
+                                       type === "error" ? "#f87272" :
+                                       type === "warning" ? "#fbbd23" : "#3abff8",
+                            borderRadius: "8px",
+                            boxShadow: "0 4px 6px rgba(0, 0, 0, 0.1)"
+                        }
+                    }).showToast();
+                } else {
+                    // Fallback to alert if Toastify is not available
+                    console.log(`Toast (${type}): ${message}`);
+                }
+            };
+        }
+        
+        // Setup search and filter functionality
+        const searchInput = document.getElementById('piano-search') as HTMLInputElement;
+        const conditionFilter = document.getElementById('condition-filter') as HTMLSelectElement;
+        const pianosContainer = document.getElementById('pianos-container');
+        
+        // Function to check if a piano card should be visible based on current filters
+        function shouldShowCard(card: Element, category: string, searchTerm: string, condition: string) {
+            // Check category filter
+            const cardCategory = card.getAttribute('data-category');
+            let categoryMatch = false;
+            
+            if (category === 'all') {
+                categoryMatch = true;
+            } else if (category === 'other') {
+                categoryMatch = (cardCategory !== 'airport' && cardCategory !== 'city');
+            } else {
+                categoryMatch = cardCategory === category;
+            }
+            
+            // Check search term
+            const cardName = card.getAttribute('data-name') || '';
+            const cardLocation = card.getAttribute('data-location') || '';
+            const searchMatch = searchTerm === '' ||
+                cardName.includes(searchTerm) ||
+                cardLocation.includes(searchTerm);
+                
+            // Check condition filter
+            const cardCondition = card.getAttribute('data-condition');
+            const conditionMatch = condition === 'all' || cardCondition === condition;
+            
+            return categoryMatch && searchMatch && conditionMatch;
+        }
+        
+        // Function to update the UI based on current filters
+        function updatePianoDisplay() {
+            const activeTab = document.querySelector('.tab.tab-active');
+            const category = activeTab?.getAttribute('data-tab') || 'all';
+            const searchTerm = searchInput?.value.toLowerCase() || '';
+            const condition = conditionFilter?.value || 'all';
+            
+            let visibleCount = 0;
+            
+            pianoCards.forEach(card => {
+                if (shouldShowCard(card, category, searchTerm, condition)) {
+                    (card as HTMLElement).style.display = 'block';
+                    visibleCount++;
+                } else {
+                    (card as HTMLElement).style.display = 'none';
+                }
+            });
+            
+            // Show empty state if no pianos match the filters
+            const emptyState = document.getElementById('empty-state');
+            if (visibleCount === 0) {
+                if (!emptyState) {
+                    const newEmptyState = document.createElement('div');
+                    newEmptyState.id = 'empty-state';
+                    newEmptyState.className = 'col-span-full py-12 flex flex-col items-center justify-center text-center';
+                    newEmptyState.innerHTML = `
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-12 w-12 text-base-content/30 mb-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.172 16.172a4 4 0 015.656 0M9 10h.01M15 10h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
+                        </svg>
+                        <h3 class="text-lg font-semibold">No pianos found</h3>
+                        <p class="text-base-content/70 mt-1">Try adjusting your search or filters</p>
+                    `;
+                    pianosContainer?.appendChild(newEmptyState);
+                }
+            } else if (emptyState) {
+                emptyState.remove();
+            }
+        }
+        
+        // Add event listeners for search and filter
+        if (searchInput) {
+            searchInput.addEventListener('input', updatePianoDisplay);
+        }
+        
+        if (conditionFilter) {
+            conditionFilter.addEventListener('change', updatePianoDisplay);
+        }
+        
+        // Handle authentication for add piano button
+        if (addPianoBtn) {
+            addPianoBtn.addEventListener('click', async (e) => {
+                try {
+                    // Prevent default button behavior
+                    e.preventDefault();
+                    
+                    // Import auth from utils
+                    const { auth } = await import('../../utils/auth');
+                    
+                    // Check if user is authenticated
+                    const isAuthenticated = await auth.isAuthenticated();
+                    
+                    if (!isAuthenticated) {
+                        // If not authenticated, redirect to the login page
+                        // Store the return URL so user can be redirected back after login
+                        localStorage.setItem('returnTo', '/pianos');
+                        window.location.href = '/auth?message=Please log in to add a piano';
+                    }
+                    // If authenticated, the MainLayout script will handle the modal display
+                    
+                } catch (error) {
+                    console.error('Error checking authentication:', error);
+                    // Default to login page if there's an error
+                    localStorage.setItem('returnTo', '/pianos');
+                    window.location.href = '/auth?message=Please log in to add a piano';
+                }
+            });
+        }
+        
+        // Listen for messages from the iframe or modal
+        window.addEventListener('message', (event) => {
+            if (event.data && event.data.type === 'piano-added') {
+                console.log('Piano added:', event.data);
+                
+                // Show success toast
+                if (window.showToast) {
+                    window.showToast(`Piano "${event.data.pianoName}" added successfully!`, "success");
+                }
+                
+                // Reload the page to show the new piano
+                window.location.reload();
+            }
+        });
+
+        // Update tab switching to work with our filtering system
+        tabs.forEach(tab => {
+            tab.addEventListener('click', () => {
+                // Update active tab
+                tabs.forEach(t => t.classList.remove('tab-active'));
+                tab.classList.add('tab-active');
+                
+                // Update display based on new tab selection
+                updatePianoDisplay();
+            });
+        });
+        
+        // Initialize the display
+        updatePianoDisplay();
+    });
+</script>

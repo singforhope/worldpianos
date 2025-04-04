@@ -1,0 +1,730 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { supabase } from "../../../utils/supabase";
+
+// Get query parameters
+const { searchParams } = Astro.url;
+const page = parseInt(searchParams.get('page') || '1');
+const limit = 16; // More items per page for media grid
+const offset = (page - 1) * limit;
+const search = searchParams.get('search') || '';
+const filter = searchParams.get('filter') || 'all';
+const type = searchParams.get('type') || 'piano';
+const sort = searchParams.get('sort') || 'newest';
+
+// Initialize variables for media data
+let pianoMedia: any[] = [];
+let eventMedia: any[] = [];
+let totalCount = 0;
+let error: any = null;
+
+try {
+    // Build piano media query
+    let pianoMediaQuery = supabase
+        .from('piano_media')
+        .select('*, piano_id, user_id', { count: 'exact' });
+    
+    // Build event media query
+    let eventMediaQuery = supabase
+        .from('event_media')
+        .select('*, event_id, user_id', { count: 'exact' });
+    
+    // Apply filters
+    if (filter === 'flagged') {
+        pianoMediaQuery = pianoMediaQuery.eq('flagged', true);
+        eventMediaQuery = eventMediaQuery.eq('flagged', true);
+    }
+    
+    // Apply search if provided
+    if (search) {
+        pianoMediaQuery = pianoMediaQuery.ilike('description', `%${search}%`);
+        eventMediaQuery = eventMediaQuery.ilike('description', `%${search}%`);
+    }
+    
+    // Apply sorting
+    let orderColumn = 'created_at';
+    let ascending = false;
+    
+    if (sort === 'oldest') {
+        ascending = true;
+    }
+    
+    pianoMediaQuery = pianoMediaQuery.order(orderColumn, { ascending });
+    eventMediaQuery = eventMediaQuery.order(orderColumn, { ascending });
+    
+    // Fetch the data based on the media type
+    if (type === 'piano' || type === 'all') {
+        const { data, count, error: pianoError } = await pianoMediaQuery
+            .range(offset, offset + limit - 1);
+        
+        if (pianoError) throw pianoError;
+        
+        pianoMedia = data || [];
+        
+        if (type === 'piano') {
+            totalCount = count || 0;
+        }
+        
+        // If we have media items, fetch related data
+        if (pianoMedia.length > 0) {
+            // Get unique piano IDs
+            const pianoIds = [...new Set(pianoMedia
+                .map(media => media.piano_id)
+                .filter(Boolean))];
+            
+            // Get unique user IDs
+            const userIds = [...new Set(pianoMedia
+                .map(media => media.user_id)
+                .filter(Boolean))];
+            
+            // Fetch piano data
+            if (pianoIds.length > 0) {
+                const { data: pianos } = await supabase
+                    .from('pianos')
+                    .select('id, name')
+                    .in('id', pianoIds);
+                
+                if (pianos) {
+                    const pianoMap: Record<string, string> = pianos.reduce((acc: Record<string, string>, piano: any) => {
+                        acc[piano.id] = piano.name;
+                        return acc;
+                    }, {});
+                    
+                    pianoMedia = pianoMedia.map(media => ({
+                        ...media,
+                        piano_name: media.piano_id && pianoMap[media.piano_id] 
+                            ? pianoMap[media.piano_id]
+                            : 'Unknown Piano'
+                    }));
+                }
+            }
+            
+            // Fetch user data
+            if (userIds.length > 0) {
+                const { data: users } = await supabase
+                    .from('user_profiles')
+                    .select('id, display_name')
+                    .in('id', userIds);
+                
+                if (users) {
+                    const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user: any) => {
+                        acc[user.id] = user.display_name;
+                        return acc;
+                    }, {});
+                    
+                    pianoMedia = pianoMedia.map(media => ({
+                        ...media,
+                        user_name: media.user_id && userMap[media.user_id]
+                            ? userMap[media.user_id]
+                            : 'Anonymous'
+                    }));
+                }
+            }
+        }
+    }
+    
+    if (type === 'event' || type === 'all') {
+        const { data, count, error: eventError } = await eventMediaQuery
+            .range(offset, offset + limit - 1);
+        
+        if (eventError) throw eventError;
+        
+        eventMedia = data || [];
+        
+        if (type === 'event') {
+            totalCount = count || 0;
+        } else if (type === 'all') {
+            totalCount = (totalCount || 0) + (count || 0);
+        }
+        
+        // If we have event media items, fetch related data
+        if (eventMedia.length > 0) {
+            // Get unique event IDs
+            const eventIds = [...new Set(eventMedia
+                .map(media => media.event_id)
+                .filter(Boolean))];
+            
+            // Get unique user IDs
+            const userIds = [...new Set(eventMedia
+                .map(media => media.user_id)
+                .filter(Boolean))];
+            
+            // Fetch event data
+            if (eventIds.length > 0) {
+                const { data: events } = await supabase
+                    .from('events')
+                    .select('id, name')
+                    .in('id', eventIds);
+                
+                if (events) {
+                    const eventMap: Record<string, string> = events.reduce((acc: Record<string, string>, event: any) => {
+                        acc[event.id] = event.name;
+                        return acc;
+                    }, {});
+                    
+                    eventMedia = eventMedia.map(media => ({
+                        ...media,
+                        event_name: media.event_id && eventMap[media.event_id]
+                            ? eventMap[media.event_id]
+                            : 'Unknown Event'
+                    }));
+                }
+            }
+            
+            // Fetch user data
+            if (userIds.length > 0) {
+                const { data: users } = await supabase
+                    .from('user_profiles')
+                    .select('id, display_name')
+                    .in('id', userIds);
+                
+                if (users) {
+                    const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user: any) => {
+                        acc[user.id] = user.display_name;
+                        return acc;
+                    }, {});
+                    
+                    eventMedia = eventMedia.map(media => ({
+                        ...media,
+                        user_name: media.user_id && userMap[media.user_id]
+                            ? userMap[media.user_id]
+                            : 'Anonymous'
+                    }));
+                }
+            }
+        }
+    }
+} catch (err) {
+    console.error('Error fetching media:', err);
+    error = err;
+}
+
+// Format date for display
+const formatDate = (dateString: string) => {
+    try {
+        const date = new Date(dateString);
+        if (isNaN(date.getTime())) {
+            return 'Invalid date';
+        }
+        return date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (err) {
+        console.error(`Error formatting date: ${dateString}`, err);
+        return 'Unknown date';
+    }
+};
+
+// Pagination logic
+const totalPages = Math.ceil(totalCount / limit);
+const showPagination = totalPages > 1;
+const prevPage = page > 1 ? page - 1 : null;
+const nextPage = page < totalPages ? page + 1 : null;
+
+// Helper function to build URLs with query parameters
+const buildUrl = (newPage: number | null = null, newParams: Record<string, string> = {}) => {
+    const params = new URLSearchParams(searchParams);
+    
+    // Update page if provided
+    if (newPage !== null) {
+        params.set('page', newPage.toString());
+    }
+    
+    // Update any other params
+    Object.entries(newParams).forEach(([key, value]) => {
+        params.set(key, value);
+    });
+    
+    return `?${params.toString()}`;
+};
+
+// Combine media for 'all' view
+const allMedia = type === 'all' 
+    ? [...pianoMedia.map(m => ({ ...m, mediaType: 'piano' })), ...eventMedia.map(m => ({ ...m, mediaType: 'event' }))]
+      .sort((a, b) => sort === 'oldest' 
+          ? new Date(a.created_at).getTime() - new Date(b.created_at).getTime()
+          : new Date(b.created_at).getTime() - new Date(a.created_at).getTime())
+      .slice(0, limit)
+    : [];
+
+// Determine which media array to use
+const mediaToDisplay = type === 'piano' ? pianoMedia : type === 'event' ? eventMedia : allMedia;
+---
+
+<AdminLayout>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li>Media Management</li>
+        </ul>
+    </div>
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 class="text-3xl font-bold">Media Management</h1>
+    </div>
+    
+    <!-- Filters and Search -->
+    <div class="bg-base-100 shadow-lg rounded-lg p-4 mb-8">
+        <form class="grid grid-cols-1 md:grid-cols-5 gap-4">
+            <!-- Media Type -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Media Type</span>
+                </label>
+                <select name="type" class="select select-bordered w-full" onchange="this.form.submit()">
+                    <option value="all" selected={type === 'all'}>All Media</option>
+                    <option value="piano" selected={type === 'piano'}>Piano Media</option>
+                    <option value="event" selected={type === 'event'}>Event Media</option>
+                </select>
+            </div>
+            
+            <!-- Filter -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Filter</span>
+                </label>
+                <select name="filter" class="select select-bordered w-full" onchange="this.form.submit()">
+                    <option value="all" selected={filter === 'all'}>All Media</option>
+                    <option value="flagged" selected={filter === 'flagged'}>Flagged Media</option>
+                </select>
+            </div>
+            
+            <!-- Sort -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Sort By</span>
+                </label>
+                <select name="sort" class="select select-bordered w-full" onchange="this.form.submit()">
+                    <option value="newest" selected={sort === 'newest'}>Newest First</option>
+                    <option value="oldest" selected={sort === 'oldest'}>Oldest First</option>
+                </select>
+            </div>
+            
+            <!-- Search -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Search</span>
+                </label>
+                <div class="input-group">
+                    <input 
+                        type="text" 
+                        name="search" 
+                        placeholder="Search by description..." 
+                        class="input input-bordered w-full" 
+                        value={search}
+                    />
+                    <button class="btn btn-square" type="submit">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" /></svg>
+                    </button>
+                </div>
+            </div>
+            
+            <!-- Reset -->
+            <div class="form-control">
+                <label class="label">
+                    <span class="label-text">Reset</span>
+                </label>
+                <a href="/admin/media" class="btn btn-outline w-full">Reset Filters</a>
+            </div>
+        </form>
+    </div>
+    
+    <!-- Media Content Display -->
+    <div class="bg-base-100 shadow-lg rounded-lg overflow-hidden p-6">
+        <!-- Error display -->
+        {error && (
+            <div class="alert alert-error">
+                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                </svg>
+                <span>Error loading media: {error instanceof Error ? error.message : 'Unknown error'}</span>
+            </div>
+        )}
+        
+        <!-- Empty state -->
+        {!error && mediaToDisplay.length === 0 && (
+            <div class="alert">
+                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+                <span>No media found matching your criteria.</span>
+            </div>
+        )}
+        
+        <!-- Media Grid -->
+        {!error && mediaToDisplay.length > 0 && (
+            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
+                {mediaToDisplay.map((media) => (
+                    <div class="card bg-base-200 h-full">
+                        <figure class="h-48 overflow-hidden">
+                            {media.media_type.startsWith('image/') ? (
+                                <img src={media.url} alt={media.description || 'Media image'} class="object-cover w-full h-full" />
+                            ) : media.media_type.startsWith('video/') ? (
+                                <video src={media.url} controls class="object-cover w-full h-full">
+                                    Your browser does not support the video tag.
+                                </video>
+                            ) : (
+                                <div class="flex items-center justify-center w-full h-full bg-base-300">
+                                    <span>Unsupported media type</span>
+                                </div>
+                            )}
+                        </figure>
+                        <div class="card-body p-4">
+                            <h3 class="card-title text-sm">
+                                {type === 'piano' || (type === 'all' && media.mediaType === 'piano') 
+                                    ? media.piano_name 
+                                    : media.event_name}
+                            </h3>
+                            <p class="text-xs">{media.description || 'No description'}</p>
+                            <div class="flex flex-wrap gap-1 mt-1">
+                                <div class="badge badge-outline">{media.media_type}</div>
+                                {media.flagged && (
+                                    <div class="badge badge-warning">Flagged</div>
+                                )}
+                            </div>
+                            <p class="text-xs opacity-70 mt-2">
+                                Uploaded by {media.user_name || 'Unknown'} 
+                                <br/>
+                                on {formatDate(media.created_at)}
+                            </p>
+                            <div class="card-actions justify-end mt-4">
+                                {media.flagged ? (
+                                    <button 
+                                        class="btn btn-xs btn-outline btn-success unflag-btn"
+                                        data-id={media.id}
+                                        data-type={type === 'piano' || (type === 'all' && media.mediaType === 'piano') ? 'piano_media' : 'event_media'}
+                                    >
+                                        Approve
+                                    </button>
+                                ) : (
+                                    <button 
+                                        class="btn btn-xs btn-outline btn-warning flag-btn"
+                                        data-id={media.id}
+                                        data-type={type === 'piano' || (type === 'all' && media.mediaType === 'piano') ? 'piano_media' : 'event_media'}
+                                    >
+                                        Flag
+                                    </button>
+                                )}
+                                <button 
+                                    class="btn btn-xs btn-error delete-btn"
+                                    data-id={media.id}
+                                    data-type={type === 'piano' || (type === 'all' && media.mediaType === 'piano') ? 'piano_media' : 'event_media'}
+                                >
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                ))}
+            </div>
+        )}
+        
+        <!-- Pagination -->
+        {showPagination && (
+            <div class="flex justify-center mt-8">
+                <div class="join">
+                    {prevPage && 
+                        <a href={`?${new URLSearchParams({...Object.fromEntries(searchParams), page: prevPage.toString()})}`} class="join-item btn">«</a>
+                    }
+                    
+                    {/* First page */}
+                    <a 
+                        href={`?${new URLSearchParams({...Object.fromEntries(searchParams), page: '1'})}`}
+                        class={`join-item btn ${page === 1 ? 'btn-active' : ''}`}
+                    >
+                        1
+                    </a>
+                    
+                    {/* Ellipsis for large page ranges */}
+                    {page > 3 && totalPages > 5 && 
+                        <span class="join-item btn btn-disabled">...</span>
+                    }
+                    
+                    {/* Current page and neighbors */}
+                    {page > 2 && page < totalPages && 
+                        <a 
+                            href={`?${new URLSearchParams({...Object.fromEntries(searchParams), page: page.toString()})}`}
+                            class="join-item btn btn-active"
+                        >
+                            {page}
+                        </a>
+                    }
+                    
+                    {/* Ellipsis for large page ranges */}
+                    {page < totalPages - 2 && totalPages > 5 && 
+                        <span class="join-item btn btn-disabled">...</span>
+                    }
+                    
+                    {/* Last page */}
+                    {totalPages > 1 && 
+                        <a 
+                            href={`?${new URLSearchParams({...Object.fromEntries(searchParams), page: totalPages.toString()})}`} 
+                            class={`join-item btn ${page === totalPages ? 'btn-active' : ''}`}
+                        >
+                            {totalPages}
+                        </a>
+                    }
+                    
+                    {nextPage && 
+                        <a href={`?${new URLSearchParams({...Object.fromEntries(searchParams), page: nextPage.toString()})}`} class="join-item btn">»</a>
+                    }
+                </div>
+            </div>
+        )}
+    </div>
+</AdminLayout>
+
+<script>
+    // Import types
+    import type { SupabaseClient } from '@supabase/supabase-js';
+    
+    // Safer import pattern for Supabase
+    let supabaseClient: SupabaseClient | null = null;
+    
+    // Function to get Supabase client
+    async function getSupabaseClient(): Promise<SupabaseClient> {
+        if (supabaseClient) return supabaseClient;
+        
+        try {
+            const { supabase } = await import('../../../utils/supabase');
+            if (!supabase) {
+                throw new Error('Failed to initialize Supabase client');
+            }
+            supabaseClient = supabase;
+            return supabaseClient;
+        } catch (error) {
+            console.error('Error importing Supabase client:', error);
+            throw new Error('Database connection failed. Please try again later.');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Create modal for notifications
+        const showNotification = (title: string, message: string, isSuccess = true) => {
+            // Create modal if it doesn't exist yet
+            let modal = document.getElementById('notification-modal') as HTMLDialogElement;
+            
+            if (!modal) {
+                modal = document.createElement('dialog');
+                modal.id = 'notification-modal';
+                modal.className = 'modal';
+                
+                modal.innerHTML = `
+                    <div class="modal-box">
+                        <h3 id="notification-title" class="font-bold text-lg"></h3>
+                        <p id="notification-message" class="py-4"></p>
+                        <div class="modal-action">
+                            <button id="notification-ok-btn" class="btn">OK</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                const okButton = modal.querySelector('#notification-ok-btn');
+                if (okButton) {
+                    okButton.addEventListener('click', () => {
+                        modal.close();
+                    });
+                }
+            }
+            
+            const titleElement = modal.querySelector('#notification-title');
+            const messageElement = modal.querySelector('#notification-message');
+            
+            if (titleElement) {
+                titleElement.textContent = title;
+                titleElement.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            }
+            
+            if (messageElement) {
+                messageElement.textContent = message;
+            }
+            
+            modal.showModal();
+        };
+        
+        // Create confirmation modal
+        const showConfirmation = (title: string, message: string, onConfirm: () => void) => {
+            let modal = document.getElementById('confirm-modal') as HTMLDialogElement;
+            
+            if (!modal) {
+                modal = document.createElement('dialog');
+                modal.id = 'confirm-modal';
+                modal.className = 'modal';
+                
+                modal.innerHTML = `
+                    <div class="modal-box">
+                        <h3 id="confirm-title" class="font-bold text-lg text-error"></h3>
+                        <p id="confirm-message" class="py-4"></p>
+                        <div class="modal-action">
+                            <button id="confirm-cancel-btn" class="btn">Cancel</button>
+                            <button id="confirm-ok-btn" class="btn btn-error">Confirm</button>
+                        </div>
+                    </div>
+                `;
+                
+                document.body.appendChild(modal);
+                
+                const cancelButton = modal.querySelector('#confirm-cancel-btn');
+                if (cancelButton) {
+                    cancelButton.addEventListener('click', () => {
+                        modal.close();
+                    });
+                }
+            }
+            
+            const titleElement = modal.querySelector('#confirm-title');
+            const messageElement = modal.querySelector('#confirm-message');
+            const confirmButton = modal.querySelector('#confirm-ok-btn');
+            
+            if (titleElement) {
+                titleElement.textContent = title;
+            }
+            
+            if (messageElement) {
+                messageElement.textContent = message;
+            }
+            
+            if (confirmButton) {
+                const newConfirmButton = confirmButton.cloneNode(true);
+                confirmButton.parentNode?.replaceChild(newConfirmButton, confirmButton);
+                
+                newConfirmButton.addEventListener('click', () => {
+                    modal.close();
+                    onConfirm();
+                });
+            }
+            
+            modal.showModal();
+        };
+        
+        // Function to flag media
+        const handleFlagMedia = async (id: string, type: string) => {
+            try {
+                const supabase = await getSupabaseClient();
+                
+                const { error } = await supabase
+                    .from(type)
+                    .update({ flagged: true })
+                    .eq('id', id);
+                
+                if (error) {
+                    if (error.code === '42501' || error.message?.includes('permission')) {
+                        throw new Error('Permission denied: You may not have rights to modify this media');
+                    }
+                    throw error;
+                }
+                
+                // Show success message
+                showNotification('Success', 'Media flagged successfully!', true);
+                setTimeout(() => window.location.reload(), 1500);
+            } catch (error) {
+                console.error('Error flagging media:', error);
+                showNotification('Error', error instanceof Error ? error.message : 'Failed to flag media', false);
+            }
+        };
+        
+        // Function to unflag media
+        const handleUnflagMedia = async (id: string, type: string) => {
+            try {
+                const supabase = await getSupabaseClient();
+                
+                const { error } = await supabase
+                    .from(type)
+                    .update({ flagged: false })
+                    .eq('id', id);
+                
+                if (error) {
+                    if (error.code === '42501' || error.message?.includes('permission')) {
+                        throw new Error('Permission denied: You may not have rights to modify this media');
+                    }
+                    throw error;
+                }
+                
+                // Show success message
+                showNotification('Success', 'Media approved successfully!', true);
+                setTimeout(() => window.location.reload(), 1500);
+            } catch (error) {
+                console.error('Error approving media:', error);
+                showNotification('Error', error instanceof Error ? error.message : 'Failed to approve media', false);
+            }
+        };
+        
+        // Function to delete media
+        const handleDeleteMedia = async (id: string, type: string) => {
+            showConfirmation(
+                'Delete Media',
+                'Are you sure you want to delete this media? This action cannot be undone.',
+                async () => {
+                    try {
+                        const supabase = await getSupabaseClient();
+                        
+                        const { error } = await supabase
+                            .from(type)
+                            .delete()
+                            .eq('id', id);
+                        
+                        if (error) {
+                            if (error.code === '42501' || error.message?.includes('permission')) {
+                                throw new Error('Permission denied: You may not have rights to delete this media');
+                            } else if (error.code === '23503') {
+                                throw new Error('Cannot delete: This media is referenced by other items');
+                            }
+                            throw error;
+                        }
+                        
+                        // Show success message
+                        showNotification('Success', 'Media deleted successfully!', true);
+                        setTimeout(() => window.location.reload(), 1500);
+                    } catch (error) {
+                        console.error('Error deleting media:', error);
+                        showNotification('Error', error instanceof Error ? error.message : 'Failed to delete media', false);
+                    }
+                }
+            );
+        };
+        
+        // Add event listeners for flag buttons
+        const flagButtons = document.querySelectorAll('.flag-btn');
+        flagButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (id && type) {
+                    handleFlagMedia(id, type);
+                }
+            });
+        });
+        
+        // Add event listeners for unflag buttons
+        const unflagButtons = document.querySelectorAll('.unflag-btn');
+        unflagButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (id && type) {
+                    handleUnflagMedia(id, type);
+                }
+            });
+        });
+        
+        // Add event listeners for delete buttons
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (id && type) {
+                    handleDeleteMedia(id, type);
+                }
+            });
+        });
+    });
+</script> 

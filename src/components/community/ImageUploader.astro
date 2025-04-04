@@ -1,0 +1,78 @@
+---
+// Props for the component
+interface Props {
+  id?: string;
+  required?: boolean;
+  label?: string;
+  accept?: string;
+  name?: string;
+}
+
+const { 
+  id = "image-uploader",
+  required = false,
+  label = "Image",
+  accept = "image/*",
+  name = "image"
+} = Astro.props;
+
+// Generate unique IDs for the form elements
+const fileInputId = `${id}-input`;
+const imagePreviewId = `${id}-preview`;
+const previewImageId = `${id}-preview-image`;
+const removeImageBtnId = `${id}-remove-btn`;
+---
+
+<div class="form-control w-full">
+  <label for={fileInputId} class="label">
+    <span class="label-text">{label}</span>
+    {required && <span class="label-text-alt text-error">*</span>}
+  </label>
+  <input 
+    type="file" 
+    id={fileInputId} 
+    name={name} 
+    accept={accept} 
+    class="file-input file-input-bordered w-full" 
+    {required}
+  />
+  <div id={imagePreviewId} class="mt-2 hidden">
+    <img id={previewImageId} src="#" alt="Preview" class="max-h-48 rounded-lg" />
+    <button type="button" id={removeImageBtnId} class="btn btn-sm btn-error mt-2">Remove Image</button>
+  </div>
+</div>
+
+<script define:vars={{ fileInputId, imagePreviewId, previewImageId, removeImageBtnId }}>
+  // @ts-nocheck
+  document.addEventListener("DOMContentLoaded", () => {
+    const fileInput = document.getElementById(fileInputId);
+    const imagePreview = document.getElementById(imagePreviewId);
+    const previewImage = document.getElementById(previewImageId);
+    const removeImageBtn = document.getElementById(removeImageBtnId);
+    
+    // Handle file input change for image preview
+    if (fileInput && imagePreview && previewImage) {
+      fileInput.addEventListener("change", () => {
+        const file = fileInput.files[0];
+        if (file) {
+          const reader = new FileReader();
+          reader.onload = (e) => {
+            previewImage.src = e.target.result;
+            imagePreview.classList.remove("hidden");
+          };
+          reader.readAsDataURL(file);
+        } else {
+          imagePreview.classList.add("hidden");
+        }
+      });
+    }
+    
+    // Handle remove image button
+    if (removeImageBtn && fileInput && imagePreview) {
+      removeImageBtn.addEventListener("click", () => {
+        fileInput.value = "";
+        imagePreview.classList.add("hidden");
+      });
+    }
+  });
+</script>

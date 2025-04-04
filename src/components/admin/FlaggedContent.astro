@@ -1,0 +1,662 @@
+---
+import { supabase } from "../../utils/supabase";
+
+// Fetch flagged pianos with simpler query
+let flaggedPianos = [];
+let pianosError = null;
+try {
+    // First, get basic piano data
+    const { data, error } = await supabase
+        .from('pianos')
+        .select('*, created_by')
+        .eq('flagged', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+    
+    if (error) throw error;
+    flaggedPianos = data || [];
+    
+    // If we have pianos, fetch the user data separately
+    if (flaggedPianos.length > 0) {
+        // Get unique user IDs
+        const userIds = [...new Set(flaggedPianos
+            .map(piano => piano.created_by)
+            .filter(Boolean))];
+        
+        if (userIds.length > 0) {
+            const { data: users } = await supabase
+                .from('user_profiles')
+                .select('id, display_name')
+                .in('id', userIds);
+            
+            if (users) {
+                // Create lookup map for user display names
+                const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user) => {
+                    acc[user.id] = user.display_name;
+                    return acc;
+                }, {});
+                
+                // Add user display names to pianos
+                flaggedPianos = flaggedPianos.map(piano => ({
+                    ...piano,
+                    user_display_name: piano.created_by && userMap.hasOwnProperty(piano.created_by)
+                        ? userMap[piano.created_by]
+                        : 'Unknown'
+                }));
+            }
+        }
+    }
+} catch (err) {
+    console.error('Error fetching flagged pianos:', err);
+    pianosError = err instanceof Error ? err : new Error('An unexpected error occurred');
+}
+
+// Fetch flagged events with simpler query
+let flaggedEvents = [];
+let eventsError = null;
+try {
+    // First, get basic event data
+    const { data, error } = await supabase
+        .from('events')
+        .select('*, created_by')
+        .eq('flagged', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+    
+    if (error) throw error;
+    flaggedEvents = data || [];
+    
+    // If we have events, fetch the user data separately
+    if (flaggedEvents.length > 0) {
+        // Get unique user IDs
+        const userIds = [...new Set(flaggedEvents
+            .map(event => event.created_by)
+            .filter(Boolean))];
+        
+        if (userIds.length > 0) {
+            const { data: users } = await supabase
+                .from('user_profiles')
+                .select('id, display_name')
+                .in('id', userIds);
+            
+            if (users) {
+                // Create lookup map for user display names
+                const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user) => {
+                    acc[user.id] = user.display_name;
+                    return acc;
+                }, {});
+                
+                // Add user display names to events
+                flaggedEvents = flaggedEvents.map(event => ({
+                    ...event,
+                    user_display_name: event.created_by && userMap.hasOwnProperty(event.created_by)
+                        ? userMap[event.created_by]
+                        : 'Unknown'
+                }));
+            }
+        }
+    }
+} catch (err) {
+    console.error('Error fetching flagged events:', err);
+    eventsError = err instanceof Error ? err : new Error('An unexpected error occurred');
+}
+
+// Fetch flagged media with simpler query
+let flaggedMedia = [];
+let mediaError = null;
+try {
+    // First, get basic media data
+    const { data, error } = await supabase
+        .from('piano_media')
+        .select('*, piano_id, user_id')
+        .eq('flagged', true)
+        .order('created_at', { ascending: false })
+        .limit(10);
+    
+    if (error) throw error;
+    flaggedMedia = data || [];
+    
+    // If we have media, fetch the piano and user data separately
+    if (flaggedMedia.length > 0) {
+        // Get unique piano IDs
+        const pianoIds = [...new Set(flaggedMedia
+            .map(media => media.piano_id)
+            .filter(Boolean))];
+        
+        if (pianoIds.length > 0) {
+            const { data: pianos } = await supabase
+                .from('pianos')
+                .select('id, name')
+                .in('id', pianoIds);
+            
+            if (pianos) {
+                // Create lookup map for piano names
+                const pianoMap: Record<string, string> = pianos.reduce((acc: Record<string, string>, piano) => {
+                    acc[piano.id] = piano.name;
+                    return acc;
+                }, {});
+                
+                // Add piano names to media
+                flaggedMedia = flaggedMedia.map(media => ({
+                    ...media,
+                    piano_name: media.piano_id && pianoMap.hasOwnProperty(media.piano_id)
+                        ? pianoMap[media.piano_id]
+                        : 'Unknown Piano'
+                }));
+            }
+        }
+        
+        // Get unique user IDs
+        const userIds = [...new Set(flaggedMedia
+            .map(media => media.user_id)
+            .filter(Boolean))];
+        
+        if (userIds.length > 0) {
+            const { data: users } = await supabase
+                .from('user_profiles')
+                .select('id, display_name')
+                .in('id', userIds);
+            
+            if (users) {
+                // Create lookup map for user display names
+                const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user) => {
+                    acc[user.id] = user.display_name;
+                    return acc;
+                }, {});
+                
+                // Add user display names to media
+                flaggedMedia = flaggedMedia.map(media => ({
+                    ...media,
+                    user_display_name: media.user_id && userMap.hasOwnProperty(media.user_id)
+                        ? userMap[media.user_id]
+                        : 'Unknown'
+                }));
+            }
+        }
+    }
+} catch (err) {
+    console.error('Error fetching flagged media:', err);
+    mediaError = err instanceof Error ? err : new Error('An unexpected error occurred');
+}
+
+// Format date for display
+const formatDate = (dateString: string) => {
+    try {
+        const date = new Date(dateString);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            return 'Invalid date';
+        }
+        
+        return date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (err) {
+        console.error(`Error formatting date: ${dateString}`, err);
+        return dateString || 'Unknown date';
+    }
+};
+---
+
+<div class="space-y-8">
+    <!-- Flagged Pianos -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Flagged Pianos</h2>
+            
+            {pianosError && (
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Error loading flagged pianos: {pianosError.message}</span>
+                </div>
+            )}
+            
+            {!pianosError && (!flaggedPianos || flaggedPianos.length === 0) && (
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>No flagged pianos found.</span>
+                </div>
+            )}
+            
+            {!pianosError && flaggedPianos && flaggedPianos.length > 0 && (
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Created By</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {flaggedPianos.map((piano) => (
+                                <tr>
+                                    <td>{piano.name}</td>
+                                    <td>{piano.location}</td>
+                                    <td>{piano.user_display_name}</td>
+                                    <td>{formatDate(piano.created_at)}</td>
+                                    <td>
+                                        <div class="flex gap-2">
+                                            <a href={`/admin/pianos/${piano.id}`} class="btn btn-xs btn-primary">Review</a>
+                                            <button 
+                                                class="btn btn-xs btn-outline btn-success unflag-btn"
+                                                data-id={piano.id}
+                                                data-type="piano"
+                                            >
+                                                Unflag
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    </div>
+    
+    <!-- Flagged Events -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Flagged Events</h2>
+            
+            {eventsError && (
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Error loading flagged events: {eventsError.message}</span>
+                </div>
+            )}
+            
+            {!eventsError && (!flaggedEvents || flaggedEvents.length === 0) && (
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>No flagged events found.</span>
+                </div>
+            )}
+            
+            {!eventsError && flaggedEvents && flaggedEvents.length > 0 && (
+                <div class="overflow-x-auto">
+                    <table class="table table-zebra w-full">
+                        <thead>
+                            <tr>
+                                <th>Name</th>
+                                <th>Location</th>
+                                <th>Created By</th>
+                                <th>Date</th>
+                                <th>Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {flaggedEvents.map((event) => (
+                                <tr>
+                                    <td>{event.name}</td>
+                                    <td>{event.location}</td>
+                                    <td>{event.user_display_name}</td>
+                                    <td>{formatDate(event.created_at)}</td>
+                                    <td>
+                                        <div class="flex gap-2">
+                                            <a href={`/admin/events/${event.id}`} class="btn btn-xs btn-primary">Review</a>
+                                            <button 
+                                                class="btn btn-xs btn-outline btn-success unflag-btn"
+                                                data-id={event.id}
+                                                data-type="event"
+                                            >
+                                                Unflag
+                                            </button>
+                                        </div>
+                                    </td>
+                                </tr>
+                            ))}
+                        </tbody>
+                    </table>
+                </div>
+            )}
+        </div>
+    </div>
+    
+    <!-- Flagged Media -->
+    <div class="card bg-base-100 shadow-xl">
+        <div class="card-body">
+            <h2 class="card-title">Flagged Media</h2>
+            
+            {mediaError && (
+                <div class="alert alert-error">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>Error loading flagged media: {mediaError.message}</span>
+                </div>
+            )}
+            
+            {!mediaError && (!flaggedMedia || flaggedMedia.length === 0) && (
+                <div class="alert alert-success">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>No flagged media found.</span>
+                </div>
+            )}
+            
+            {!mediaError && flaggedMedia && flaggedMedia.length > 0 && (
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                    {flaggedMedia.map((media) => (
+                        <div class="card bg-base-200">
+                            <figure class="h-48 overflow-hidden">
+                                {media.media_type.startsWith('image/') ? (
+                                    <img src={media.url} alt={media.description || 'Piano image'} class="object-cover w-full h-full" />
+                                ) : media.media_type.startsWith('video/') ? (
+                                    <video src={media.url} controls class="object-cover w-full h-full">
+                                        Your browser does not support the video tag.
+                                    </video>
+                                ) : (
+                                    <div class="flex items-center justify-center w-full h-full bg-base-300">
+                                        <span>Unsupported media type</span>
+                                    </div>
+                                )}
+                            </figure>
+                            <div class="card-body p-4">
+                                <h3 class="card-title text-sm">{media.piano_name}</h3>
+                                <p class="text-xs">{media.description || 'No description'}</p>
+                                <p class="text-xs opacity-70">Uploaded by {media.user_display_name}</p>
+                                <div class="card-actions justify-end mt-2">
+                                    <button 
+                                        class="btn btn-xs btn-outline btn-success unflag-btn"
+                                        data-id={media.id}
+                                        data-type="media"
+                                    >
+                                        Approve
+                                    </button>
+                                    <button 
+                                        class="btn btn-xs btn-error delete-btn"
+                                        data-id={media.id}
+                                        data-type="media"
+                                    >
+                                        Delete
+                                    </button>
+                                </div>
+                            </div>
+                        </div>
+                    ))}
+                </div>
+            )}
+        </div>
+    </div>
+</div>
+
+<script>
+    // Import types
+    import type { SupabaseClient } from '@supabase/supabase-js';
+    
+    // Safer import pattern
+    let supabaseClient: SupabaseClient | null = null;
+    
+    // Safe import function
+    async function getSupabaseClient(): Promise<SupabaseClient> {
+        if (supabaseClient) return supabaseClient;
+        
+        try {
+            const { supabase } = await import('../../utils/supabase');
+            if (!supabase) {
+                throw new Error('Failed to initialize Supabase client');
+            }
+            supabaseClient = supabase;
+            return supabaseClient;
+        } catch (error) {
+            console.error('Error importing Supabase client:', error);
+            throw new Error('Database connection failed. Please try again later.');
+        }
+    }
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Create modal for notifications instead of using alert
+        const showNotification = (title: string, message: string, isSuccess = true) => {
+            // Create modal if it doesn't exist yet
+            let modal = document.getElementById('notification-modal') as HTMLDialogElement;
+            
+            if (!modal) {
+                // Create modal element
+                modal = document.createElement('dialog');
+                modal.id = 'notification-modal';
+                modal.className = 'modal';
+                
+                // Create modal content
+                modal.innerHTML = `
+                    <div class="modal-box">
+                        <h3 id="notification-title" class="font-bold text-lg"></h3>
+                        <p id="notification-message" class="py-4"></p>
+                        <div class="modal-action">
+                            <button id="notification-ok-btn" class="btn">OK</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add modal to body
+                document.body.appendChild(modal);
+                
+                // Add event listener to OK button
+                const okButton = modal.querySelector('#notification-ok-btn');
+                if (okButton) {
+                    okButton.addEventListener('click', () => {
+                        modal.close();
+                    });
+                }
+            }
+            
+            // Set modal content
+            const titleElement = modal.querySelector('#notification-title');
+            const messageElement = modal.querySelector('#notification-message');
+            
+            if (titleElement) {
+                titleElement.textContent = title;
+                titleElement.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            }
+            
+            if (messageElement) {
+                messageElement.textContent = message;
+            }
+            
+            // Show modal
+            modal.showModal();
+        };
+        
+        // Create confirmation modal for delete actions
+        const showConfirmation = (title: string, message: string, onConfirm: () => void) => {
+            // Create modal if it doesn't exist yet
+            let modal = document.getElementById('confirm-modal') as HTMLDialogElement;
+            
+            if (!modal) {
+                // Create modal element
+                modal = document.createElement('dialog');
+                modal.id = 'confirm-modal';
+                modal.className = 'modal';
+                
+                // Create modal content
+                modal.innerHTML = `
+                    <div class="modal-box">
+                        <h3 id="confirm-title" class="font-bold text-lg"></h3>
+                        <p id="confirm-message" class="py-4"></p>
+                        <div class="modal-action">
+                            <button id="confirm-cancel-btn" class="btn">Cancel</button>
+                            <button id="confirm-ok-btn" class="btn btn-error">Confirm</button>
+                        </div>
+                    </div>
+                `;
+                
+                // Add modal to body
+                document.body.appendChild(modal);
+                
+                // Add event listener to Cancel button
+                const cancelButton = modal.querySelector('#confirm-cancel-btn');
+                if (cancelButton) {
+                    cancelButton.addEventListener('click', () => {
+                        modal.close();
+                    });
+                }
+            }
+            
+            // Set modal content
+            const titleElement = modal.querySelector('#confirm-title');
+            const messageElement = modal.querySelector('#confirm-message');
+            const confirmButton = modal.querySelector('#confirm-ok-btn');
+            
+            if (titleElement) {
+                titleElement.textContent = title;
+            }
+            
+            if (messageElement) {
+                messageElement.textContent = message;
+            }
+            
+            // Set up confirm action
+            if (confirmButton) {
+                // Remove any existing event listeners
+                const newConfirmButton = confirmButton.cloneNode(true);
+                confirmButton.parentNode?.replaceChild(newConfirmButton, confirmButton);
+                
+                // Add new event listener
+                newConfirmButton.addEventListener('click', () => {
+                    modal.close();
+                    onConfirm();
+                });
+            }
+            
+            // Show modal
+            modal.showModal();
+        };
+        
+        // Unflag buttons
+        const unflagButtons = document.querySelectorAll('.unflag-btn');
+        unflagButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (!id || !type) return;
+                
+                try {
+                    // Get Supabase client
+                    const supabase = await getSupabaseClient();
+                    
+                    let table;
+                    switch (type) {
+                        case 'piano':
+                            table = 'pianos';
+                            break;
+                        case 'event':
+                            table = 'events';
+                            break;
+                        case 'media':
+                            table = 'piano_media';
+                            break;
+                        default:
+                            throw new Error('Invalid content type');
+                    }
+                    
+                    // Update flagged status
+                    const { error } = await supabase
+                        .from(table)
+                        .update({ flagged: false })
+                        .eq('id', id);
+                    
+                    if (error) {
+                        // Handle specific error types
+                        if (error.code === '42501' || error.message?.includes('permission')) {
+                            throw new Error('Permission denied: You may not have rights to modify this content');
+                        }
+                        throw error;
+                    }
+                    
+                    // Remove row from table or card from grid
+                    const row = btn.closest('tr');
+                    const card = btn.closest('.card');
+                    
+                    if (row) {
+                        row.remove();
+                    } else if (card) {
+                        card.remove();
+                    }
+                    
+                    // Show success message
+                    showNotification('Success', 'Content unflagged successfully!', true);
+                } catch (error) {
+                    console.error('Error unflagging content:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        showNotification('Error', `Error: ${error.message}`, false);
+                    } else {
+                        showNotification('Error', 'Failed to unflag content', false);
+                    }
+                }
+            });
+        });
+        
+        // Delete buttons
+        const deleteButtons = document.querySelectorAll('.delete-btn');
+        deleteButtons.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const id = btn.getAttribute('data-id');
+                const type = btn.getAttribute('data-type');
+                
+                if (!id || !type) return;
+                
+                // Confirm deletion
+                showConfirmation(
+                    'Delete Content',
+                    'Are you sure you want to delete this content? This action cannot be undone.',
+                    async () => {
+                        try {
+                            // Get Supabase client
+                            const supabase = await getSupabaseClient();
+                            
+                            let table;
+                            switch (type) {
+                                case 'media':
+                                    table = 'piano_media';
+                                    break;
+                                default:
+                                    throw new Error('Invalid content type');
+                            }
+                            
+                            // Delete content
+                            const { error } = await supabase
+                                .from(table)
+                                .delete()
+                                .eq('id', id);
+                            
+                            if (error) {
+                                // Handle specific error types
+                                if (error.code === '42501' || error.message?.includes('permission')) {
+                                    throw new Error('Permission denied: You may not have rights to delete this content');
+                                } else if (error.code === '23503') {
+                                    throw new Error('Cannot delete: This content is referenced by other items');
+                                }
+                                throw error;
+                            }
+                            
+                            // Remove card from grid
+                            const card = btn.closest('.card');
+                            if (card) {
+                                card.remove();
+                            }
+                            
+                            // Show success message
+                            showNotification('Success', 'Content deleted successfully!', true);
+                        } catch (error) {
+                            console.error('Error deleting content:', error);
+                            
+                            // Show error message
+                            if (error instanceof Error) {
+                                showNotification('Error', `Error: ${error.message}`, false);
+                            } else {
+                                showNotification('Error', 'Failed to delete content', false);
+                            }
+                        }
+                    }
+                );
+            });
+        });
+    });
+</script>

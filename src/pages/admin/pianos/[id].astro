@@ -1,0 +1,1109 @@
+---
+import AdminLayout from "../../../layouts/AdminLayout.astro";
+import { supabase } from "../../../utils/supabase";
+
+// Get piano ID from URL
+const { id } = Astro.params;
+
+// Fetch piano data
+const { data: piano, error: pianoError } = await supabase
+    .from('pianos')
+    .select('*')
+    .eq('id', id)
+    .single();
+
+// If piano exists, fetch creator info
+let creatorInfo = null;
+if (piano && piano.created_by) {
+    const { data: creator } = await supabase
+        .from('user_profiles')
+        .select('display_name, email')
+        .eq('id', piano.created_by)
+        .single();
+    
+    creatorInfo = creator;
+}
+
+// Fetch piano media
+const { data: pianoMedia, error: mediaError } = await supabase
+    .from('piano_media')
+    .select('*')
+    .eq('piano_id', id)
+    .order('created_at', { ascending: false });
+
+// Fetch piano reports
+const { data: pianoReports, error: reportsError } = await supabase
+    .from('piano_reports')
+    .select('*')
+    .eq('piano_id', id)
+    .order('created_at', { ascending: false });
+
+// If reports exist, fetch reporter info for each
+if (pianoReports && pianoReports.length > 0) {
+    for (const report of pianoReports) {
+        if (report.user_id) {
+            const { data: reporter } = await supabase
+                .from('user_profiles')
+                .select('display_name, email')
+                .eq('id', report.user_id)
+                .single();
+            
+            report.reporter_info = reporter;
+        }
+    }
+}
+
+// Check if piano exists
+const notFound = !piano || pianoError;
+
+// Format date for display
+const formatDate = (dateString: string | null | undefined) => {
+    if (!dateString) return 'N/A';
+    return new Date(dateString).toLocaleDateString(undefined, {
+        year: 'numeric',
+        month: 'long',
+        day: 'numeric'
+    });
+};
+---
+
+<AdminLayout>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li><a href="/admin/pianos">Manage Pianos</a></li>
+            <li>{notFound ? 'Piano Not Found' : piano.name}</li>
+        </ul>
+    </div>
+    
+    {notFound ? (
+        <div class="alert alert-error">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Piano not found or you don't have permission to view it.</span>
+        </div>
+    ) : (
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Main Piano Information -->
+            <div class="lg:col-span-2">
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <div class="flex justify-between items-center">
+                            <h1 class="card-title text-2xl">{piano.name}</h1>
+                            <div class="flex gap-2">
+                                <a href={`/pianos/${id}`} class="btn btn-sm btn-outline" target="_blank">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                                    </svg>
+                                    View
+                                </a>
+                                {piano.status !== 'archived' ? (
+                                    <button id="archive-piano-btn" class="btn btn-sm btn-warning">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 8h14M5 8a2 2 0 110-4h14a2 2 0 110 4M5 8v10a2 2 0 002 2h10a2 2 0 002-2V8m-9 4h4" />
+                                        </svg>
+                                        Archive
+                                    </button>
+                                ) : (
+                                    <button id="activate-piano-btn" class="btn btn-sm btn-success">
+                                        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                                        </svg>
+                                        Activate
+                                    </button>
+                                )}
+                                <button id="delete-piano-btn" class="btn btn-sm btn-error">
+                                    <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5 mr-1" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                                    </svg>
+                                    Delete
+                                </button>
+                            </div>
+                        </div>
+                        
+                        <div class="divider"></div>
+                        
+                        <form id="piano-form">
+                            <input type="hidden" name="id" value={piano.id} />
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Piano Name</span>
+                                    </label>
+                                    <input type="text" name="name" class="input input-bordered" value={piano.name} required />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Piano Type</span>
+                                    </label>
+                                    <select name="type" class="select select-bordered" required>
+                                        <option value="grand" selected={piano.type === 'grand'}>Grand Piano</option>
+                                        <option value="upright" selected={piano.type === 'upright'}>Upright Piano</option>
+                                        <option value="digital" selected={piano.type === 'digital'}>Digital Piano</option>
+                                        <option value="other" selected={piano.type === 'other'}>Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Location</span>
+                                    </label>
+                                    <input type="text" name="location" class="input input-bordered" value={piano.location} required />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Access</span>
+                                    </label>
+                                    <select name="access" class="select select-bordered" required>
+                                        <option value="public" selected={piano.access === 'public'}>Public</option>
+                                        <option value="limited" selected={piano.access === 'limited'}>Limited</option>
+                                        <option value="private" selected={piano.access === 'private'}>Private</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">City</span>
+                                    </label>
+                                    <input type="text" name="city" class="input input-bordered" value={piano.city} required />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Country</span>
+                                    </label>
+                                    <input type="text" name="country" class="input input-bordered" value={piano.country} required />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Airport Code (if applicable)</span>
+                                    </label>
+                                    <input type="text" name="airport_code" class="input input-bordered" value={piano.airport_code || ''} />
+                                </div>
+                            </div>
+                            
+                            <div class="form-control mb-4">
+                                <label class="label">
+                                    <span class="label-text">Description</span>
+                                </label>
+                                <textarea name="description" class="textarea textarea-bordered h-24" required>{piano.description}</textarea>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Condition</span>
+                                    </label>
+                                    <select name="condition" class="select select-bordered" required>
+                                        <option value="excellent" selected={piano.condition === 'excellent'}>Excellent</option>
+                                        <option value="good" selected={piano.condition === 'good'}>Good</option>
+                                        <option value="fair" selected={piano.condition === 'fair'}>Fair</option>
+                                        <option value="poor" selected={piano.condition === 'poor'}>Poor</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Category</span>
+                                    </label>
+                                    <select name="category" class="select select-bordered" required>
+                                        <option value="street" selected={piano.category === 'street'}>Street Piano</option>
+                                        <option value="station" selected={piano.category === 'station'}>Station Piano</option>
+                                        <option value="airport" selected={piano.category === 'airport'}>Airport Piano</option>
+                                        <option value="mall" selected={piano.category === 'mall'}>Mall Piano</option>
+                                        <option value="hotel" selected={piano.category === 'hotel'}>Hotel Piano</option>
+                                        <option value="school" selected={piano.category === 'school'}>School Piano</option>
+                                        <option value="other" selected={piano.category === 'other'}>Other</option>
+                                    </select>
+                                </div>
+                            </div>
+                            
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Last Maintained</span>
+                                    </label>
+                                    <input type="date" name="last_maintained" class="input input-bordered" value={piano.last_maintained ? new Date(piano.last_maintained).toISOString().split('T')[0] : ''} />
+                                </div>
+                                
+                                <div class="form-control">
+                                    <label class="label">
+                                        <span class="label-text">Verification Status</span>
+                                    </label>
+                                    <div class="flex items-center gap-4 h-12">
+                                        <label class="label cursor-pointer">
+                                            <input type="checkbox" name="verified" class="toggle toggle-primary" checked={piano.verified} />
+                                            <span class="label-text ml-2">{piano.verified ? 'Verified' : 'Unverified'}</span>
+                                        </label>
+                                        <span class="text-sm opacity-70">Verification Count: {piano.verification_count || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <div class="form-control">
+                                <label class="label">
+                                    <span class="label-text">Coordinates [longitude, latitude]</span>
+                                </label>
+                                <div class="grid grid-cols-2 gap-4">
+                                    <input 
+                                        type="number" 
+                                        name="longitude" 
+                                        class="input input-bordered" 
+                                        value={piano.coordinates ? piano.coordinates[0] : ''} 
+                                        step="0.000001"
+                                        required
+                                    />
+                                    <input 
+                                        type="number" 
+                                        name="latitude" 
+                                        class="input input-bordered" 
+                                        value={piano.coordinates ? piano.coordinates[1] : ''} 
+                                        step="0.000001"
+                                        required
+                                    />
+                                </div>
+                            </div>
+                            
+                            <div class="card-actions justify-end mt-6">
+                                <button type="submit" class="btn btn-primary">Save Changes</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+                
+                <!-- Piano Media -->
+                <div class="card bg-base-100 shadow-xl mt-8">
+                    <div class="card-body">
+                        <h2 class="card-title">Piano Media</h2>
+                        
+                        {mediaError && (
+                            <div class="alert alert-error">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Error loading media: {mediaError.message}</span>
+                            </div>
+                        )}
+                        
+                        {!mediaError && (!pianoMedia || pianoMedia.length === 0) && (
+                            <div class="alert">
+                                <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-info shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                                <span>No media found for this piano.</span>
+                            </div>
+                        )}
+                        
+                        {!mediaError && pianoMedia && pianoMedia.length > 0 && (
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 mt-4">
+                                {pianoMedia.map((media) => (
+                                    <div class="card bg-base-200">
+                                        <figure class="h-48 overflow-hidden">
+                                            {media.media_type.startsWith('image/') ? (
+                                                <img src={media.url} alt={media.description || 'Piano image'} class="object-cover w-full h-full" />
+                                            ) : media.media_type.startsWith('video/') ? (
+                                                <video src={media.url} controls class="object-cover w-full h-full">
+                                                    Your browser does not support the video tag.
+                                                </video>
+                                            ) : (
+                                                <div class="flex items-center justify-center w-full h-full bg-base-300">
+                                                    <span>Unsupported media type</span>
+                                                </div>
+                                            )}
+                                        </figure>
+                                        <div class="card-body p-4">
+                                            <p class="text-sm">{media.description || 'No description'}</p>
+                                            <div class="card-actions justify-end mt-2">
+                                                <button 
+                                                    class="btn btn-xs btn-error delete-media-btn" 
+                                                    data-media-id={media.id}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Sidebar Information -->
+            <div class="lg:col-span-1">
+                <!-- Piano Details -->
+                <div class="card bg-base-100 shadow-xl mb-8">
+                    <div class="card-body">
+                        <h2 class="card-title">Piano Details</h2>
+                        
+                        <div class="divider my-2"></div>
+                        
+                        <div class="grid grid-cols-2 gap-2">
+                            <div class="text-sm opacity-70">Created By:</div>
+                            <div>{creatorInfo?.display_name || 'Unknown'}</div>
+                            
+                            <div class="text-sm opacity-70">Created On:</div>
+                            <div>{formatDate(piano.created_at)}</div>
+                            
+                            <div class="text-sm opacity-70">Last Updated:</div>
+                            <div>{formatDate(piano.updated_at)}</div>
+                            
+                            <div class="text-sm opacity-70">Status:</div>
+                            <div>
+                                {piano.verified ? (
+                                    <span class="badge badge-success">Verified</span>
+                                ) : (
+                                    <span class="badge badge-warning">Unverified</span>
+                                )}
+                            </div>
+                            
+                            <div class="text-sm opacity-70">Availability:</div>
+                            <div>
+                                <span class={`badge ${piano.status === 'archived' ? 'badge-error' : 'badge-success'}`}>
+                                    {piano.status === 'archived' ? 'Archived' : 'Active'}
+                                </span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- Piano Reports -->
+                <div class="card bg-base-100 shadow-xl">
+                    <div class="card-body">
+                        <h2 class="card-title">Reports</h2>
+                        
+                        {reportsError && (
+                            <div class="alert alert-error">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>Error loading reports: {reportsError.message}</span>
+                            </div>
+                        )}
+                        
+                        {!reportsError && (!pianoReports || pianoReports.length === 0) && (
+                            <div class="alert alert-success">
+                                <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                                <span>No reports for this piano.</span>
+                            </div>
+                        )}
+                        
+                        {!reportsError && pianoReports && pianoReports.length > 0 && (
+                            <div class="space-y-4 mt-4">
+                                {pianoReports.map((report) => (
+                                    <div class={`card ${report.status === 'pending' ? 'bg-warning/10' : report.status === 'resolved' ? 'bg-success/10' : 'bg-base-200'}`}>
+                                        <div class="card-body p-4">
+                                            <div class="flex justify-between items-start">
+                                                <h3 class="font-bold">{report.issue_type}</h3>
+                                                <span class={`badge ${report.status === 'pending' ? 'badge-warning' : report.status === 'resolved' ? 'badge-success' : 'badge-info'}`}>
+                                                    {report.status}
+                                                </span>
+                                            </div>
+                                            <p class="text-sm mt-2">{report.description}</p>
+                                            <div class="text-xs opacity-70 mt-2">
+                                                Reported by {report.reporter_info?.display_name || 'Anonymous'} on {formatDate(report.created_at)}
+                                            </div>
+                                            
+                                            <div class="card-actions justify-end mt-2">
+                                                {report.status === 'pending' && (
+                                                    <button 
+                                                        class="btn btn-xs btn-success resolve-report-btn" 
+                                                        data-report-id={report.id}
+                                                    >
+                                                        Mark Resolved
+                                                    </button>
+                                                )}
+                                                <button 
+                                                    class="btn btn-xs btn-error delete-report-btn" 
+                                                    data-report-id={report.id}
+                                                >
+                                                    Delete
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                ))}
+                            </div>
+                        )}
+                    </div>
+                </div>
+            </div>
+        </div>
+    )}
+</AdminLayout>
+
+<!-- Modals -->
+<dialog id="confirm-delete-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg text-error">Delete Piano</h3>
+        <p class="py-4">Are you sure you want to delete this piano? This action cannot be undone and will delete:</p>
+        <ul class="list-disc pl-6 py-2">
+            <li>The piano record</li>
+            <li>All piano images and media</li>
+            <li>All piano reports</li>
+        </ul>
+        <p class="py-2">All events associated with this piano will be marked as "Piano Not Available". User piano visit records will be preserved.</p>
+        <div class="modal-action">
+            <button id="cancel-delete-btn" class="btn">Cancel</button>
+            <button id="confirm-delete-btn" class="btn btn-error">Delete Piano</button>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="confirm-delete-report-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg text-error">Delete Report</h3>
+        <p class="py-4">Are you sure you want to delete this report? This action cannot be undone.</p>
+        <div class="modal-action">
+            <button class="btn" onclick="this.closest('dialog').close()">Cancel</button>
+            <button id="confirm-delete-report-btn" class="btn btn-error">Delete Report</button>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    import { supabase } from '../../../utils/supabase';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Modal Elements
+        const confirmDeleteModal = document.getElementById('confirm-delete-modal') as HTMLDialogElement;
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        
+        // Archive and Activate Piano buttons
+        const archivePianoBtn = document.getElementById('archive-piano-btn');
+        const activatePianoBtn = document.getElementById('activate-piano-btn');
+        
+        // Helper function to show notification
+        const showNotification = (title: string, message: string, isSuccess = true, redirectOnClose: string | null = null) => {
+            if (notificationTitle) notificationTitle.textContent = title;
+            if (notificationTitle) notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            if (notificationMessage) notificationMessage.textContent = message;
+            
+            if (redirectOnClose && notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                    window.location.href = redirectOnClose;
+                };
+            } else if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
+        // Piano form submission
+        const pianoForm = document.getElementById('piano-form');
+        if (pianoForm) {
+            pianoForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Show loading state
+                const submitBtn = pianoForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                }
+                
+                try {
+                    // Get form data
+                    const formData = new FormData(pianoForm as HTMLFormElement);
+                    const pianoId = formData.get('id');
+                    
+                    // Build piano data object
+                    const pianoData = {
+                        name: formData.get('name'),
+                        location: formData.get('location'),
+                        description: formData.get('description'),
+                        type: formData.get('type'),
+                        condition: formData.get('condition'),
+                        access: formData.get('access'),
+                        category: formData.get('category'),
+                        city: formData.get('city'),
+                        country: formData.get('country'),
+                        airport_code: formData.get('airport_code') || null,
+                        verified: formData.get('verified') === 'on',
+                        coordinates: [
+                            parseFloat(formData.get('longitude') as string),
+                            parseFloat(formData.get('latitude') as string)
+                        ]
+                    } as any; // Use any to avoid TypeScript errors with dynamic properties
+                    
+                    // Add last_maintained if provided
+                    const lastMaintained = formData.get('last_maintained') as string;
+                    if (lastMaintained) {
+                        pianoData.last_maintained = new Date(lastMaintained).toISOString();
+                    }
+                    
+                    // Update piano
+                    const { error } = await supabase
+                        .from('pianos')
+                        .update(pianoData)
+                        .eq('id', pianoId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success message
+                    showNotification('Success', 'Piano updated successfully!', true, null);
+                    
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                    
+                    // Reload data after closing notification
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error updating piano:', error);
+                    
+                    // Show error message
+                    let errorMessage = 'An error occurred while updating the piano.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    
+                    showNotification('Error', errorMessage, false);
+                    
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                }
+            });
+        }
+        
+        // Delete piano button
+        const deletePianoBtn = document.getElementById('delete-piano-btn');
+        if (deletePianoBtn) {
+            deletePianoBtn.addEventListener('click', () => {
+                confirmDeleteModal.showModal();
+            });
+        }
+        
+        // Archive piano button
+        if (archivePianoBtn) {
+            archivePianoBtn.addEventListener('click', async () => {
+                try {
+                    // Set button to loading state
+                    (archivePianoBtn as HTMLButtonElement).classList.add('loading');
+                    (archivePianoBtn as HTMLButtonElement).disabled = true;
+                    
+                    const pianoId = new URLSearchParams(window.location.search).get('id') || 
+                                   window.location.pathname.split('/').pop();
+                    
+                    if (!pianoId) {
+                        throw new Error('Piano ID not found');
+                    }
+                    
+                    // Update piano status to archived
+                    const { error } = await supabase
+                        .from('pianos')
+                        .update({ status: 'archived' })
+                        .eq('id', pianoId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success notification and reload page
+                    showNotification('Success', 'Piano has been archived successfully.', true, null);
+                    
+                    // Set notification close action
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error archiving piano:', error);
+                    
+                    // Reset button state
+                    (archivePianoBtn as HTMLButtonElement).classList.remove('loading');
+                    (archivePianoBtn as HTMLButtonElement).disabled = false;
+                    
+                    // Show error notification
+                    let errorMessage = 'Failed to archive piano.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    showNotification('Error', errorMessage, false);
+                }
+            });
+        }
+        
+        // Activate piano button
+        if (activatePianoBtn) {
+            activatePianoBtn.addEventListener('click', async () => {
+                try {
+                    // Set button to loading state
+                    (activatePianoBtn as HTMLButtonElement).classList.add('loading');
+                    (activatePianoBtn as HTMLButtonElement).disabled = true;
+                    
+                    const pianoId = new URLSearchParams(window.location.search).get('id') || 
+                                   window.location.pathname.split('/').pop();
+                    
+                    if (!pianoId) {
+                        throw new Error('Piano ID not found');
+                    }
+                    
+                    // Update piano status to active
+                    const { error } = await supabase
+                        .from('pianos')
+                        .update({ status: 'active' })
+                        .eq('id', pianoId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Show success notification and reload page
+                    showNotification('Success', 'Piano has been activated successfully.', true, null);
+                    
+                    // Set notification close action
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
+                } catch (error) {
+                    console.error('Error activating piano:', error);
+                    
+                    // Reset button state
+                    (activatePianoBtn as HTMLButtonElement).classList.remove('loading');
+                    (activatePianoBtn as HTMLButtonElement).disabled = false;
+                    
+                    // Show error notification
+                    let errorMessage = 'Failed to activate piano.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    showNotification('Error', errorMessage, false);
+                }
+            });
+        }
+        
+        // Cancel delete button
+        if (cancelDeleteBtn) {
+            cancelDeleteBtn.addEventListener('click', () => {
+                confirmDeleteModal.close();
+            });
+        }
+        
+        // Confirm delete button
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', async () => {
+                // Set button to loading state
+                (confirmDeleteBtn as HTMLButtonElement).classList.add('loading');
+                (confirmDeleteBtn as HTMLButtonElement).disabled = true;
+                
+                try {
+                    const pianoId = new URLSearchParams(window.location.search).get('id') ||
+                                   window.location.pathname.split('/').pop();
+                    
+                    if (!pianoId) {
+                        throw new Error('Piano ID not found');
+                    }
+
+                    console.log(`Starting piano deletion for ID: ${pianoId}`);
+
+                    // First step: Get all piano media records to obtain file URLs
+                    console.log('Fetching piano media...');
+                    const { data: mediaData, error: mediaFetchError } = await supabase
+                        .from('piano_media')
+                        .select('*')
+                        .eq('piano_id', pianoId);
+                        
+                    if (mediaFetchError) {
+                        console.error('Error fetching piano media:', mediaFetchError);
+                        throw new Error(`Failed to fetch piano media: ${mediaFetchError.message}`);
+                    }
+                    
+                    // Delete media files from storage bucket
+                    if (mediaData && mediaData.length > 0) {
+                        console.log(`Found ${mediaData.length} media files to delete from storage`);
+                        
+                        for (const media of mediaData) {
+                            if (media.url && media.media_type.startsWith('image/')) {
+                                try {
+                                    // Extract filename from URL
+                                    const urlParts = media.url.split('/');
+                                    const filename = urlParts[urlParts.length - 1];
+                                    
+                                    if (filename) {
+                                        console.log(`Deleting file from storage: ${filename}`);
+                                        
+                                        const { error: storageError } = await supabase.storage
+                                            .from('piano-images')
+                                            .remove([filename]);
+                                            
+                                        if (storageError) {
+                                            console.error(`Error deleting file ${filename}:`, storageError);
+                                            // Continue with other files even if one fails
+                                        } else {
+                                            console.log(`Successfully deleted file: ${filename}`);
+                                        }
+                                    }
+                                } catch (fileError) {
+                                    console.error('Error processing file deletion:', fileError);
+                                    // Continue with other files
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Next step: Delete piano media database records
+                    console.log('Deleting piano media database records...');
+                    const { error: mediaDeleteError } = await supabase
+                        .from('piano_media')
+                        .delete()
+                        .eq('piano_id', pianoId);
+                        
+                    if (mediaDeleteError) {
+                        console.error('Error deleting piano media records:', mediaDeleteError);
+                        throw new Error(`Failed to delete piano media records: ${mediaDeleteError.message}`);
+                    }
+                    
+                    console.log('Successfully deleted piano media records');
+                    
+                    // Second step: Delete piano reports
+                    console.log('Deleting piano reports...');
+                    const { error: reportsDeleteError } = await supabase
+                        .from('piano_reports')
+                        .delete()
+                        .eq('piano_id', pianoId);
+                    
+                    if (reportsDeleteError) {
+                        console.error('Error deleting piano reports:', reportsDeleteError);
+                        throw new Error(`Failed to delete piano reports: ${reportsDeleteError.message}`);
+                    }
+                    
+                    console.log('Successfully deleted piano reports');
+                    
+                    // We're skipping the user piano visits deletion as requested
+                    // User piano visits will remain in the database for historical purposes
+                    
+                    // Fourth step: Update related events to "piano_unavailable" status instead of deleting them
+                    console.log('Updating status of related events...');
+                    const { error: eventsUpdateError } = await supabase
+                        .from('events')
+                        .update({ status: 'piano_unavailable' })
+                        .eq('piano_id', pianoId);
+                    
+                    if (eventsUpdateError) {
+                        console.error('Error updating events status:', eventsUpdateError);
+                        throw new Error(`Failed to update events status: ${eventsUpdateError.message}`);
+                    }
+                    
+                    console.log('Successfully updated related events status to piano_unavailable');
+                    
+                    // Wait a moment to ensure all operations complete
+                    console.log('Waiting to ensure all operations are processed...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Final step: Delete the piano itself
+                    console.log('Deleting piano...');
+                    const { error: pianoError } = await supabase
+                        .from('pianos')
+                        .delete()
+                        .eq('id', pianoId);
+                    
+                    if (pianoError) {
+                        throw new Error(`Failed to delete piano: ${pianoError.message}`);
+                    }
+                    
+                    console.log('Piano deleted successfully!');
+                    
+                    // Close the confirmation modal
+                    confirmDeleteModal.close();
+                    
+                    // Show success notification with redirection
+                    showNotification(
+                        'Success', 
+                        'Piano deleted successfully! All related events have been marked as "Piano Not Available".', 
+                        true, 
+                        '/admin/pianos'
+                    );
+                } catch (error) {
+                    // Handle errors in a user-friendly way
+                    console.error('Piano deletion error:', error);
+                    
+                    let errorMessage = 'An error occurred during the deletion process.';
+                    if (error instanceof Error) {
+                        errorMessage = `Error: ${error.message}`;
+                    }
+                    
+                    // Close confirmation modal
+                    confirmDeleteModal.close();
+                    
+                    // Show error notification
+                    showNotification('Error', `${errorMessage}\n\nPlease try again or contact technical support for assistance.`, false);
+                } finally {
+                    // Reset button state
+                    (confirmDeleteBtn as HTMLButtonElement).classList.remove('loading');
+                    (confirmDeleteBtn as HTMLButtonElement).disabled = false;
+                }
+            });
+        }
+        
+        // Delete media buttons
+        const deleteMediaBtns = document.querySelectorAll('.delete-media-btn');
+        deleteMediaBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const mediaId = btn.getAttribute('data-media-id');
+                if (!mediaId) return;
+                
+                // Show confirmation modal
+                if (confirmDeleteModal) {
+                    // Update modal content for media deletion
+                    const modalTitle = confirmDeleteModal.querySelector('h3');
+                    if (modalTitle) modalTitle.textContent = 'Delete Media';
+                    
+                    const modalContent = confirmDeleteModal.querySelector('p.py-4');
+                    if (modalContent) modalContent.textContent = 'Are you sure you want to delete this media? This action cannot be undone.';
+                    
+                    // Hide the bullet points list
+                    const bulletList = confirmDeleteModal.querySelector('ul');
+                    if (bulletList) (bulletList as HTMLElement).style.display = 'none';
+                    
+                    // Hide the events note
+                    const eventsNote = confirmDeleteModal.querySelector('p.py-2');
+                    if (eventsNote) (eventsNote as HTMLElement).style.display = 'none';
+                    
+                    // Update confirm button text
+                    if (confirmDeleteBtn) confirmDeleteBtn.textContent = 'Delete Media';
+                    
+                    // Override confirm button click for media deletion
+                    if (confirmDeleteBtn) {
+                        const originalClickHandler = confirmDeleteBtn.onclick;
+                        
+                        confirmDeleteBtn.onclick = async () => {
+                            // Set button to loading state
+                            (confirmDeleteBtn as HTMLButtonElement).classList.add('loading');
+                            (confirmDeleteBtn as HTMLButtonElement).disabled = true;
+                            
+                            try {
+                                // First get the media details to get the file URL
+                                const { data: mediaData, error: fetchError } = await supabase
+                                    .from('piano_media')
+                                    .select('*')
+                                    .eq('id', mediaId)
+                                    .single();
+                                
+                                if (fetchError) {
+                                    throw fetchError;
+                                }
+                                
+                                // Delete the file from storage if it's an image
+                                if (mediaData && mediaData.url && mediaData.media_type.startsWith('image/')) {
+                                    try {
+                                        // Extract filename from URL
+                                        const urlParts = mediaData.url.split('/');
+                                        const filename = urlParts[urlParts.length - 1];
+                                        
+                                        if (filename) {
+                                            console.log(`Deleting file from storage: ${filename}`);
+                                            
+                                            const { error: storageError } = await supabase.storage
+                                                .from('piano-images')
+                                                .remove([filename]);
+                                                
+                                            if (storageError) {
+                                                console.error(`Error deleting file ${filename}:`, storageError);
+                                                // Continue with database record deletion anyway
+                                            } else {
+                                                console.log(`Successfully deleted file: ${filename}`);
+                                            }
+                                        }
+                                    } catch (fileError) {
+                                        console.error('Error processing file deletion:', fileError);
+                                        // Continue with database record deletion
+                                    }
+                                }
+                                
+                                // Delete media record from database
+                                const { error } = await supabase
+                                    .from('piano_media')
+                                    .delete()
+                                    .eq('id', mediaId);
+                                
+                                if (error) {
+                                    throw error;
+                                }
+                                
+                                // Remove media from DOM
+                                const mediaCard = btn.closest('.card');
+                                if (mediaCard) {
+                                    mediaCard.remove();
+                                }
+                                
+                                // Close confirmation modal
+                                confirmDeleteModal.close();
+                                
+                                // Show success notification
+                                showNotification('Success', 'Media deleted successfully!', true);
+                                
+                                // Reset confirm button for piano deletion
+                                confirmDeleteBtn.onclick = originalClickHandler;
+                            } catch (error) {
+                                console.error('Error deleting media:', error);
+                                
+                                // Show error notification
+                                let errorMessage = 'An error occurred while deleting the media.';
+                                if (error instanceof Error) {
+                                    errorMessage = `Error: ${error.message}`;
+                                }
+                                
+                                // Close confirmation modal
+                                confirmDeleteModal.close();
+                                
+                                showNotification('Error', errorMessage, false);
+                                
+                                // Reset confirm button for piano deletion
+                                confirmDeleteBtn.onclick = originalClickHandler;
+                            } finally {
+                                // Reset button state
+                                (confirmDeleteBtn as HTMLButtonElement).classList.remove('loading');
+                                (confirmDeleteBtn as HTMLButtonElement).disabled = false;
+                            }
+                        };
+                    }
+                    
+                    confirmDeleteModal.showModal();
+                }
+            });
+        });
+        
+        // Resolve report buttons
+        const resolveReportBtns = document.querySelectorAll('.resolve-report-btn');
+        resolveReportBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const reportId = btn.getAttribute('data-report-id');
+                if (!reportId) return;
+                
+                try {
+                    // Update report status
+                    const { error } = await supabase
+                        .from('piano_reports')
+                        .update({ status: 'resolved' })
+                        .eq('id', reportId);
+                    
+                    if (error) {
+                        throw error;
+                    }
+                    
+                    // Update UI
+                    const reportCard = btn.closest('.card');
+                    if (reportCard) {
+                        reportCard.classList.remove('bg-warning/10');
+                        reportCard.classList.add('bg-success/10');
+                        
+                        const statusBadge = reportCard.querySelector('.badge');
+                        if (statusBadge) {
+                            statusBadge.classList.remove('badge-warning');
+                            statusBadge.classList.add('badge-success');
+                            statusBadge.textContent = 'resolved';
+                        }
+                        
+                        // Remove resolve button
+                        btn.remove();
+                    }
+                    
+                    // Show success message
+                    showNotification('Success', 'Report marked as resolved!', true);
+                } catch (error) {
+                    console.error('Error resolving report:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        showNotification('Error', `Error: ${error.message}`, false);
+                    } else {
+                        showNotification('Error', 'An error occurred while resolving the report.', false);
+                    }
+                }
+            });
+        });
+        
+        // Delete report buttons
+        const deleteReportBtns = document.querySelectorAll('.delete-report-btn');
+        deleteReportBtns.forEach(btn => {
+            btn.addEventListener('click', async () => {
+                const reportId = btn.getAttribute('data-report-id');
+                if (!reportId) return;
+                
+                // Confirm deletion
+                const confirmDeleteReportModal = document.getElementById('confirm-delete-report-modal') as HTMLDialogElement;
+                const confirmDeleteReportBtn = document.getElementById('confirm-delete-report-btn');
+                
+                // Set up confirmation action
+                if (confirmDeleteReportBtn) {
+                    confirmDeleteReportBtn.onclick = async () => {
+                        confirmDeleteReportModal.close();
+                        
+                        try {
+                            // Delete report
+                            const { error } = await supabase
+                                .from('piano_reports')
+                                .delete()
+                                .eq('id', reportId);
+                            
+                            if (error) {
+                                throw error;
+                            }
+                            
+                            // Remove report from DOM
+                            const reportCard = btn.closest('.card');
+                            if (reportCard) {
+                                reportCard.remove();
+                            }
+                            
+                            // Show success message
+                            showNotification('Success', 'Report deleted successfully!', true);
+                        } catch (error) {
+                            console.error('Error deleting report:', error);
+                            
+                            // Show error message
+                            if (error instanceof Error) {
+                                showNotification('Error', `Error: ${error.message}`, false);
+                            } else {
+                                showNotification('Error', 'An error occurred while deleting the report.', false);
+                            }
+                        }
+                    };
+                }
+                
+                confirmDeleteReportModal.showModal();
+            });
+        });
+    });
+</script>

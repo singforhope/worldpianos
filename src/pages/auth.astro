@@ -1,9 +1,136 @@
 ---
 import MainLayout from "../layouts/MainLayout.astro";
+import { auth } from "../utils/auth";
+
+// Check if there's an error or message parameter in the URL
+const errorMessage = Astro.url.searchParams.get('error');
+const infoMessage = Astro.url.searchParams.get('message');
 ---
 
 <MainLayout>
-    <div class="container mx-auto">
-        <h1>Login or Sign Up</h1>
+    <div class="container mx-auto px-4 py-8">
+        <div class="max-w-md mx-auto">
+            <h1 class="text-2xl font-bold mb-6">Sign In or Sign Up</h1>
+            
+            {errorMessage && (
+                <div class="alert alert-error mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+                    <span>{errorMessage}</span>
+                </div>
+            )}
+
+            {infoMessage && (
+                <div class="alert alert-info mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>{infoMessage}</span>
+                </div>
+            )}
+            
+            <div class="card bg-base-100 shadow-xl">
+                <div class="card-body">
+                    <div id="auth-form" class="space-y-4">
+                        <div class="form-control">
+                            <label class="label">
+                                <span class="label-text">Email</span>
+                            </label>
+                            <input type="email" id="auth-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
+                        </div>
+                        
+                        <div id="auth-description" class="text-sm mt-2 mb-4 text-center">
+                            <p>We'll send you a magic link to sign in or create an account</p>
+                        </div>
+                        
+                        <button id="auth-button" class="btn btn-primary w-full mt-4">Send Magic Link</button>
+                        
+                        <div id="auth-status" class="mt-4 text-center hidden">
+                            <span class="text-sm"></span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
     </div>
 </MainLayout>
+
+<script>
+    import { auth, profile } from '../utils/auth';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Get elements
+        const authButton = document.getElementById('auth-button') as HTMLButtonElement;
+        const authEmail = document.getElementById('auth-email') as HTMLInputElement;
+        const authStatus = document.getElementById('auth-status') as HTMLElement;
+        
+        // Helper to show status messages
+        function showStatus(type: 'success' | 'error' | 'info', message: string) {
+            if (authStatus) {
+                authStatus.classList.remove('hidden');
+                const statusText = authStatus.querySelector('span');
+                if (statusText) {
+                    statusText.textContent = message;
+                    statusText.className = 'text-sm';
+                    
+                    if (type === 'success') {
+                        statusText.classList.add('text-success');
+                    } else if (type === 'error') {
+                        statusText.classList.add('text-error');
+                    } else {
+                        statusText.classList.add('text-info');
+                    }
+                }
+            }
+        }
+        
+        // Handle magic link request
+        if (authButton) {
+            authButton.addEventListener('click', async () => {
+                const email = authEmail?.value || '';
+                
+                if (!email) {
+                    showStatus('error', 'Please enter your email address');
+                    return;
+                }
+                
+                // Validate email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showStatus('error', 'Please enter a valid email address');
+                    return;
+                }
+                
+                showStatus('info', 'Sending magic link...');
+                authButton.disabled = true;
+                
+                try {
+                    // Store the return URL in localStorage
+                    const returnUrl = new URLSearchParams(window.location.search).get('returnTo');
+                    if (returnUrl) {
+                        auth.setReturnUrl(returnUrl);
+                    }
+                    
+                    // Generate redirect URL
+                    const redirectTo = `${window.location.origin}/auth-callback`;
+                    
+                    // Send the magic link
+                    const { error } = await auth.signInWithOtp(email, redirectTo);
+                    
+                    if (error) {
+                        showStatus('error', error.message);
+                        authButton.disabled = false;
+                        return;
+                    }
+                    
+                    showStatus('success', 'Magic link sent! Check your email to continue.');
+                    
+                    // Keep button disabled to prevent multiple requests
+                    // but clear the input field
+                    authEmail.value = '';
+                } catch (error) {
+                    showStatus('error', 'An unexpected error occurred');
+                    authButton.disabled = false;
+                    console.error('Auth error:', error);
+                }
+            });
+        }
+    });
+</script>

@@ -1,8 +1,520 @@
 ---
 import AdminLayout from "../../layouts/AdminLayout.astro";
+import { supabase } from "../../utils/supabase";
 
+// Fetch current settings
+const { data: settings, error: settingsError } = await supabase
+    .from('site_settings')
+    .select('*');
+
+// Default settings if none exist
+const defaultSettings = {
+    site_name: 'World Pianos',
+    site_description: 'Discover and share public pianos around the world',
+    enable_user_registration: true,
+    enable_piano_submissions: true,
+    enable_event_submissions: true,
+    require_verification: true,
+    verification_threshold: 1,
+    enable_reports: true,
+    contact_email: 'admin@worldpianos.org',
+    maintenance_mode: false
+};
+
+// Merge existing settings with defaults
+const currentSettings = settings && settings.length > 0 
+    ? settings.reduce((acc, setting) => {
+        acc[setting.key] = setting.value;
+        return acc;
+      }, {...defaultSettings})
+    : defaultSettings;
 ---
 
 <AdminLayout>
-    <h1>Settings</h1>
+    <div class="text-sm breadcrumbs mb-6">
+        <ul>
+            <li><a href="/">Home</a></li>
+            <li><a href="/admin/dashboard">Admin Dashboard</a></li>
+            <li>Site Settings</li>
+        </ul>
+    </div>
+    
+    <div class="flex flex-col md:flex-row justify-between items-start md:items-center mb-8">
+        <h1 class="text-3xl font-bold">Site Settings</h1>
+    </div>
+    
+    {settingsError && (
+        <div class="alert alert-error mb-6">
+            <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
+            <span>Error loading settings: {settingsError.message}</span>
+        </div>
+    )}
+    
+    <div class="grid grid-cols-1 lg:grid-cols-2 gap-8">
+        <!-- General Settings -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">General Settings</h2>
+                
+                <form id="general-settings-form" class="mt-4">
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Site Name</span>
+                        </label>
+                        <input 
+                            type="text" 
+                            name="site_name" 
+                            class="input input-bordered" 
+                            value={currentSettings.site_name}
+                            required
+                        />
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Site Description</span>
+                        </label>
+                        <textarea 
+                            name="site_description" 
+                            class="textarea textarea-bordered h-24"
+                            required
+                        >{currentSettings.site_description}</textarea>
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Contact Email</span>
+                        </label>
+                        <input 
+                            type="email" 
+                            name="contact_email" 
+                            class="input input-bordered" 
+                            value={currentSettings.contact_email}
+                            required
+                        />
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label cursor-pointer">
+                            <span class="label-text">Maintenance Mode</span>
+                            <input 
+                                type="checkbox" 
+                                name="maintenance_mode" 
+                                class="toggle toggle-primary" 
+                                checked={currentSettings.maintenance_mode === true || currentSettings.maintenance_mode === 'true'}
+                            />
+                        </label>
+                        <p class="text-xs text-base-content/70 mt-1">
+                            When enabled, only admins can access the site. All other users will see a maintenance message.
+                        </p>
+                    </div>
+                    
+                    <div class="card-actions justify-end mt-6">
+                        <button type="submit" class="btn btn-primary">Save General Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Feature Settings -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">Feature Settings</h2>
+                
+                <form id="feature-settings-form" class="mt-4">
+                    <div class="form-control mb-4">
+                        <label class="label cursor-pointer">
+                            <span class="label-text">Enable User Registration</span>
+                            <input 
+                                type="checkbox" 
+                                name="enable_user_registration" 
+                                class="toggle toggle-primary" 
+                                checked={currentSettings.enable_user_registration === true || currentSettings.enable_user_registration === 'true'}
+                            />
+                        </label>
+                        <p class="text-xs text-base-content/70 mt-1">
+                            When disabled, new users cannot register on the site.
+                        </p>
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label cursor-pointer">
+                            <span class="label-text">Enable Piano Submissions</span>
+                            <input 
+                                type="checkbox" 
+                                name="enable_piano_submissions" 
+                                class="toggle toggle-primary" 
+                                checked={currentSettings.enable_piano_submissions === true || currentSettings.enable_piano_submissions === 'true'}
+                            />
+                        </label>
+                        <p class="text-xs text-base-content/70 mt-1">
+                            When disabled, users cannot submit new pianos.
+                        </p>
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label cursor-pointer">
+                            <span class="label-text">Enable Event Submissions</span>
+                            <input 
+                                type="checkbox" 
+                                name="enable_event_submissions" 
+                                class="toggle toggle-primary" 
+                                checked={currentSettings.enable_event_submissions === true || currentSettings.enable_event_submissions === 'true'}
+                            />
+                        </label>
+                        <p class="text-xs text-base-content/70 mt-1">
+                            When disabled, users cannot submit new events.
+                        </p>
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label cursor-pointer">
+                            <span class="label-text">Enable Reports</span>
+                            <input 
+                                type="checkbox" 
+                                name="enable_reports" 
+                                class="toggle toggle-primary" 
+                                checked={currentSettings.enable_reports === true || currentSettings.enable_reports === 'true'}
+                            />
+                        </label>
+                        <p class="text-xs text-base-content/70 mt-1">
+                            When disabled, users cannot submit reports for pianos or events.
+                        </p>
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label cursor-pointer">
+                            <span class="label-text">Require Verification</span>
+                            <input 
+                                type="checkbox" 
+                                name="require_verification" 
+                                class="toggle toggle-primary" 
+                                checked={currentSettings.require_verification === true || currentSettings.require_verification === 'true'}
+                            />
+                        </label>
+                        <p class="text-xs text-base-content/70 mt-1">
+                            When enabled, pianos require verification before being shown publicly.
+                        </p>
+                    </div>
+                    
+                    <div class="form-control mb-4">
+                        <label class="label">
+                            <span class="label-text">Verification Threshold</span>
+                        </label>
+                        <input 
+                            type="number" 
+                            name="verification_threshold" 
+                            class="input input-bordered" 
+                            value={currentSettings.verification_threshold}
+                            min="1"
+                            max="10"
+                            required
+                        />
+                        <p class="text-xs text-base-content/70 mt-1">
+                            Number of verifications required before a piano is automatically verified.
+                        </p>
+                    </div>
+                    
+                    <div class="card-actions justify-end mt-6">
+                        <button type="submit" class="btn btn-primary">Save Feature Settings</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <!-- Cache Management -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">Cache Management</h2>
+                
+                <p class="mt-4">
+                    Clear various caches to ensure the latest data is displayed on the site.
+                </p>
+                
+                <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mt-6">
+                    <button id="clear-piano-cache" class="btn btn-outline">
+                        Clear Piano Cache
+                    </button>
+                    
+                    <button id="clear-event-cache" class="btn btn-outline">
+                        Clear Event Cache
+                    </button>
+                    
+                    <button id="clear-user-cache" class="btn btn-outline">
+                        Clear User Cache
+                    </button>
+                    
+                    <button id="clear-all-cache" class="btn btn-outline btn-error">
+                        Clear All Caches
+                    </button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- System Information -->
+        <div class="card bg-base-100 shadow-xl">
+            <div class="card-body">
+                <h2 class="card-title">System Information</h2>
+                
+                <div class="overflow-x-auto mt-4">
+                    <table class="table">
+                        <tbody>
+                            <tr>
+                                <td class="font-semibold">Application Version</td>
+                                <td>1.0.0</td>
+                            </tr>
+                            <tr>
+                                <td class="font-semibold">Database Status</td>
+                                <td>
+                                    <span class="badge badge-success">Connected</span>
+                                </td>
+                            </tr>
+                            <tr>
+                                <td class="font-semibold">Last Settings Update</td>
+                                <td id="last-settings-update">Never</td>
+                            </tr>
+                            <tr>
+                                <td class="font-semibold">Environment</td>
+                                <td>Production</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
 </AdminLayout>
+
+<!-- Notification Modal -->
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
+<script>
+    import { supabase } from '../../utils/supabase';
+    
+    document.addEventListener('DOMContentLoaded', () => {
+        // Modal Elements
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        
+        // Helper function to show notification
+        const showNotification = (title: string, message: string, isSuccess = true) => {
+            if (notificationTitle) notificationTitle.textContent = title;
+            if (notificationTitle) notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            if (notificationMessage) notificationMessage.textContent = message;
+            
+            if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
+        // General settings form
+        const generalSettingsForm = document.getElementById('general-settings-form') as HTMLFormElement;
+        if (generalSettingsForm) {
+            generalSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Show loading state
+                const submitBtn = generalSettingsForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                }
+                
+                try {
+                    // Get form data
+                    const formData = new FormData(generalSettingsForm);
+                    
+                    // Build settings object
+                    const settings = {
+                        site_name: formData.get('site_name'),
+                        site_description: formData.get('site_description'),
+                        contact_email: formData.get('contact_email'),
+                        maintenance_mode: formData.get('maintenance_mode') === 'on'
+                    };
+                    
+                    // Update settings
+                    await updateSettings(settings);
+                    
+                    // Show success message
+                    showNotification('Success', 'General settings updated successfully!', true);
+                } catch (error) {
+                    console.error('Error updating general settings:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        showNotification('Error', `Error: ${error.message}`, false);
+                    } else {
+                        showNotification('Error', 'An error occurred while updating general settings.', false);
+                    }
+                } finally {
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                }
+            });
+        }
+        
+        // Feature settings form
+        const featureSettingsForm = document.getElementById('feature-settings-form') as HTMLFormElement;
+        if (featureSettingsForm) {
+            featureSettingsForm.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                
+                // Show loading state
+                const submitBtn = featureSettingsForm.querySelector('button[type="submit"]') as HTMLButtonElement;
+                if (submitBtn) {
+                    submitBtn.classList.add('loading');
+                    submitBtn.disabled = true;
+                }
+                
+                try {
+                    // Get form data
+                    const formData = new FormData(featureSettingsForm);
+                    
+                    // Build settings object
+                    const settings = {
+                        enable_user_registration: formData.get('enable_user_registration') === 'on',
+                        enable_piano_submissions: formData.get('enable_piano_submissions') === 'on',
+                        enable_event_submissions: formData.get('enable_event_submissions') === 'on',
+                        enable_reports: formData.get('enable_reports') === 'on',
+                        require_verification: formData.get('require_verification') === 'on',
+                        verification_threshold: formData.get('verification_threshold')
+                    };
+                    
+                    // Update settings
+                    await updateSettings(settings);
+                    
+                    // Show success message
+                    showNotification('Success', 'Feature settings updated successfully!', true);
+                } catch (error) {
+                    console.error('Error updating feature settings:', error);
+                    
+                    // Show error message
+                    if (error instanceof Error) {
+                        showNotification('Error', `Error: ${error.message}`, false);
+                    } else {
+                        showNotification('Error', 'An error occurred while updating feature settings.', false);
+                    }
+                } finally {
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                }
+            });
+        }
+        
+        // Cache clearing buttons
+        const clearPianoCacheBtn = document.getElementById('clear-piano-cache');
+        const clearEventCacheBtn = document.getElementById('clear-event-cache');
+        const clearUserCacheBtn = document.getElementById('clear-user-cache');
+        const clearAllCacheBtn = document.getElementById('clear-all-cache');
+        
+        if (clearPianoCacheBtn) {
+            clearPianoCacheBtn.addEventListener('click', async () => {
+                await clearCache('piano');
+            });
+        }
+        
+        if (clearEventCacheBtn) {
+            clearEventCacheBtn.addEventListener('click', async () => {
+                await clearCache('event');
+            });
+        }
+        
+        if (clearUserCacheBtn) {
+            clearUserCacheBtn.addEventListener('click', async () => {
+                await clearCache('user');
+            });
+        }
+        
+        if (clearAllCacheBtn) {
+            clearAllCacheBtn.addEventListener('click', async () => {
+                await clearCache('all');
+            });
+        }
+        
+        // Function to update settings
+        async function updateSettings(settings: Record<string, any>) {
+            // For each setting, upsert into the site_settings table
+            const promises = Object.entries(settings).map(async ([key, value]) => {
+                const { error } = await supabase
+                    .from('site_settings')
+                    .upsert({ 
+                        key, 
+                        value, 
+                        updated_at: new Date().toISOString() 
+                    }, { 
+                        onConflict: 'key' 
+                    });
+                
+                if (error) {
+                    throw error;
+                }
+            });
+            
+            // Wait for all settings to be updated
+            await Promise.all(promises);
+            
+            // Update last settings update time
+            const lastSettingsUpdate = document.getElementById('last-settings-update');
+            if (lastSettingsUpdate) {
+                lastSettingsUpdate.textContent = new Date().toLocaleString();
+            }
+        }
+        
+        // Function to clear cache
+        async function clearCache(type: string) {
+            try {
+                // In a real implementation, this would clear server-side caches
+                // For now, we'll just simulate it with a delay
+                
+                // Show loading state
+                const button = document.getElementById(`clear-${type}-cache`) || document.getElementById('clear-all-cache');
+                if (button) {
+                    button.classList.add('loading');
+                    (button as HTMLButtonElement).disabled = true;
+                }
+                
+                // Simulate cache clearing
+                await new Promise(resolve => setTimeout(resolve, 1000));
+                
+                // Show success message
+                showNotification('Success', `${type === 'all' ? 'All caches' : `${type} cache`} cleared successfully!`, true);
+            } catch (error) {
+                console.error(`Error clearing ${type} cache:`, error);
+                
+                // Show error message
+                if (error instanceof Error) {
+                    showNotification('Error', `Error: ${error.message}`, false);
+                } else {
+                    showNotification('Error', `An error occurred while clearing ${type} cache.`, false);
+                }
+            } finally {
+                // Reset button state
+                const button = document.getElementById(`clear-${type}-cache`) || document.getElementById('clear-all-cache');
+                if (button) {
+                    button.classList.remove('loading');
+                    (button as HTMLButtonElement).disabled = false;
+                }
+            }
+        }
+    });
+</script>

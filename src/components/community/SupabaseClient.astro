@@ -1,0 +1,31 @@
+---
+// This component is a simple wrapper around the Supabase client
+// It exposes the already initialized Supabase client to the browser
+
+// Import the already initialized Supabase client
+import { supabase } from '../../utils/supabaseClient';
+---
+
+<!-- Make the Supabase client available globally -->
+<script>
+  // Import the Supabase client
+  import { supabase } from '../../utils/supabaseClient';
+  
+  // Add TypeScript declaration using type intersection instead of extension
+  type WindowWithSupabase = Window & {
+    supabaseClient?: typeof supabase;
+    hasDispatchedSupabaseReady?: boolean;
+  }
+  
+  // Make the Supabase client available globally
+  if (typeof window !== 'undefined') {
+    (window as WindowWithSupabase).supabaseClient = supabase;
+    
+    // Dispatch an event to notify other components that Supabase is ready
+    const event = new CustomEvent('supabase-ready');
+    window.dispatchEvent(event);
+    
+    // Track if the event has been dispatched
+    (window as WindowWithSupabase).hasDispatchedSupabaseReady = true;
+  }
+</script>

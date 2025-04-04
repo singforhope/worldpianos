@@ -1,0 +1,710 @@
+---
+// MapControls.astro - Component for map controls and functionality
+---
+
+<div class="map-controls absolute top-4 left-4 z-10 flex flex-col gap-2">
+  <!-- User Location Button -->
+  <button id="user-location-btn" class="btn btn-circle btn-primary">
+    <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z" />
+      <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z" />
+    </svg>
+  </button>
+  
+  <!-- Map Style Switcher -->
+  <div class="dropdown dropdown-right">
+    <label tabindex="0" class="btn btn-circle btn-primary">
+      <svg xmlns="http://www.w3.org/2000/svg" class="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 20l-5.447-2.724A1 1 0 013 16.382V5.618a1 1 0 011.447-.894L9 7m0 13l6-3m-6 3V7m6 10l4.553 2.276A1 1 0 0021 18.382V7.618a1 1 0 00-.553-.894L15 4m0 13V4m0 0L9 7" />
+      </svg>
+    </label>
+    <ul tabindex="0" class="dropdown-content z-[1] menu p-2 shadow bg-base-100 rounded-box w-52">
+      <li><a id="style-streets" class="active">Streets</a></li>
+      <li><a id="style-satellite">Satellite</a></li>
+      <li><a id="style-light">Light</a></li>
+      <li><a id="style-dark">Dark</a></li>
+    </ul>
+  </div>
+</div>
+
+<script>
+  import mapboxgl from "mapbox-gl";
+  import {
+    createAirportMarker,
+    createCityMarker,
+    createPianoPopup,
+    calculateDistance,
+    type MapPiano
+  } from "../../utils/mapUtils";
+
+  // Define custom event type
+  interface LocationChangeEvent extends CustomEvent {
+    detail: {
+      lat: number;
+      lng: number;
+    };
+  }
+
+  // Initialize map
+  const initializeMap = (): mapboxgl.Map => {
+    mapboxgl.accessToken =
+      "pk.eyJ1Ijoic2ZoYWRtaW4iLCJhIjoiY2t6bWZnY2VhNWY0djJwdHZhZnpvY3prbSJ9.5vyd64pGtGwl9YfMNFH9eQ";
+
+    // Get piano data from the data attribute
+    const mapElement = document.getElementById("map");
+    const pianoData = JSON.parse(mapElement?.dataset.pianos || "[]") as MapPiano[];
+    const urlPianoId = mapElement?.dataset.pianoId || null;
+
+    console.log("Loaded piano data:", pianoData);
+    console.log("Number of pianos:", pianoData.length);
+
+    // Get saved coordinates from localStorage
+    const savedCoordinates = localStorage.getItem("userCoordinates");
+    let defaultCenter: [number, number] = [0, 0]; // Center of the world
+    let defaultZoom = 1.5; // Zoom level for world view
+
+    if (savedCoordinates) {
+      try {
+        const { lat, lng } = JSON.parse(savedCoordinates);
+        defaultCenter = [lng, lat];
+        defaultZoom = 12; // Zoom in more when using user's location
+      } catch (error) {
+        console.error("Error parsing saved coordinates:", error);
+      }
+    }
+
+    // Get pianoId from URL if it exists
+    let targetPiano: MapPiano | null = null;
+
+    if (urlPianoId) {
+      targetPiano = pianoData.find((p) => p.id === urlPianoId) || null;
+      if (targetPiano) {
+        defaultCenter = targetPiano.coordinates;
+        defaultZoom = 15;
+      }
+    }
+
+    console.log(
+      "Initializing map with center:",
+      defaultCenter,
+      "zoom:",
+      defaultZoom
+    );
+
+    // Use the global mapStyles object
+
+    const map = new mapboxgl.Map({
+      container: "map",
+      style: mapStyles.streets,
+      center: defaultCenter,
+      zoom: defaultZoom,
+      minZoom: 1.5,
+      maxZoom: 22,
+    });
+
+    // Add navigation controls
+    map.addControl(new mapboxgl.NavigationControl(), "top-right");
+    
+    // Store markers for filtering
+    const markers: { marker: mapboxgl.Marker; piano: MapPiano }[] = [];
+    
+    // Initialize clustering
+    let clusterEnabled = true; // Default to enabled
+    
+    // Flag to track if initial pianos are loaded
+    let mapInitialized = false;
+
+    // Wait for map to load before adding markers
+    map.on("load", () => {
+      console.log("Map loaded, adding markers...");
+      
+      // Add cluster source and layer
+      map.addSource('piano-clusters', {
+        type: 'geojson',
+        data: {
+          type: 'FeatureCollection',
+          features: []
+        },
+        cluster: true,
+        clusterMaxZoom: 14,
+        clusterRadius: 50
+      });
+      
+      // Add cluster circles
+      map.addLayer({
+        id: 'clusters',
+        type: 'circle',
+        source: 'piano-clusters',
+        filter: ['has', 'point_count'],
+        paint: {
+          'circle-color': [
+            'step',
+            ['get', 'point_count'],
+            'hsl(var(--p) / 0.6)',  // Small clusters
+            10,
+            'hsl(var(--p) / 0.7)',  // Medium clusters
+            30,
+            'hsl(var(--p) / 0.8)'   // Large clusters
+          ],
+          'circle-radius': [
+            'step',
+            ['get', 'point_count'],
+            20,   // Radius for small clusters
+            10,   // Threshold
+            25,   // Radius for medium clusters
+            30,   // Threshold
+            30    // Radius for large clusters
+          ],
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'white'
+        }
+      });
+      
+      // Add cluster count labels
+      map.addLayer({
+        id: 'cluster-count',
+        type: 'symbol',
+        source: 'piano-clusters',
+        filter: ['has', 'point_count'],
+        layout: {
+          'text-field': '{point_count_abbreviated}',
+          'text-font': ['DIN Offc Pro Medium', 'Arial Unicode MS Bold'],
+          'text-size': 14
+        },
+        paint: {
+          'text-color': 'white'
+        }
+      });
+      
+      // Add unclustered point layer
+      map.addLayer({
+        id: 'unclustered-point',
+        type: 'circle',
+        source: 'piano-clusters',
+        filter: ['!', ['has', 'point_count']],
+        paint: {
+          'circle-color': 'hsl(var(--p))',
+          'circle-radius': 6,
+          'circle-stroke-width': 2,
+          'circle-stroke-color': 'white'
+        }
+      });
+      
+      // Handle cluster click
+      map.on('click', 'clusters', (e) => {
+        const features = map.queryRenderedFeatures(e.point, { layers: ['clusters'] });
+        if (!features || features.length === 0) return;
+        
+        const clusterId = features[0].properties?.cluster_id;
+        if (!clusterId) return;
+        
+        (map.getSource('piano-clusters') as mapboxgl.GeoJSONSource).getClusterExpansionZoom(
+          clusterId,
+          (err, zoom) => {
+            if (err) return;
+            
+            if (zoom) {
+              map.easeTo({
+                center: (features[0].geometry as GeoJSON.Point).coordinates as [number, number],
+                zoom: zoom
+              });
+            }
+          }
+        );
+      });
+      
+      // Change cursor on hover
+      map.on('mouseenter', 'clusters', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      
+      map.on('mouseleave', 'clusters', () => {
+        map.getCanvas().style.cursor = '';
+      });
+      
+      // Handle unclustered point click
+      map.on('click', 'unclustered-point', (e) => {
+        if (!e.features || e.features.length === 0) return;
+        
+        const feature = e.features[0];
+        const coordinates = (feature.geometry as GeoJSON.Point).coordinates.slice() as [number, number];
+        const properties = feature.properties;
+        
+        if (properties && properties.pianoData) {
+          // Create popup
+          new mapboxgl.Popup()
+            .setLngLat(coordinates)
+            .setHTML(createPianoPopup(JSON.parse(properties.pianoData)))
+            .addTo(map);
+        }
+      });
+      
+      // Change cursor on hover for unclustered points
+      map.on('mouseenter', 'unclustered-point', () => {
+        map.getCanvas().style.cursor = 'pointer';
+      });
+      
+      map.on('mouseleave', 'unclustered-point', () => {
+        map.getCanvas().style.cursor = '';
+      });
+
+      // Function to add piano markers
+      function addPianoMarkers(pianos: MapPiano[]) {
+        // Clear existing markers
+        markers.forEach(({ marker }) => marker.remove());
+        markers.length = 0;
+        
+        // Add new markers
+        pianos.forEach((piano) => {
+          console.log(
+            "Adding marker for piano:",
+            piano.name,
+            "at coordinates:",
+            piano.coordinates,
+            "category:",
+            piano.category
+          );
+
+          // Create a custom popup
+          const popup = new mapboxgl.Popup({ offset: 25 }).setHTML(
+            createPianoPopup(piano)
+          );
+
+          // Create and add the marker with appropriate icon based on category
+          const markerElement = piano.category === "airport"
+            ? createAirportMarker().cloneNode(true) as HTMLElement
+            : createCityMarker().cloneNode(true) as HTMLElement;
+
+          const marker = new mapboxgl.Marker({
+            element: markerElement,
+            anchor: "center",
+            scale: 0.5, // Use the same scale for both types
+          })
+            .setLngLat(piano.coordinates)
+            .setPopup(popup)
+            .addTo(map);
+
+          // Store the marker and piano data for filtering
+          markers.push({ marker, piano });
+
+          // If this is the target piano, open its popup
+          if (targetPiano && piano.id === targetPiano.id) {
+            marker.togglePopup();
+          }
+        });
+      }
+      
+      // Function to update cluster data
+      function updateClusterData(pianos: MapPiano[]) {
+        // Convert pianos to GeoJSON features
+        const features = pianos.map(piano => ({
+          type: 'Feature' as const,
+          geometry: {
+            type: 'Point' as const,
+            coordinates: piano.coordinates
+          },
+          properties: {
+            id: piano.id,
+            name: piano.name,
+            category: piano.category,
+            pianoData: JSON.stringify(piano) // Store all piano data for popup
+          }
+        }));
+        
+        // Update the cluster source data
+        (map.getSource('piano-clusters') as mapboxgl.GeoJSONSource).setData({
+          type: 'FeatureCollection',
+          features
+        });
+      }
+      
+      // Toggle clustering function
+      function toggleClustering(enabled: boolean) {
+        clusterEnabled = enabled;
+        
+        // Show/hide appropriate layers
+        const markerVisibility = enabled ? 'none' : 'visible';
+        const clusterVisibility = enabled ? 'visible' : 'none';
+        
+        // Update individual markers
+        markers.forEach(({ marker }) => {
+          const markerElement = marker.getElement();
+          markerElement.style.display = markerVisibility;
+        });
+        
+        // Update cluster layers
+        ['clusters', 'cluster-count', 'unclustered-point'].forEach(layer => {
+          map.setLayoutProperty(layer, 'visibility', clusterVisibility);
+        });
+      }
+      
+      // Add cluster toggle button to the map
+      const clusterToggleButton = document.createElement('button');
+      clusterToggleButton.className = 'cluster-toggle-btn';
+      clusterToggleButton.innerHTML = `
+        <svg xmlns="http://www.w3.org/2000/svg" class="h-5 w-5" viewBox="0 0 20 20" fill="currentColor">
+          <path fill-rule="evenodd" d="M5 9V7a5 5 0 0110 0v2a2 2 0 012 2v5a2 2 0 01-2 2H5a2 2 0 01-2-2v-5a2 2 0 012-2zm8-2v2H7V7a3 3 0 016 0z" clip-rule="evenodd" />
+        </svg>
+      `;
+      clusterToggleButton.title = 'Toggle Clustering';
+      
+      // Create a custom control class
+      class ClusterToggleControl {
+        private _container!: HTMLElement; // Using definite assignment assertion
+        
+        onAdd(map: mapboxgl.Map): HTMLElement {
+          this._container = document.createElement('div');
+          this._container.className = 'mapboxgl-ctrl mapboxgl-ctrl-group';
+          this._container.appendChild(clusterToggleButton);
+          return this._container;
+        }
+        
+        onRemove(): void {
+          this._container.parentNode?.removeChild(this._container);
+        }
+      }
+      
+      // Add the custom control to the map
+      map.addControl(new ClusterToggleControl(), 'top-right');
+      
+      // Toggle clustering when button is clicked
+      clusterToggleButton.addEventListener('click', () => {
+        toggleClustering(!clusterEnabled);
+        clusterToggleButton.classList.toggle('active');
+      });
+      
+      // Add all piano markers initially
+      console.log("🔵 INITIAL LOAD: Adding all pianos to map:", pianoData.length);
+      addPianoMarkers(pianoData);
+      
+      // Update cluster data
+      updateClusterData(pianoData);
+      
+      // Initialize with clustering enabled
+      toggleClustering(true);
+      
+      // Mark the map as initialized now that all pianos are added
+      mapInitialized = true;
+      console.log("🔵 Map initialized with all pianos:", pianoData.length);
+
+      // Function to draw lines to nearest pianos
+      function drawNearestPianoLines(userLat: number, userLng: number): void {
+        // Calculate distances to all pianos
+        const pianosWithDistances = pianoData.map((piano) => ({
+          ...piano,
+          distance: calculateDistance(
+            userLat,
+            userLng,
+            piano.coordinates[1],
+            piano.coordinates[0]
+          ),
+        }));
+
+        // Sort by distance and get top 3
+        const nearestPianos = pianosWithDistances
+          .sort((a, b) => a.distance - b.distance)
+          .slice(0, 3);
+
+        // Remove existing lines if any
+        if (map.getSource("nearest-pianos")) {
+          map.removeLayer("nearest-pianos");
+          map.removeSource("nearest-pianos");
+        }
+
+        // Add new lines
+        map.addSource("nearest-pianos", {
+          type: "geojson",
+          data: {
+            type: "FeatureCollection",
+            features: nearestPianos.map((piano) => ({
+              type: "Feature",
+              properties: {},
+              geometry: {
+                type: "LineString",
+                coordinates: [
+                  [userLng, userLat],
+                  piano.coordinates,
+                ],
+              },
+            })),
+          },
+        });
+
+        map.addLayer({
+          id: "nearest-pianos",
+          type: "line",
+          source: "nearest-pianos",
+          layout: {
+            "line-join": "round",
+            "line-cap": "round",
+          },
+          paint: {
+            "line-color": "#800000",
+            "line-width": 2,
+            "line-dasharray": [2, 2],
+            "line-opacity": 0.6,
+          },
+        });
+      }
+
+      // Check for saved coordinates and draw lines if they exist
+      if (savedCoordinates) {
+        try {
+          const { lat, lng } = JSON.parse(savedCoordinates);
+          drawNearestPianoLines(lat, lng);
+        } catch (error) {
+          console.error("Error parsing saved coordinates:", error);
+        }
+      }
+
+      // Listen for storage events to update lines when location changes
+      window.addEventListener("storage", (e) => {
+        if (e.key === "userCoordinates" && e.newValue) {
+          try {
+            const { lat, lng } = JSON.parse(e.newValue);
+            drawNearestPianoLines(lat, lng);
+          } catch (error) {
+            console.error("Error parsing new coordinates:", error);
+          }
+        }
+      });
+
+      // Listen for location change events
+      window.addEventListener("locationChanged", ((e: Event) => {
+        const customEvent = e as LocationChangeEvent;
+        const { lat, lng } = customEvent.detail;
+
+        // Fly to the new location
+        map.flyTo({
+          center: [lng, lat],
+          zoom: 12,
+          duration: 2000,
+          essential: true,
+        });
+
+        // Update the nearest piano lines
+        drawNearestPianoLines(lat, lng);
+      }) as EventListener);
+      
+      // Listen for filter changes
+      window.addEventListener("filtersChanged", ((e: CustomEvent) => {
+        const filters = e.detail;
+        console.log("Filters changed:", filters);
+        
+        // Make sure all pianos are added at least once before applying any filters
+        if (!mapInitialized) {
+          console.log("Map not yet initialized, ensuring all pianos are added first");
+          if (Object.values(filters).some(val => val !== null)) {
+            // This is a filter request but map isn't initialized
+            // Add all pianos first, then mark as initialized, then apply the filters
+            addPianoMarkers(pianoData);
+            updateClusterData(pianoData);
+            mapInitialized = true;
+          } else {
+            // This is the initial "show all" request
+            addPianoMarkers(pianoData);
+            updateClusterData(pianoData);
+            mapInitialized = true;
+            return; // Don't need to filter, we're showing all
+          }
+        }
+        
+        // Filter pianos based on selected criteria
+        const filteredPianos = pianoData.filter(piano => {
+          // Check each filter criteria
+          if (filters.category && piano.category !== filters.category) return false;
+          if (filters.type && piano.type !== filters.type) return false;
+          if (filters.condition && piano.condition !== filters.condition) return false;
+          if (filters.country && piano.country !== filters.country) return false;
+          if (filters.city && piano.city !== filters.city) return false;
+          
+          // Piano passed all filters
+          return true;
+        });
+        
+        console.log(`Filtered from ${pianoData.length} to ${filteredPianos.length} pianos`);
+        
+        // Update markers with filtered pianos
+        addPianoMarkers(filteredPianos);
+        
+        // Update cluster data with filtered pianos
+        updateClusterData(filteredPianos);
+      }) as EventListener);
+    });
+
+    // Add error handling for map load
+    map.on("error", (e) => {
+      console.error("Map error:", e);
+    });
+
+    return map;
+  };
+
+  // Map style options (defined globally for access in event listeners)
+  const mapStyles = {
+    streets: "mapbox://styles/mapbox/streets-v12",
+    satellite: "mapbox://styles/mapbox/satellite-streets-v12",
+    light: "mapbox://styles/mapbox/light-v11",
+    dark: "mapbox://styles/mapbox/dark-v11"
+  };
+
+  // Initialize map when DOM is loaded
+  let mapInstance: mapboxgl.Map; // Store map instance globally
+
+  document.addEventListener("DOMContentLoaded", () => {
+    mapInstance = initializeMap(); // Save the map instance
+    
+    // Set up map style switcher
+    document.querySelectorAll('[id^="style-"]').forEach(element => {
+      element.addEventListener('click', (e) => {
+        const styleId = (e.currentTarget as HTMLElement).id.replace('style-', '');
+        console.log('Style clicked:', styleId);
+        console.log('Map instance available:', !!mapInstance);
+        console.log('Style exists in mapStyles:', styleId in mapStyles);
+        
+        if (mapInstance && styleId in mapStyles) {
+          // Update map style
+          console.log('Setting map style to:', mapStyles[styleId as keyof typeof mapStyles]);
+          mapInstance.setStyle(mapStyles[styleId as keyof typeof mapStyles]);
+          
+          // Update active class
+          document.querySelectorAll('[id^="style-"]').forEach(el => {
+            el.classList.remove('active');
+          });
+          (e.currentTarget as HTMLElement).classList.add('active');
+          console.log('Style updated successfully');
+        } else {
+          console.error('Map instance not found or invalid style:', styleId);
+        }
+      });
+    });
+    
+    // Set up user location button
+    const locationButton = document.getElementById('user-location-btn');
+    locationButton?.addEventListener('click', () => {
+      if ('geolocation' in navigator) {
+        navigator.geolocation.getCurrentPosition(
+          (position) => {
+            const { latitude, longitude } = position.coords;
+            
+            // Save coordinates to localStorage
+            localStorage.setItem(
+              'userCoordinates',
+              JSON.stringify({ lat: latitude, lng: longitude })
+            );
+            
+            // Dispatch location change event
+            const locationEvent = new CustomEvent('locationChanged', {
+              detail: { lat: latitude, lng: longitude }
+            });
+            window.dispatchEvent(locationEvent);
+            
+            // Show success toast
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-top toast-center';
+            toast.innerHTML = `
+              <div class="alert alert-success">
+                <span>Location updated successfully!</span>
+              </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          },
+          (error) => {
+            console.error('Error getting location:', error);
+            
+            // Show error toast
+            const toast = document.createElement('div');
+            toast.className = 'toast toast-top toast-center';
+            toast.innerHTML = `
+              <div class="alert alert-error">
+                <span>Could not get your location. ${error.message}</span>
+              </div>
+            `;
+            document.body.appendChild(toast);
+            setTimeout(() => toast.remove(), 3000);
+          }
+        );
+      } else {
+        // Show error toast if geolocation not supported
+        const toast = document.createElement('div');
+        toast.className = 'toast toast-top toast-center';
+        toast.innerHTML = `
+          <div class="alert alert-error">
+            <span>Geolocation is not supported by your browser.</span>
+          </div>
+        `;
+        document.body.appendChild(toast);
+        setTimeout(() => toast.remove(), 3000);
+      }
+    });
+  });
+</script>
+
+<style>
+  @import "https://unpkg.com/mapbox-gl@2.15.0/dist/mapbox-gl.css";
+
+  /* Custom styles for popups */
+  .mapboxgl-popup-content {
+    padding: 0;
+    border-radius: 0.5rem;
+    background: hsl(var(--b1));
+    color: hsl(var(--bc));
+  }
+
+  /* Remove focus outline from popup close button */
+  .mapboxgl-popup-close-button,
+  .mapboxgl-popup-close-button:focus,
+  .mapboxgl-popup-close-button:focus-visible,
+  .mapboxgl-popup-close-button:active,
+  .mapboxgl-popup-close-button:hover {
+    outline: none !important;
+    box-shadow: none !important;
+    -webkit-tap-highlight-color: transparent !important;
+    -webkit-touch-callout: none !important;
+    -webkit-user-select: none !important;
+    user-select: none !important;
+    background: transparent !important;
+    border: none !important;
+    padding: 0.5rem !important;
+    color: hsl(var(--bc)) !important;
+  }
+  
+  /* Map control styles */
+  .map-controls {
+    display: flex;
+    flex-direction: column;
+    gap: 0.5rem;
+  }
+  
+  /* Style for active map style */
+  .dropdown-content a.active {
+    background-color: hsl(var(--p) / 0.2);
+    color: hsl(var(--p));
+  }
+  
+  /* Cluster toggle button */
+  .cluster-toggle-btn {
+    background: white;
+    border: none;
+    border-radius: 4px;
+    padding: 5px;
+    margin: 5px;
+    cursor: pointer;
+    box-shadow: 0 0 0 2px rgba(0,0,0,0.1);
+    width: 30px;
+    height: 30px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .cluster-toggle-btn.active {
+    background: hsl(var(--p));
+    color: white;
+  }
+  
+  .cluster-toggle-btn:hover {
+    background: hsl(var(--p) / 0.2);
+  }
+</style>

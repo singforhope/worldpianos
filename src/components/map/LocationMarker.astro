@@ -1,0 +1,20 @@
+---
+// LocationMarker.astro - Component for map markers
+// This is now a placeholder component as the functionality has been moved to mapUtils.ts
+---
+
+<div class="marker-container">
+  <slot />
+</div>
+
+<style>
+  /* Custom marker styles */
+  .marker-container {
+    cursor: pointer;
+    transition: transform 0.2s ease;
+  }
+
+  .marker-container:hover {
+    transform: scale(1.1);
+  }
+</style>

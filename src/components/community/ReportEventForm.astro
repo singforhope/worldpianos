@@ -1,7 +1,7 @@
 ---
 // ReportEventForm.astro
-// Access environment variables via import.meta.env
-const contactEmail = import.meta.env.PUBLIC_CONTACT_EMAIL || "it@singforhope.org";
+import SupabaseClient from './SupabaseClient.astro';
+import { reportEventIssue } from '../../utils/dataService';
 
 interface Props {
   eventName?: string;
@@ -11,11 +11,20 @@ interface Props {
 const { eventName = "", eventId = "" } = Astro.props;
 ---
 
+<!-- Include the Supabase client -->
+<SupabaseClient />
+
+<!-- Add Toastify CSS -->
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/toastify-js/src/toastify.min.css" />
+
+<!-- Add Toastify JS -->
+<script is:inline src="https://cdn.jsdelivr.net/npm/toastify-js"></script>
+
 <div class="card bg-base-100">
   <div class="card-body p-0">
     <form id="report-event-form" class="space-y-4">
       <!-- Hidden Event Info -->
-      <input type="hidden" id="event-id" name="eventId" value={eventId} />
+      <input type="hidden" id="event-id" name="event_id" value={eventId} />
       
       <!-- Event Name (Read-only) -->
       <div class="form-control w-full">
@@ -34,11 +43,11 @@ const { eventName = "", eventId = "" } = Astro.props;
       
       <!-- Report Type -->
       <div class="form-control w-full">
-        <label for="report-type" class="label">
-          <span class="label-text">Report Type</span>
+        <label for="issue-type" class="label">
+          <span class="label-text">Issue Type</span>
           <span class="label-text-alt text-error">*</span>
         </label>
-        <select id="report-type" name="reportType" class="select select-bordered w-full" required>
+        <select id="issue-type" name="issue_type" class="select select-bordered w-full" required>
           <option value="" disabled selected>Select a reason</option>
           <option value="Incorrect Information">Incorrect Information</option>
           <option value="Event Cancelled">Event Cancelled</option>
@@ -50,13 +59,13 @@ const { eventName = "", eventId = "" } = Astro.props;
       
       <!-- Report Details -->
       <div class="form-control w-full">
-        <label for="report-details" class="label">
-          <span class="label-text">Details</span>
+        <label for="description" class="label">
+          <span class="label-text">Description</span>
           <span class="label-text-alt text-error">*</span>
         </label>
         <textarea 
-          id="report-details" 
-          name="reportDetails" 
+          id="description" 
+          name="description" 
           placeholder="Please provide details about the issue..." 
           class="textarea textarea-bordered w-full h-32" 
           required
@@ -88,10 +97,41 @@ const { eventName = "", eventId = "" } = Astro.props;
   </div>
 </div>
 
-<script define:vars={{ contactEmail }}>
+<script is:inline>
+  // Create a showToastMessage function that uses Toastify
+  function showToastMessage(message, type) {
+    if (typeof Toastify === 'function') {
+      Toastify({
+        text: message,
+        duration: 3000,
+        close: true,
+        gravity: 'top',
+        position: 'right',
+        style: {
+          background: type === 'success' ? '#36d399' : 
+                      type === 'error' ? '#f87272' : 
+                      type === 'warning' ? '#fbbd23' : '#3abff8',
+          borderRadius: '8px',
+          boxShadow: '0 4px 6px rgba(0, 0, 0, 0.1)'
+        }
+      }).showToast();
+    } else {
+      // Fallback to alert if Toastify is not available
+      alert(message);
+    }
+  }
+  
+  // Make the function available globally
+  window.showToastMessage = showToastMessage;
+</script>
+
+<script>
+  // Import the reportEventIssue function from dataService
+  import { reportEventIssue } from '../../utils/dataService';
+  
   document.addEventListener('DOMContentLoaded', () => {
-    const form = document.getElementById('report-event-form');
-    const submitBtn = document.getElementById('submit-event-report-btn');
+    const form = document.getElementById('report-event-form') as HTMLFormElement;
+    const submitBtn = document.getElementById('submit-event-report-btn') as HTMLButtonElement;
     
     if (form) {
       form.addEventListener('submit', async (e) => {
@@ -103,25 +143,50 @@ const { eventName = "", eventId = "" } = Astro.props;
           submitBtn.innerHTML = '<span class="loading loading-spinner"></span> Sending...';
         }
         
-        // Get form data
-        const formData = new FormData(form);
-        const formDataObj = {};
-        formData.forEach((value, key) => {
-          formDataObj[key] = value;
-        });
-        
         try {
-          // In a real implementation, you would send this to your backend
-          // For this example, we'll simulate sending an email
-          console.log('Sending event report to:', contactEmail);
-          console.log('Report data:', formDataObj);
+          // Get form data
+          const formData = new FormData(form);
           
-          // Simulate network delay
-          await new Promise(resolve => setTimeout(resolve, 1500));
+          // Get current user ID if available
+          let userId = null;
+          if (window.supabaseClient) {
+            try {
+              const { data } = await window.supabaseClient.auth.getUser();
+              if (data && data.user) {
+                userId = data.user.id;
+                console.log('User is authenticated:', userId);
+              }
+            } catch (authError) {
+              console.error('Error getting user:', authError);
+            }
+          }
           
-          // Show success message and close modal
-          alert('Event report submitted successfully!');
-          const reportEventModal = document.getElementById('report-event-modal');
+          // Use the dataService function directly
+          const insertedReport = await reportEventIssue({
+            event_id: formData.get('event_id') as string,
+            issue_type: formData.get('issue_type') as string,
+            description: formData.get('description') as string,
+            reported_by: userId // Use reported_by instead of user_id
+          });
+          
+          console.log('Event report submitted successfully:', insertedReport);
+          
+          // Handle contact email if provided
+          const contactEmail = formData.get('contactEmail');
+          if (contactEmail) {
+            console.log(`Contact email provided: ${contactEmail} for report ID: ${insertedReport.id}`);
+            // In a real implementation, you would send an email notification
+            // or store the contact email for follow-up
+          }
+          
+          // Show success message using Toastify
+          if (window.showToastMessage) {
+            window.showToastMessage('Event report submitted successfully!', 'success');
+          } else {
+            alert('Event report submitted successfully!');
+          }
+          
+          const reportEventModal = document.getElementById('report-event-modal') as HTMLDialogElement;
           if (reportEventModal) {
             reportEventModal.close();
           }
@@ -129,8 +194,12 @@ const { eventName = "", eventId = "" } = Astro.props;
           // Reset form
           form.reset();
         } catch (error) {
-          // Show error message
-          alert('There was an error submitting the report. Please try again.');
+          // Show error message using Toastify
+          if (window.showToastMessage) {
+            window.showToastMessage('There was an error submitting the report. Please try again.', 'error');
+          } else {
+            alert('There was an error submitting the report. Please try again.');
+          }
           console.error('Form submission error:', error);
         } finally {
           // Reset button state
@@ -142,4 +211,14 @@ const { eventName = "", eventId = "" } = Astro.props;
       });
     }
   });
+</script>
+
+<script>
+  // Add TypeScript interface for the global window object
+  declare global {
+    interface Window {
+      supabaseClient: any;
+      showToastMessage: (message: string, type: string) => void;
+    }
+  }
 </script>

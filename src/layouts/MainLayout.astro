@@ -7,6 +7,14 @@ import EventForm from "../components/community/EventForm.astro";
 import ReportForm from "../components/piano/ReportForm.astro";
 import ReportEventForm from "../components/community/ReportEventForm.astro";
 
+// Define interface for component props
+interface Props {
+    bodyClasses?: string;
+}
+
+// Get props with defaults
+const { bodyClasses = '' } = Astro.props;
+
 // Check if this is a full-screen page
 const isFullScreen = Astro.url.pathname === "/map";
 ---
@@ -15,17 +23,36 @@ const isFullScreen = Astro.url.pathname === "/map";
     <head>
         <title>Worldpianos</title>
         <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+        <!-- Matomo -->
+        <script>
+            // @ts-ignore
+            var _paq = window._paq = window._paq || [];
+            /* tracker methods like "setCustomDimension" should be called before "trackPageView" */
+            _paq.push(['trackPageView']);
+            _paq.push(['enableLinkTracking']);
+            (function() {
+                var u="https://worldpianos.matomo.cloud/";
+                _paq.push(['setTrackerUrl', u+'matomo.php']);
+                _paq.push(['setSiteId', '1']);
+                var d=document, g=d.createElement('script'), s=d.getElementsByTagName('script')[0];
+                g.async=true; g.src='https://cdn.matomo.cloud/worldpianos.matomo.cloud/matomo.js';
+                if (s && s.parentNode) {
+                    s.parentNode.insertBefore(g,s);
+                }
+            })();
+        </script>
+        <!-- End Matomo Code -->
     </head>
-    <body class="flex flex-col h-screen overflow-hidden">
-        <Header />
-        <main class={`flex-grow overflow-auto ${isFullScreen ? "" : "w-full"}`}>
-            <slot />
-        </main>
-        <Footer />
+    <body class={`${isFullScreen ? 'fullscreen' : ''} ${Astro.props.bodyClasses || ''}`}>
+            <Header />
+            <main class={`${isFullScreen ? "" : "w-full"}`}>
+                <slot />
+            </main>
+            <Footer />
 
         <!-- Piano Modal -->
         <dialog id="piano-modal" class="modal">
-            <div class="modal-box max-w-3xl">
+            <div class="modal-box max-w-7xl w-full md:w-[95%] lg:w-[90%]">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-lg">Add a New Piano</h3>
                     <form method="dialog" class="flex">
@@ -35,7 +62,7 @@ const isFullScreen = Astro.url.pathname === "/map";
                     </form>
                 </div>
                 <div class="divider mt-0 mb-4"></div>
-                <PianoForm formTitle="" />
+                <PianoForm formTitle="" isModal={true} />
             </div>
             <form method="dialog" class="modal-backdrop">
                 <button>close</button>
@@ -44,7 +71,7 @@ const isFullScreen = Astro.url.pathname === "/map";
 
         <!-- Event Modal -->
         <dialog id="event-modal" class="modal">
-            <div class="modal-box max-w-3xl">
+            <div class="modal-box max-w-7xl w-full md:w-[95%] lg:w-[90%]">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="font-bold text-lg">Add a New Event</h3>
                     <form method="dialog" class="flex">
@@ -54,7 +81,7 @@ const isFullScreen = Astro.url.pathname === "/map";
                     </form>
                 </div>
                 <div class="divider mt-0 mb-4"></div>
-                <EventForm formTitle="" />
+                <EventForm formTitle="" isModal={true} />
             </div>
             <form method="dialog" class="modal-backdrop">
                 <button>close</button>
@@ -118,6 +145,115 @@ const isFullScreen = Astro.url.pathname === "/map";
 
     // Listen for system theme changes but don't automatically apply them
     // User must explicitly choose theme via the toggle
+</script>
+
+<!-- Client-side authentication verification -->
+<script is:inline>
+    // Ensure this script only runs in the browser
+    if (typeof window !== 'undefined' && typeof document !== 'undefined') {
+        // Function to check authentication
+        async function checkAuth() {
+            console.log('Client-side auth check: Initializing...');
+            
+            try {
+                // Use the global supabaseClient that's set by SupabaseClient.astro
+                if (!window.supabaseClient) {
+                    console.error('Client-side auth check: Supabase client not initialized');
+                    return;
+                }
+                
+                // Check authentication on page load
+                const { data, error } = await window.supabaseClient.auth.getSession();
+                
+                if (error) {
+                    console.error('Client-side auth check: Error getting session', error);
+                    return;
+                }
+                
+                if (data.session) {
+                    console.log('Client-side auth check: Authenticated as', data.session.user.id);
+                    document.body.classList.add('authenticated');
+                    
+                    // REMOVED: Don't reload on auth mismatch - this causes refresh loops
+                    // Just add a class that the page can use to show content
+                    if (window.location.pathname.startsWith('/user/') &&
+                        document.body.classList.contains('auth-required-not-authenticated')) {
+                        console.log('Client-side auth check: Detected auth mismatch, updating class');
+                        document.body.classList.remove('auth-required-not-authenticated');
+                        document.body.classList.add('auth-required-authenticated');
+                        // No reload - let the page handle this
+                    }
+                    
+                    // Update UI elements that depend on authentication
+                    document.querySelectorAll('.auth-only').forEach(el => {
+                        el.classList.remove('hidden');
+                    });
+                    
+                    document.querySelectorAll('.guest-only').forEach(el => {
+                        el.classList.add('hidden');
+                    });
+                } else {
+                    console.log('Client-side auth check: Not authenticated');
+                    document.body.classList.add('not-authenticated');
+                    
+                    // Don't auto-redirect when on user pages - just set a class
+                    // This prevents redirect loops when SSR and client-side auth disagree
+                    if (window.location.pathname.startsWith('/user/') &&
+                        !document.body.classList.contains('auth-bypass')) {
+                        console.log('Client-side auth check: Unauthorized access to protected page, adding class');
+                        document.body.classList.add('client-side-auth-failed');
+                        // Each page should handle redirect in its own way to prevent loops
+                    }
+                    
+                    // Update UI elements that depend on authentication
+                    document.querySelectorAll('.auth-only').forEach(el => {
+                        el.classList.add('hidden');
+                    });
+                    
+                    document.querySelectorAll('.guest-only').forEach(el => {
+                        el.classList.remove('hidden');
+                    });
+                }
+                
+                // Mark the body as auth-ready and dispatch event
+                document.body.classList.add('auth-ready');
+                
+                // Dispatch an event that pages can listen for
+                const event = new CustomEvent('auth-check-complete', { 
+                    detail: { authenticated: !!data.session } 
+                });
+                window.dispatchEvent(event);
+                
+            } catch (err) {
+                console.error('Client-side auth check: Exception', err);
+                
+                // Still dispatch event on error
+                const event = new CustomEvent('auth-check-complete', { 
+                    detail: { authenticated: false, error: err } 
+                });
+                window.dispatchEvent(event);
+            }
+        }
+        
+        // Check if Supabase is already available
+        if (window.supabaseClient) {
+            checkAuth();
+        } else {
+            // Wait for the supabase-ready event
+            console.log('Client-side auth check: Waiting for Supabase client...');
+            window.addEventListener('supabase-ready', checkAuth);
+            
+            // Failsafe: if supabase-ready never fires, do auth check anyway after timeout
+            setTimeout(() => {
+                if (!document.body.classList.contains('auth-ready')) {
+                    console.warn('Client-side auth check: Timeout waiting for Supabase, checking auth anyway');
+                    checkAuth();
+                }
+            }, 3000);
+        }
+    } else {
+        console.log('Skipping client-side auth check in server environment');
+    }
 </script>
 
 <script is:inline>
