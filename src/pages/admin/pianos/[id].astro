@@ -414,10 +414,67 @@ const formatDate = (dateString: string | null | undefined) => {
     )}
 </AdminLayout>
 
+<!-- Modals -->
+<dialog id="confirm-delete-modal" class="modal">
+    <div class="modal-box">
+        <h3 class="font-bold text-lg text-error">Delete Piano</h3>
+        <p class="py-4">Are you sure you want to delete this piano? This action cannot be undone and will delete:</p>
+        <ul class="list-disc pl-6 py-2">
+            <li>The piano record</li>
+            <li>All piano images and media</li>
+            <li>All piano reports</li>
+        </ul>
+        <p class="py-2">All events associated with this piano will be marked as "Piano Not Available". User piano visit records will be preserved.</p>
+        <div class="modal-action">
+            <button id="cancel-delete-btn" class="btn">Cancel</button>
+            <button id="confirm-delete-btn" class="btn btn-error">Delete Piano</button>
+        </div>
+    </div>
+</dialog>
+
+<dialog id="notification-modal" class="modal">
+    <div class="modal-box">
+        <h3 id="notification-title" class="font-bold text-lg"></h3>
+        <p id="notification-message" class="py-4"></p>
+        <div class="modal-action">
+            <button id="notification-ok-btn" class="btn">OK</button>
+        </div>
+    </div>
+</dialog>
+
 <script>
     import { supabase } from '../../../utils/supabase';
     
     document.addEventListener('DOMContentLoaded', () => {
+        // Modal Elements
+        const confirmDeleteModal = document.getElementById('confirm-delete-modal') as HTMLDialogElement;
+        const notificationModal = document.getElementById('notification-modal') as HTMLDialogElement;
+        const cancelDeleteBtn = document.getElementById('cancel-delete-btn');
+        const confirmDeleteBtn = document.getElementById('confirm-delete-btn');
+        const notificationOkBtn = document.getElementById('notification-ok-btn');
+        const notificationTitle = document.getElementById('notification-title');
+        const notificationMessage = document.getElementById('notification-message');
+        
+        // Helper function to show notification
+        const showNotification = (title: string, message: string, isSuccess = true, redirectOnClose: string | null = null) => {
+            if (notificationTitle) notificationTitle.textContent = title;
+            if (notificationTitle) notificationTitle.className = `font-bold text-lg ${isSuccess ? 'text-success' : 'text-error'}`;
+            if (notificationMessage) notificationMessage.textContent = message;
+            
+            if (redirectOnClose && notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                    window.location.href = redirectOnClose;
+                };
+            } else if (notificationOkBtn) {
+                notificationOkBtn.onclick = () => {
+                    notificationModal.close();
+                };
+            }
+            
+            notificationModal.showModal();
+        };
+        
         // Piano form submission
         const pianoForm = document.getElementById('piano-form');
         if (pianoForm) {
@@ -472,20 +529,32 @@ const formatDate = (dateString: string | null | undefined) => {
                     }
                     
                     // Show success message
-                    alert('Piano updated successfully!');
+                    showNotification('Success', 'Piano updated successfully!', true, null);
                     
-                    // Reload page to show updated data
-                    window.location.reload();
+                    // Reset button state
+                    if (submitBtn) {
+                        submitBtn.classList.remove('loading');
+                        submitBtn.disabled = false;
+                    }
+                    
+                    // Reload data after closing notification
+                    if (notificationOkBtn) {
+                        notificationOkBtn.onclick = () => {
+                            notificationModal.close();
+                            window.location.reload();
+                        };
+                    }
                 } catch (error) {
                     console.error('Error updating piano:', error);
                     
                     // Show error message
+                    let errorMessage = 'An error occurred while updating the piano.';
                     if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
-                    } else {
-                        alert('An error occurred while updating the piano.');
+                        errorMessage = `Error: ${error.message}`;
                     }
-                } finally {
+                    
+                    showNotification('Error', errorMessage, false);
+                    
                     // Reset button state
                     if (submitBtn) {
                         submitBtn.classList.remove('loading');
@@ -498,64 +567,170 @@ const formatDate = (dateString: string | null | undefined) => {
         // Delete piano button
         const deletePianoBtn = document.getElementById('delete-piano-btn');
         if (deletePianoBtn) {
-            deletePianoBtn.addEventListener('click', async () => {
-                // Confirm deletion
-                if (!confirm('Are you sure you want to delete this piano? This action cannot be undone.')) {
-                    return;
-                }
+            deletePianoBtn.addEventListener('click', () => {
+                confirmDeleteModal.showModal();
+            });
+        }
+        
+        // Cancel delete button
+        if (cancelDeleteBtn) {
+            cancelDeleteBtn.addEventListener('click', () => {
+                confirmDeleteModal.close();
+            });
+        }
+        
+        // Confirm delete button
+        if (confirmDeleteBtn) {
+            confirmDeleteBtn.addEventListener('click', async () => {
+                // Set button to loading state
+                (confirmDeleteBtn as HTMLButtonElement).classList.add('loading');
+                (confirmDeleteBtn as HTMLButtonElement).disabled = true;
                 
                 try {
                     const pianoId = new URLSearchParams(window.location.search).get('id') ||
                                    window.location.pathname.split('/').pop();
                     
-                    // First, delete all related media entries to avoid foreign key constraint violations
-                    console.log('Deleting related media entries for piano:', pianoId);
+                    if (!pianoId) {
+                        throw new Error('Piano ID not found');
+                    }
+
+                    console.log(`Starting piano deletion for ID: ${pianoId}`);
+
+                    // First step: Get all piano media records to obtain file URLs
+                    console.log('Fetching piano media...');
+                    const { data: mediaData, error: mediaFetchError } = await supabase
+                        .from('piano_media')
+                        .select('*')
+                        .eq('piano_id', pianoId);
+                        
+                    if (mediaFetchError) {
+                        console.error('Error fetching piano media:', mediaFetchError);
+                        throw new Error(`Failed to fetch piano media: ${mediaFetchError.message}`);
+                    }
+                    
+                    // Delete media files from storage bucket
+                    if (mediaData && mediaData.length > 0) {
+                        console.log(`Found ${mediaData.length} media files to delete from storage`);
+                        
+                        for (const media of mediaData) {
+                            if (media.url && media.media_type.startsWith('image/')) {
+                                try {
+                                    // Extract filename from URL
+                                    const urlParts = media.url.split('/');
+                                    const filename = urlParts[urlParts.length - 1];
+                                    
+                                    if (filename) {
+                                        console.log(`Deleting file from storage: ${filename}`);
+                                        
+                                        const { error: storageError } = await supabase.storage
+                                            .from('piano-images')
+                                            .remove([filename]);
+                                            
+                                        if (storageError) {
+                                            console.error(`Error deleting file ${filename}:`, storageError);
+                                            // Continue with other files even if one fails
+                                        } else {
+                                            console.log(`Successfully deleted file: ${filename}`);
+                                        }
+                                    }
+                                } catch (fileError) {
+                                    console.error('Error processing file deletion:', fileError);
+                                    // Continue with other files
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Next step: Delete piano media database records
+                    console.log('Deleting piano media database records...');
                     const { error: mediaDeleteError } = await supabase
                         .from('piano_media')
                         .delete()
                         .eq('piano_id', pianoId);
-                    
+                        
                     if (mediaDeleteError) {
-                        console.error('Error deleting related media:', mediaDeleteError);
-                        throw mediaDeleteError;
+                        console.error('Error deleting piano media records:', mediaDeleteError);
+                        throw new Error(`Failed to delete piano media records: ${mediaDeleteError.message}`);
                     }
                     
-                    // Next, delete all related reports
-                    console.log('Deleting related reports for piano:', pianoId);
+                    console.log('Successfully deleted piano media records');
+                    
+                    // Second step: Delete piano reports
+                    console.log('Deleting piano reports...');
                     const { error: reportsDeleteError } = await supabase
                         .from('piano_reports')
                         .delete()
                         .eq('piano_id', pianoId);
                     
                     if (reportsDeleteError) {
-                        console.error('Error deleting related reports:', reportsDeleteError);
-                        throw reportsDeleteError;
+                        console.error('Error deleting piano reports:', reportsDeleteError);
+                        throw new Error(`Failed to delete piano reports: ${reportsDeleteError.message}`);
                     }
                     
-                    // Finally, delete the piano itself
-                    console.log('Deleting piano:', pianoId);
-                    const { error } = await supabase
+                    console.log('Successfully deleted piano reports');
+                    
+                    // We're skipping the user piano visits deletion as requested
+                    // User piano visits will remain in the database for historical purposes
+                    
+                    // Fourth step: Update related events to "piano_unavailable" status instead of deleting them
+                    console.log('Updating status of related events...');
+                    const { error: eventsUpdateError } = await supabase
+                        .from('events')
+                        .update({ status: 'piano_unavailable' })
+                        .eq('piano_id', pianoId);
+                    
+                    if (eventsUpdateError) {
+                        console.error('Error updating events status:', eventsUpdateError);
+                        throw new Error(`Failed to update events status: ${eventsUpdateError.message}`);
+                    }
+                    
+                    console.log('Successfully updated related events status to piano_unavailable');
+                    
+                    // Wait a moment to ensure all operations complete
+                    console.log('Waiting to ensure all operations are processed...');
+                    await new Promise(resolve => setTimeout(resolve, 500));
+                    
+                    // Final step: Delete the piano itself
+                    console.log('Deleting piano...');
+                    const { error: pianoError } = await supabase
                         .from('pianos')
                         .delete()
                         .eq('id', pianoId);
                     
-                    if (error) {
-                        console.error('Error deleting piano:', error);
-                        throw error;
+                    if (pianoError) {
+                        throw new Error(`Failed to delete piano: ${pianoError.message}`);
                     }
                     
-                    // Redirect to pianos list
-                    alert('Piano and all related data deleted successfully!');
-                    window.location.href = '/admin/pianos';
+                    console.log('Piano deleted successfully!');
+                    
+                    // Close the confirmation modal
+                    confirmDeleteModal.close();
+                    
+                    // Show success notification with redirection
+                    showNotification(
+                        'Success', 
+                        'Piano deleted successfully! All related events have been marked as "Piano Not Available".', 
+                        true, 
+                        '/admin/pianos'
+                    );
                 } catch (error) {
-                    console.error('Error deleting piano:', error);
+                    // Handle errors in a user-friendly way
+                    console.error('Piano deletion error:', error);
                     
-                    // Show error message
+                    let errorMessage = 'An error occurred during the deletion process.';
                     if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
-                    } else {
-                        alert('An error occurred while deleting the piano.');
+                        errorMessage = `Error: ${error.message}`;
                     }
+                    
+                    // Close confirmation modal
+                    confirmDeleteModal.close();
+                    
+                    // Show error notification
+                    showNotification('Error', `${errorMessage}\n\nPlease try again or contact technical support for assistance.`, false);
+                } finally {
+                    // Reset button state
+                    (confirmDeleteBtn as HTMLButtonElement).classList.remove('loading');
+                    (confirmDeleteBtn as HTMLButtonElement).disabled = false;
                 }
             });
         }
@@ -567,39 +742,123 @@ const formatDate = (dateString: string | null | undefined) => {
                 const mediaId = btn.getAttribute('data-media-id');
                 if (!mediaId) return;
                 
-                // Confirm deletion
-                if (!confirm('Are you sure you want to delete this media? This action cannot be undone.')) {
-                    return;
-                }
-                
-                try {
-                    // Delete media
-                    const { error } = await supabase
-                        .from('piano_media')
-                        .delete()
-                        .eq('id', mediaId);
+                // Show confirmation modal
+                if (confirmDeleteModal) {
+                    // Update modal content for media deletion
+                    const modalTitle = confirmDeleteModal.querySelector('h3');
+                    if (modalTitle) modalTitle.textContent = 'Delete Media';
                     
-                    if (error) {
-                        throw error;
+                    const modalContent = confirmDeleteModal.querySelector('p.py-4');
+                    if (modalContent) modalContent.textContent = 'Are you sure you want to delete this media? This action cannot be undone.';
+                    
+                    // Hide the bullet points list
+                    const bulletList = confirmDeleteModal.querySelector('ul');
+                    if (bulletList) (bulletList as HTMLElement).style.display = 'none';
+                    
+                    // Hide the events note
+                    const eventsNote = confirmDeleteModal.querySelector('p.py-2');
+                    if (eventsNote) (eventsNote as HTMLElement).style.display = 'none';
+                    
+                    // Update confirm button text
+                    if (confirmDeleteBtn) confirmDeleteBtn.textContent = 'Delete Media';
+                    
+                    // Override confirm button click for media deletion
+                    if (confirmDeleteBtn) {
+                        const originalClickHandler = confirmDeleteBtn.onclick;
+                        
+                        confirmDeleteBtn.onclick = async () => {
+                            // Set button to loading state
+                            (confirmDeleteBtn as HTMLButtonElement).classList.add('loading');
+                            (confirmDeleteBtn as HTMLButtonElement).disabled = true;
+                            
+                            try {
+                                // First get the media details to get the file URL
+                                const { data: mediaData, error: fetchError } = await supabase
+                                    .from('piano_media')
+                                    .select('*')
+                                    .eq('id', mediaId)
+                                    .single();
+                                
+                                if (fetchError) {
+                                    throw fetchError;
+                                }
+                                
+                                // Delete the file from storage if it's an image
+                                if (mediaData && mediaData.url && mediaData.media_type.startsWith('image/')) {
+                                    try {
+                                        // Extract filename from URL
+                                        const urlParts = mediaData.url.split('/');
+                                        const filename = urlParts[urlParts.length - 1];
+                                        
+                                        if (filename) {
+                                            console.log(`Deleting file from storage: ${filename}`);
+                                            
+                                            const { error: storageError } = await supabase.storage
+                                                .from('piano-images')
+                                                .remove([filename]);
+                                                
+                                            if (storageError) {
+                                                console.error(`Error deleting file ${filename}:`, storageError);
+                                                // Continue with database record deletion anyway
+                                            } else {
+                                                console.log(`Successfully deleted file: ${filename}`);
+                                            }
+                                        }
+                                    } catch (fileError) {
+                                        console.error('Error processing file deletion:', fileError);
+                                        // Continue with database record deletion
+                                    }
+                                }
+                                
+                                // Delete media record from database
+                                const { error } = await supabase
+                                    .from('piano_media')
+                                    .delete()
+                                    .eq('id', mediaId);
+                                
+                                if (error) {
+                                    throw error;
+                                }
+                                
+                                // Remove media from DOM
+                                const mediaCard = btn.closest('.card');
+                                if (mediaCard) {
+                                    mediaCard.remove();
+                                }
+                                
+                                // Close confirmation modal
+                                confirmDeleteModal.close();
+                                
+                                // Show success notification
+                                showNotification('Success', 'Media deleted successfully!', true);
+                                
+                                // Reset confirm button for piano deletion
+                                confirmDeleteBtn.onclick = originalClickHandler;
+                            } catch (error) {
+                                console.error('Error deleting media:', error);
+                                
+                                // Show error notification
+                                let errorMessage = 'An error occurred while deleting the media.';
+                                if (error instanceof Error) {
+                                    errorMessage = `Error: ${error.message}`;
+                                }
+                                
+                                // Close confirmation modal
+                                confirmDeleteModal.close();
+                                
+                                showNotification('Error', errorMessage, false);
+                                
+                                // Reset confirm button for piano deletion
+                                confirmDeleteBtn.onclick = originalClickHandler;
+                            } finally {
+                                // Reset button state
+                                (confirmDeleteBtn as HTMLButtonElement).classList.remove('loading');
+                                (confirmDeleteBtn as HTMLButtonElement).disabled = false;
+                            }
+                        };
                     }
                     
-                    // Remove media from DOM
-                    const mediaCard = btn.closest('.card');
-                    if (mediaCard) {
-                        mediaCard.remove();
-                    }
-                    
-                    // Show success message
-                    alert('Media deleted successfully!');
-                } catch (error) {
-                    console.error('Error deleting media:', error);
-                    
-                    // Show error message
-                    if (error instanceof Error) {
-                        alert(`Error: ${error.message}`);
-                    } else {
-                        alert('An error occurred while deleting the media.');
-                    }
+                    confirmDeleteModal.showModal();
                 }
             });
         });
