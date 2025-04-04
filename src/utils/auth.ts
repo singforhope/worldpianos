@@ -221,6 +221,30 @@ class AuthService {
   }
 
   /**
+   * Sign in with magic link (passwordless)
+   */
+  async signInWithOtp(email: string, redirectTo?: string): Promise<{ error: AuthError | null }> {
+    try {
+      const { error } = await supabase.auth.signInWithOtp({
+        email,
+        options: {
+          emailRedirectTo: redirectTo || (isBrowser ? `${window.location.origin}/auth-callback` : undefined)
+        }
+      });
+      
+      return { error };
+    } catch (err) {
+      return {
+        error: {
+          message: err instanceof Error ? err.message : 'Unknown error',
+          name: 'AuthException',
+          status: 500
+        } as AuthError
+      };
+    }
+  }
+
+  /**
    * Get the return URL for redirects after authentication
    */
   getReturnUrl(): string {

@@ -2,14 +2,15 @@
 import MainLayout from "../layouts/MainLayout.astro";
 import { auth } from "../utils/auth";
 
-// Check if there's an error parameter in the URL
+// Check if there's an error or message parameter in the URL
 const errorMessage = Astro.url.searchParams.get('error');
+const infoMessage = Astro.url.searchParams.get('message');
 ---
 
 <MainLayout>
     <div class="container mx-auto px-4 py-8">
         <div class="max-w-md mx-auto">
-            <h1 class="text-2xl font-bold mb-6">Login or Sign Up</h1>
+            <h1 class="text-2xl font-bold mb-6">Sign In or Sign Up</h1>
             
             {errorMessage && (
                 <div class="alert alert-error mb-6">
@@ -17,80 +18,34 @@ const errorMessage = Astro.url.searchParams.get('error');
                     <span>{errorMessage}</span>
                 </div>
             )}
+
+            {infoMessage && (
+                <div class="alert alert-info mb-6">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="stroke-current shrink-0 w-6 h-6"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span>{infoMessage}</span>
+                </div>
+            )}
             
             <div class="card bg-base-100 shadow-xl">
                 <div class="card-body">
-                    <div class="tabs tabs-boxed mb-6">
-                        <a class="tab tab-active" id="login-tab">Login</a>
-                        <a class="tab" id="signup-tab">Sign Up</a>
-                    </div>
-                    
-                    <div id="login-form" class="space-y-4">
+                    <div id="auth-form" class="space-y-4">
                         <div class="form-control">
                             <label class="label">
                                 <span class="label-text">Email</span>
                             </label>
-                            <input type="email" id="login-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
+                            <input type="email" id="auth-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
                         </div>
                         
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Password</span>
-                            </label>
-                            <input type="password" id="login-password" placeholder="••••••••" class="input input-bordered w-full" />
+                        <div id="auth-description" class="text-sm mt-2 mb-4 text-center">
+                            <p>We'll send you a magic link to sign in or create an account</p>
                         </div>
                         
-                        <button id="login-button" class="btn btn-primary w-full mt-4">Sign In</button>
+                        <button id="auth-button" class="btn btn-primary w-full mt-4">Send Magic Link</button>
                         
-                        <div class="text-sm text-center mt-4">
-                            <a href="#" id="forgot-password" class="link link-hover">Forgot password?</a>
+                        <div id="auth-status" class="mt-4 text-center hidden">
+                            <span class="text-sm"></span>
                         </div>
                     </div>
-                    
-                    <div id="signup-form" class="space-y-4 hidden">
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Email</span>
-                            </label>
-                            <input type="email" id="signup-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
-                        </div>
-                        
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Password</span>
-                            </label>
-                            <input type="password" id="signup-password" placeholder="••••••••" class="input input-bordered w-full" />
-                            <label class="label">
-                                <span class="label-text-alt">Must be at least 6 characters</span>
-                            </label>
-                        </div>
-                        
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Display Name</span>
-                            </label>
-                            <input type="text" id="signup-name" placeholder="Your Name" class="input input-bordered w-full" />
-                        </div>
-                        
-                        <button id="signup-button" class="btn btn-primary w-full mt-4">Create Account</button>
-                    </div>
-                    
-                    <div id="reset-form" class="space-y-4 hidden">
-                        <div class="form-control">
-                            <label class="label">
-                                <span class="label-text">Email</span>
-                            </label>
-                            <input type="email" id="reset-email" placeholder="your.email@example.com" class="input input-bordered w-full" />
-                        </div>
-                        
-                        <button id="reset-button" class="btn btn-primary w-full mt-4">Reset Password</button>
-                        
-                        <div class="text-sm text-center mt-4">
-                            <a href="#" id="back-to-login" class="link link-hover">Back to login</a>
-                        </div>
-                    </div>
-                    
-                    <div id="status-message" class="mt-4 text-sm hidden"></div>
                 </div>
             </div>
         </div>
@@ -101,229 +56,81 @@ const errorMessage = Astro.url.searchParams.get('error');
     import { auth, profile } from '../utils/auth';
     
     document.addEventListener('DOMContentLoaded', () => {
-        // Tab switching
-        const loginTab = document.getElementById('login-tab') as HTMLElement;
-        const signupTab = document.getElementById('signup-tab') as HTMLElement;
-        const loginForm = document.getElementById('login-form') as HTMLElement;
-        const signupForm = document.getElementById('signup-form') as HTMLElement;
-        const resetForm = document.getElementById('reset-form') as HTMLElement;
+        // Get elements
+        const authButton = document.getElementById('auth-button') as HTMLButtonElement;
+        const authEmail = document.getElementById('auth-email') as HTMLInputElement;
+        const authStatus = document.getElementById('auth-status') as HTMLElement;
         
-        if (loginTab && signupTab && loginForm && signupForm && resetForm) {
-            loginTab.addEventListener('click', () => {
-                loginTab.classList.add('tab-active');
-                signupTab.classList.remove('tab-active');
-                loginForm.classList.remove('hidden');
-                signupForm.classList.add('hidden');
-                resetForm.classList.add('hidden');
-            });
-            
-            signupTab.addEventListener('click', () => {
-                signupTab.classList.add('tab-active');
-                loginTab.classList.remove('tab-active');
-                signupForm.classList.remove('hidden');
-                loginForm.classList.add('hidden');
-                resetForm.classList.add('hidden');
-            });
-        }
-        
-        // Forgot password
-        const forgotPassword = document.getElementById('forgot-password') as HTMLElement;
-        if (forgotPassword && loginForm && resetForm) {
-            forgotPassword.addEventListener('click', (e) => {
-                e.preventDefault();
-                loginForm.classList.add('hidden');
-                resetForm.classList.remove('hidden');
-            });
-        }
-        
-        // Back to login
-        const backToLogin = document.getElementById('back-to-login') as HTMLElement;
-        if (backToLogin && resetForm && loginForm) {
-            backToLogin.addEventListener('click', (e) => {
-                e.preventDefault();
-                resetForm.classList.add('hidden');
-                loginForm.classList.remove('hidden');
-            });
-        }
-        
-        // Login
-        const loginButton = document.getElementById('login-button') as HTMLButtonElement;
-        if (loginButton) {
-            loginButton.addEventListener('click', async () => {
-                const emailInput = document.getElementById('login-email') as HTMLInputElement;
-                const passwordInput = document.getElementById('login-password') as HTMLInputElement;
-                
-                const email = emailInput?.value || '';
-                const password = passwordInput?.value || '';
-                
-                if (!email || !password) {
-                    showStatus('error', 'Please enter both email and password');
-                    return;
-                }
-                
-                showStatus('info', 'Signing in...');
-                loginButton.disabled = true;
-                
-                try {
-                    const { user, session, error } = await auth.signInWithPassword(email, password);
+        // Helper to show status messages
+        function showStatus(type: 'success' | 'error' | 'info', message: string) {
+            if (authStatus) {
+                authStatus.classList.remove('hidden');
+                const statusText = authStatus.querySelector('span');
+                if (statusText) {
+                    statusText.textContent = message;
+                    statusText.className = 'text-sm';
                     
-                    if (error) {
-                        showStatus('error', error.message);
-                        loginButton.disabled = false;
-                        return;
+                    if (type === 'success') {
+                        statusText.classList.add('text-success');
+                    } else if (type === 'error') {
+                        statusText.classList.add('text-error');
+                    } else {
+                        statusText.classList.add('text-info');
                     }
-                    
-                    showStatus('success', 'Signed in successfully! Redirecting...');
-                    
-                    // Check if user is admin and redirect accordingly
-                    setTimeout(async () => {
-                        if (user) {
-                            const isAdmin = await profile.isAdmin(user.id);
-                            
-                            if (isAdmin) {
-                                window.location.href = '/admin/dashboard';
-                            } else {
-                                const returnTo = auth.getReturnUrl();
-                                window.location.href = returnTo;
-                            }
-                        } else {
-                            // Fallback to default redirect
-                            const returnTo = auth.getReturnUrl();
-                            window.location.href = returnTo;
-                        }
-                    }, 1500);
-                } catch (error) {
-                    showStatus('error', 'An unexpected error occurred');
-                    loginButton.disabled = false;
                 }
-            });
+            }
         }
         
-        // Sign up
-        const signupButton = document.getElementById('signup-button') as HTMLButtonElement;
-        if (signupButton) {
-            signupButton.addEventListener('click', async () => {
-                const emailInput = document.getElementById('signup-email') as HTMLInputElement;
-                const passwordInput = document.getElementById('signup-password') as HTMLInputElement;
-                const nameInput = document.getElementById('signup-name') as HTMLInputElement;
-                
-                const email = emailInput?.value || '';
-                const password = passwordInput?.value || '';
-                const name = nameInput?.value || '';
-                
-                if (!email || !password) {
-                    showStatus('error', 'Please enter both email and password');
-                    return;
-                }
-                
-                if (password.length < 6) {
-                    showStatus('error', 'Password must be at least 6 characters');
-                    return;
-                }
-                
-                showStatus('info', 'Creating account...');
-                signupButton.disabled = true;
-                
-                try {
-                    // Sign up the user
-                    const { user, error } = await auth.signUp(email, password, {
-                        display_name: name || email.split('@')[0]
-                    });
-                    
-                    if (error) {
-                        showStatus('error', error.message);
-                        signupButton.disabled = false;
-                        return;
-                    }
-                    
-                    // Create user profile via API
-                    if (user) {
-                        try {
-                            const displayName = name || email.split('@')[0];
-                            const result = await profile.createUserProfileViaApi(user.id, displayName);
-                            
-                            if (!result.success) {
-                                showStatus('error', 'Account created but there was an error setting up your profile. Please contact support.');
-                                signupButton.disabled = false;
-                                return;
-                            }
-                            
-                            console.log('User profile created successfully');
-                        } catch (profileError) {
-                            console.error('Error creating profile:', profileError);
-                            showStatus('error', 'Account created but there was an error setting up your profile. Please contact support.');
-                            signupButton.disabled = false;
-                            return;
-                        }
-                    }
-                    
-                    showStatus('success', 'Account created! Please check your email for confirmation.');
-                    
-                    // Switch to login tab
-                    setTimeout(() => {
-                        if (loginTab) {
-                            loginTab.click();
-                        }
-                        signupButton.disabled = false;
-                    }, 2000);
-                } catch (error) {
-                    showStatus('error', 'An unexpected error occurred');
-                    signupButton.disabled = false;
-                    console.error('Signup error:', error);
-                }
-            });
-        }
-        
-        // Reset password
-        const resetButton = document.getElementById('reset-button') as HTMLButtonElement;
-        if (resetButton) {
-            resetButton.addEventListener('click', async () => {
-                const emailInput = document.getElementById('reset-email') as HTMLInputElement;
-                const email = emailInput?.value || '';
+        // Handle magic link request
+        if (authButton) {
+            authButton.addEventListener('click', async () => {
+                const email = authEmail?.value || '';
                 
                 if (!email) {
-                    showStatus('error', 'Please enter your email');
+                    showStatus('error', 'Please enter your email address');
                     return;
                 }
                 
-                showStatus('info', 'Sending password reset email...');
-                resetButton.disabled = true;
+                // Validate email format
+                const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+                if (!emailRegex.test(email)) {
+                    showStatus('error', 'Please enter a valid email address');
+                    return;
+                }
+                
+                showStatus('info', 'Sending magic link...');
+                authButton.disabled = true;
                 
                 try {
-                    const redirectTo = `${window.location.origin}/reset-password`;
-                    const { error } = await auth.resetPasswordForEmail(email, redirectTo);
+                    // Store the return URL in localStorage
+                    const returnUrl = new URLSearchParams(window.location.search).get('returnTo');
+                    if (returnUrl) {
+                        auth.setReturnUrl(returnUrl);
+                    }
+                    
+                    // Generate redirect URL
+                    const redirectTo = `${window.location.origin}/auth-callback`;
+                    
+                    // Send the magic link
+                    const { error } = await auth.signInWithOtp(email, redirectTo);
                     
                     if (error) {
                         showStatus('error', error.message);
-                        resetButton.disabled = false;
+                        authButton.disabled = false;
                         return;
                     }
                     
-                    showStatus('success', 'Password reset email sent! Please check your inbox.');
+                    showStatus('success', 'Magic link sent! Check your email to continue.');
                     
-                    // Switch to login tab
-                    setTimeout(() => {
-                        if (loginTab) {
-                            loginTab.click();
-                        }
-                        resetButton.disabled = false;
-                    }, 2000);
+                    // Keep button disabled to prevent multiple requests
+                    // but clear the input field
+                    authEmail.value = '';
                 } catch (error) {
                     showStatus('error', 'An unexpected error occurred');
-                    resetButton.disabled = false;
-                    console.error('Reset password error:', error);
+                    authButton.disabled = false;
+                    console.error('Auth error:', error);
                 }
             });
-        }
-        
-        // Function to show status messages
-        function showStatus(type: 'error' | 'success' | 'info', message: string) {
-            const statusEl = document.getElementById('status-message');
-            if (statusEl) {
-                statusEl.textContent = message;
-                statusEl.className = `mt-4 text-sm ${type === 'error' ? 'text-error' : type === 'success' ? 'text-success' : 'text-info'}`;
-                statusEl.classList.remove('hidden');
-            }
         }
     });
 </script>
