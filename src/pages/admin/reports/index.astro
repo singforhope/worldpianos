@@ -11,15 +11,15 @@ const search = searchParams.get('search') || '';
 const filter = searchParams.get('filter') || 'all';
 const type = searchParams.get('type') || 'piano';
 
-// Build query for piano reports
+// Build query for piano reports - use simpler query pattern
 let pianosQuery = supabase
     .from('piano_reports')
-    .select('*, pianos:piano_id(*), user_profiles:user_id(display_name)', { count: 'exact' });
+    .select('*, piano_id, user_id', { count: 'exact' });
 
-// Build query for event reports
+// Build query for event reports - use simpler query pattern
 let eventsQuery = supabase
     .from('event_reports')
-    .select('*, events:event_id(*), user_profiles:user_id(display_name)', { count: 'exact' });
+    .select('*, event_id, user_id', { count: 'exact' });
 
 // Apply filter if provided
 if (filter === 'pending') {
@@ -36,26 +36,154 @@ let eventReports = [];
 let count = 0;
 let error = null;
 
+// Fetch piano reports if needed
 if (type === 'piano' || type === 'all') {
-    const pianoResult = await pianosQuery
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-    
-    pianoReports = pianoResult.data || [];
-    count = pianoResult.count || 0;
-    error = pianoResult.error;
+    try {
+        const pianoResult = await pianosQuery
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+        
+        pianoReports = pianoResult.data || [];
+        count = pianoResult.count || 0;
+        error = pianoResult.error;
+        
+        // If we have piano reports, fetch the related piano and user data
+        if (pianoReports.length > 0) {
+            // Get unique piano IDs
+            const pianoIds = [...new Set(pianoReports.map(report => report.piano_id))].filter(Boolean);
+            
+            // Get unique user IDs
+            const userIds = [...new Set(pianoReports.map(report => report.user_id))].filter(Boolean);
+            
+            // Fetch piano data
+            if (pianoIds.length > 0) {
+                const { data: pianos } = await supabase
+                    .from('pianos')
+                    .select('id, name')
+                    .in('id', pianoIds);
+                
+                if (pianos) {
+                    // Create lookup map for piano names
+                    const pianoMap: Record<string, string> = pianos.reduce((acc: Record<string, string>, piano) => {
+                        acc[piano.id] = piano.name;
+                        return acc;
+                    }, {});
+                    
+                    // Add piano_name to each report
+                    pianoReports = pianoReports.map(report => ({
+                        ...report,
+                        piano_name: report.piano_id && pianoMap.hasOwnProperty(report.piano_id) 
+                            ? pianoMap[report.piano_id] 
+                            : 'Unknown Piano'
+                    }));
+                }
+            }
+            
+            // Fetch user data
+            if (userIds.length > 0) {
+                const { data: users } = await supabase
+                    .from('user_profiles')
+                    .select('id, display_name')
+                    .in('id', userIds);
+                
+                if (users) {
+                    // Create lookup map for user display names
+                    const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user) => {
+                        acc[user.id] = user.display_name;
+                        return acc;
+                    }, {});
+                    
+                    // Add user_name to each report
+                    pianoReports = pianoReports.map(report => ({
+                        ...report,
+                        user_name: report.user_id && userMap.hasOwnProperty(report.user_id) 
+                            ? userMap[report.user_id] 
+                            : 'Anonymous'
+                    }));
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching piano reports:', err);
+        error = err instanceof Error ? err : new Error('An unexpected error occurred');
+    }
 }
 
+// Fetch event reports if needed
 if (type === 'event' || type === 'all') {
-    const eventResult = await eventsQuery
-        .order('created_at', { ascending: false })
-        .range(offset, offset + limit - 1);
-    
-    eventReports = eventResult.data || [];
-    
-    if (type === 'event') {
-        count = eventResult.count || 0;
-        error = eventResult.error;
+    try {
+        const eventResult = await eventsQuery
+            .order('created_at', { ascending: false })
+            .range(offset, offset + limit - 1);
+        
+        eventReports = eventResult.data || [];
+        
+        if (type === 'event') {
+            count = eventResult.count || 0;
+            error = eventResult.error;
+        }
+        
+        // If we have event reports, fetch the related event and user data
+        if (eventReports.length > 0) {
+            // Get unique event IDs
+            const eventIds = [...new Set(eventReports.map(report => report.event_id))].filter(Boolean);
+            
+            // Get unique user IDs
+            const userIds = [...new Set(eventReports.map(report => report.user_id))].filter(Boolean);
+            
+            // Fetch event data
+            if (eventIds.length > 0) {
+                const { data: events } = await supabase
+                    .from('events')
+                    .select('id, name')
+                    .in('id', eventIds);
+                
+                if (events) {
+                    // Create lookup map for event names
+                    const eventMap: Record<string, string> = events.reduce((acc: Record<string, string>, event) => {
+                        acc[event.id] = event.name;
+                        return acc;
+                    }, {});
+                    
+                    // Add event_name to each report
+                    eventReports = eventReports.map(report => ({
+                        ...report,
+                        event_name: report.event_id && eventMap.hasOwnProperty(report.event_id) 
+                            ? eventMap[report.event_id] 
+                            : 'Unknown Event'
+                    }));
+                }
+            }
+            
+            // Fetch user data
+            if (userIds.length > 0) {
+                const { data: users } = await supabase
+                    .from('user_profiles')
+                    .select('id, display_name')
+                    .in('id', userIds);
+                
+                if (users) {
+                    // Create lookup map for user display names
+                    const userMap: Record<string, string> = users.reduce((acc: Record<string, string>, user) => {
+                        acc[user.id] = user.display_name;
+                        return acc;
+                    }, {});
+                    
+                    // Add user_name to each report
+                    eventReports = eventReports.map(report => ({
+                        ...report,
+                        user_name: report.user_id && userMap.hasOwnProperty(report.user_id) 
+                            ? userMap[report.user_id] 
+                            : 'Anonymous'
+                    }));
+                }
+            }
+        }
+    } catch (err) {
+        console.error('Error fetching event reports:', err);
+        if (type === 'event') {
+            error = err instanceof Error ? err : new Error('An unexpected error occurred');
+        }
     }
 }
 
@@ -74,11 +202,23 @@ const buildUrl = (newPage: number) => {
 
 // Format date for display
 const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+    try {
+        const date = new Date(dateString);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            return 'Invalid date';
+        }
+        
+        return date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (err) {
+        console.error(`Error formatting date: ${dateString}`, err);
+        return dateString || 'Unknown date';
+    }
 };
 ---
 
@@ -163,11 +303,11 @@ const formatDate = (dateString: string) => {
                             <tr>
                                 <td>
                                     <a href={`/pianos/${report.piano_id}`} class="link link-hover">
-                                        {report.pianos?.name || 'Unknown Piano'}
+                                        {report.piano_name}
                                     </a>
                                 </td>
                                 <td>{report.issue_type}</td>
-                                <td>{report.user_profiles?.display_name || 'Anonymous'}</td>
+                                <td>{report.user_name}</td>
                                 <td>{formatDate(report.created_at)}</td>
                                 <td>
                                     <span class={`badge ${report.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
@@ -226,11 +366,11 @@ const formatDate = (dateString: string) => {
                             <tr>
                                 <td>
                                     <a href={`/events/${report.event_id}`} class="link link-hover">
-                                        {report.events?.name || 'Unknown Event'}
+                                        {report.event_name}
                                     </a>
                                 </td>
                                 <td>{report.issue_type}</td>
-                                <td>{report.user_profiles?.display_name || 'Anonymous'}</td>
+                                <td>{report.user_name}</td>
                                 <td>{formatDate(report.created_at)}</td>
                                 <td>
                                     <span class={`badge ${report.status === 'pending' ? 'badge-warning' : 'badge-success'}`}>
@@ -337,7 +477,28 @@ const formatDate = (dateString: string) => {
 </dialog>
 
 <script>
-    import { supabase } from '../../../utils/supabase';
+    // Import types
+    import type { SupabaseClient } from '@supabase/supabase-js';
+    
+    // Safer import pattern
+    let supabaseClient: SupabaseClient | null = null;
+    
+    // Safe import function
+    async function getSupabaseClient(): Promise<SupabaseClient> {
+        if (supabaseClient) return supabaseClient;
+        
+        try {
+            const { supabase } = await import('../../../utils/supabase');
+            if (!supabase) {
+                throw new Error('Failed to initialize Supabase client');
+            }
+            supabaseClient = supabase;
+            return supabaseClient;
+        } catch (error) {
+            console.error('Error importing Supabase client:', error);
+            throw new Error('Database connection failed. Please try again later.');
+        }
+    }
     
     document.addEventListener('DOMContentLoaded', () => {
         const reportModal = document.getElementById('report-modal') as HTMLDialogElement;
@@ -358,62 +519,123 @@ const formatDate = (dateString: string) => {
                     reportModalContent.innerHTML = '<div class="skeleton h-32 w-full"></div>';
                     reportModal.showModal();
                     
+                    // Get Supabase client
+                    const supabase = await getSupabaseClient();
+                    
                     // Fetch report details
                     let report;
                     if (reportType === 'piano') {
+                        // First, get the basic report details
                         const { data, error } = await supabase
                             .from('piano_reports')
-                            .select('*, pianos:piano_id(*), user_profiles:user_id(*)')
+                            .select('*')
                             .eq('id', reportId)
                             .single();
                         
                         if (error) throw error;
                         report = data;
                         
+                        // Then get the piano and user details separately
+                        if (report.piano_id) {
+                            const { data: piano } = await supabase
+                                .from('pianos')
+                                .select('name')
+                                .eq('id', report.piano_id)
+                                .single();
+                                
+                            if (piano) {
+                                report.piano_name = piano.name;
+                            }
+                        }
+                        
+                        if (report.user_id) {
+                            const { data: user } = await supabase
+                                .from('user_profiles')
+                                .select('display_name')
+                                .eq('id', report.user_id)
+                                .single();
+                                
+                            if (user) {
+                                report.user_name = user.display_name;
+                            }
+                        }
+                        
                         if (reportModalTitle) {
-                            reportModalTitle.textContent = `Piano Report: ${report.pianos?.name || 'Unknown Piano'}`;
+                            reportModalTitle.textContent = `Piano Report: ${report.piano_name || 'Unknown Piano'}`;
                         }
                     } else {
+                        // First, get the basic report details
                         const { data, error } = await supabase
                             .from('event_reports')
-                            .select('*, events:event_id(*), user_profiles:user_id(*)')
+                            .select('*')
                             .eq('id', reportId)
                             .single();
                         
                         if (error) throw error;
                         report = data;
                         
+                        // Then get the event and user details separately
+                        if (report.event_id) {
+                            const { data: event } = await supabase
+                                .from('events')
+                                .select('name')
+                                .eq('id', report.event_id)
+                                .single();
+                                
+                            if (event) {
+                                report.event_name = event.name;
+                            }
+                        }
+                        
+                        if (report.user_id) {
+                            const { data: user } = await supabase
+                                .from('user_profiles')
+                                .select('display_name')
+                                .eq('id', report.user_id)
+                                .single();
+                                
+                            if (user) {
+                                report.user_name = user.display_name;
+                            }
+                        }
+                        
                         if (reportModalTitle) {
-                            reportModalTitle.textContent = `Event Report: ${report.events?.name || 'Unknown Event'}`;
+                            reportModalTitle.textContent = `Event Report: ${report.event_name || 'Unknown Event'}`;
                         }
                     }
                     
                     // Format date
-                    const reportDate = new Date(report.created_at).toLocaleDateString(undefined, {
-                        year: 'numeric',
-                        month: 'long',
-                        day: 'numeric',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    });
+                    let reportDate;
+                    try {
+                        reportDate = new Date(report.created_at).toLocaleDateString(undefined, {
+                            year: 'numeric',
+                            month: 'long',
+                            day: 'numeric',
+                            hour: '2-digit',
+                            minute: '2-digit'
+                        });
+                    } catch (err) {
+                        console.error('Error formatting date:', err);
+                        reportDate = 'Unknown date';
+                    }
                     
                     // Build report content
                     reportModalContent.innerHTML = `
                         <div class="space-y-4">
                             <div class="flex justify-between">
                                 <div>
-                                    <span class="font-semibold">Issue Type:</span> ${report.issue_type}
+                                    <span class="font-semibold">Issue Type:</span> ${report.issue_type || 'Unknown issue'}
                                 </div>
                                 <div>
                                     <span class="badge ${report.status === 'pending' ? 'badge-warning' : 'badge-success'}">
-                                        ${report.status}
+                                        ${report.status || 'unknown'}
                                     </span>
                                 </div>
                             </div>
                             
                             <div>
                                 <span class="font-semibold">Reported By:</span> 
-                                ${report.user_profiles?.display_name || 'Anonymous'} 
+                                ${report.user_name || 'Anonymous'} 
                                 on ${reportDate}
                             </div>
                             
@@ -421,7 +643,7 @@ const formatDate = (dateString: string) => {
                             
                             <div>
                                 <span class="font-semibold">Description:</span>
-                                <p class="mt-2 p-4 bg-base-200 rounded-lg">${report.description}</p>
+                                <p class="mt-2 p-4 bg-base-200 rounded-lg">${report.description || 'No description provided'}</p>
                             </div>
                             
                             <div class="divider my-2"></div>
@@ -469,7 +691,7 @@ const formatDate = (dateString: string) => {
                         reportModalContent.innerHTML = `
                             <div class="alert alert-error">
                                 <svg xmlns="http://www.w3.org/2000/svg" class="stroke-current shrink-0 h-6 w-6" fill="none" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 14l2-2m0 0l2-2m-2 2l-2-2m2 2l2 2m7-2a9 9 0 11-18 0 9 9 0 0118 0z" /></svg>
-                                <span>Error loading report details</span>
+                                <span>${error instanceof Error ? error.message : 'Error loading report details'}</span>
                             </div>
                         `;
                     }
@@ -559,6 +781,9 @@ const formatDate = (dateString: string) => {
         // Function to resolve a report
         async function resolveReport(reportId: string, reportType: string) {
             try {
+                // Get Supabase client
+                const supabase = await getSupabaseClient();
+                
                 // Update report status
                 const table = reportType === 'piano' ? 'piano_reports' : 'event_reports';
                 const { error } = await supabase
@@ -567,6 +792,10 @@ const formatDate = (dateString: string) => {
                     .eq('id', reportId);
                 
                 if (error) {
+                    // Handle specific error types
+                    if (error.code === '42501' || error.message?.includes('permission')) {
+                        throw new Error('Permission denied: You may not have rights to modify this report');
+                    }
                     throw error;
                 }
                 
@@ -587,6 +816,9 @@ const formatDate = (dateString: string) => {
         // Function to delete a report
         async function deleteReport(reportId: string, reportType: string) {
             try {
+                // Get Supabase client
+                const supabase = await getSupabaseClient();
+                
                 // Delete report
                 const table = reportType === 'piano' ? 'piano_reports' : 'event_reports';
                 const { error } = await supabase
@@ -595,6 +827,12 @@ const formatDate = (dateString: string) => {
                     .eq('id', reportId);
                 
                 if (error) {
+                    // Handle specific error types
+                    if (error.code === '42501' || error.message?.includes('permission')) {
+                        throw new Error('Permission denied: You may not have rights to delete this report');
+                    } else if (error.code === '23503') {
+                        throw new Error('Cannot delete: This report is referenced by other items');
+                    }
                     throw error;
                 }
                 

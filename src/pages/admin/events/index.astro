@@ -13,7 +13,7 @@ const filter = searchParams.get('filter') || 'all';
 // Build query
 let query = supabase
     .from('events')
-    .select('*, user_profiles:created_by(display_name), pianos:piano_id(name)', { count: 'exact' });
+    .select('*, created_by, piano_id', { count: 'exact' });
 
 // Apply search if provided
 if (search) {
@@ -34,6 +34,58 @@ const { data: events, count, error } = await query
     .order('date', { ascending: true })
     .range(offset, offset + limit - 1);
 
+// If we have events, fetch the piano names in a separate query
+let pianoNames: Record<string, string> = {};
+if (events && events.length > 0) {
+    const pianoIds = events
+        .map(event => event.piano_id)
+        .filter(id => id !== null && id !== undefined);
+    
+    if (pianoIds.length > 0) {
+        const { data: pianos } = await supabase
+            .from('pianos')
+            .select('id, name')
+            .in('id', pianoIds);
+        
+        if (pianos) {
+            pianoNames = pianos.reduce((acc: Record<string, string>, piano) => {
+                acc[piano.id] = piano.name;
+                return acc;
+            }, {});
+        }
+    }
+    
+    // Optionally fetch user names if needed
+    // Uncomment this section if you want to display created_by user names
+    /*
+    const userIds = events
+        .map(event => event.created_by)
+        .filter(id => id !== null && id !== undefined);
+    
+    if (userIds.length > 0) {
+        const { data: users } = await supabase
+            .from('user_profiles')
+            .select('id, display_name')
+            .in('id', userIds);
+        
+        if (users) {
+            const userNames = users.reduce((acc: Record<string, string>, user) => {
+                acc[user.id] = user.display_name;
+                return acc;
+            }, {});
+            
+            // Add a user_name property to each event
+            events = events.map(event => ({
+                ...event,
+                user_name: event.created_by && userNames[event.created_by] 
+                    ? userNames[event.created_by]
+                    : 'Unknown User'
+            }));
+        }
+    }
+    */
+}
+
 // Calculate pagination
 const totalPages = count ? Math.ceil(count / limit) : 0;
 const showPagination = totalPages > 1;
@@ -49,11 +101,23 @@ const buildUrl = (newPage: number) => {
 
 // Format date for display
 const formatDate = (dateString: string) => {
-    return new Date(dateString).toLocaleDateString(undefined, {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric'
-    });
+    try {
+        const date = new Date(dateString);
+        
+        // Check if date is valid
+        if (isNaN(date.getTime())) {
+            return 'Invalid date';
+        }
+        
+        return date.toLocaleDateString(undefined, {
+            year: 'numeric',
+            month: 'long',
+            day: 'numeric'
+        });
+    } catch (err) {
+        console.error(`Error formatting date: ${dateString}`, err);
+        return dateString || 'Unknown date';
+    }
 };
 ---
 
@@ -144,35 +208,41 @@ const formatDate = (dateString: string) => {
                         </tr>
                     </thead>
                     <tbody>
-                        {events.map((event) => (
-                            <tr>
-                                <td>{event.name}</td>
-                                <td>
-                                    <div>{formatDate(event.date)}</div>
-                                    <div class="text-xs opacity-70">{event.time}</div>
-                                </td>
-                                <td>{event.location}</td>
-                                <td>{event.pianos?.name || 'Unknown Piano'}</td>
-                                <td>
-                                    <span class={`badge ${
-                                        event.status === 'upcoming' ? 'badge-primary' : 
-                                        event.status === 'ongoing' ? 'badge-success' : 
-                                        'badge-secondary'
-                                    }`}>
-                                        {event.status}
-                                    </span>
-                                </td>
-                                <td class="flex gap-2">
-                                    <a href={`/admin/events/${event.id}`} class="btn btn-xs btn-primary">Edit</a>
-                                    <button 
-                                        class="btn btn-xs btn-outline btn-error delete-event-btn"
-                                        data-event-id={event.id}
-                                    >
-                                        Delete
-                                    </button>
-                                </td>
-                            </tr>
-                        ))}
+                        {events.map((event) => {
+                            const pianoName = event.piano_id && pianoNames.hasOwnProperty(event.piano_id) 
+                                ? pianoNames[event.piano_id] 
+                                : 'Unknown Piano';
+                            
+                            return (
+                                <tr>
+                                    <td>{event.name || 'Unnamed Event'}</td>
+                                    <td>
+                                        <div>{formatDate(event.date)}</div>
+                                        <div class="text-xs opacity-70">{event.time || 'No time specified'}</div>
+                                    </td>
+                                    <td>{event.location || 'No location'}</td>
+                                    <td>{pianoName}</td>
+                                    <td>
+                                        <span class={`badge ${
+                                            event.status === 'upcoming' ? 'badge-primary' : 
+                                            event.status === 'ongoing' ? 'badge-success' : 
+                                            'badge-secondary'
+                                        }`}>
+                                            {event.status || 'unknown'}
+                                        </span>
+                                    </td>
+                                    <td class="flex gap-2">
+                                        <a href={`/admin/events/${event.id}`} class="btn btn-xs btn-primary">Edit</a>
+                                        <button 
+                                            class="btn btn-xs btn-outline btn-error delete-event-btn"
+                                            data-event-id={event.id}
+                                        >
+                                            Delete
+                                        </button>
+                                    </td>
+                                </tr>
+                            );
+                        })}
                     </tbody>
                 </table>
             </div>
@@ -272,8 +342,19 @@ const formatDate = (dateString: string) => {
                         confirmDeleteModal.close();
                         
                         try {
-                            // Import supabase client
-                            const { supabase } = await import('../../../utils/supabase');
+                            // Import supabase client safely
+                            let supabase;
+                            try {
+                                const supabaseModule = await import('../../../utils/supabase');
+                                supabase = supabaseModule.supabase;
+                                
+                                if (!supabase) {
+                                    throw new Error('Supabase client not initialized');
+                                }
+                            } catch (importError) {
+                                console.error('Error importing Supabase client:', importError);
+                                throw new Error('Could not connect to database. Please try again later.');
+                            }
                             
                             // Delete event
                             const { error } = await supabase
@@ -282,7 +363,14 @@ const formatDate = (dateString: string) => {
                                 .eq('id', eventId);
                             
                             if (error) {
-                                throw error;
+                                // Handle specific error types
+                                if (error.code === '42501' || error.message?.includes('permission')) {
+                                    throw new Error('Permission denied: You may not have rights to delete this event');
+                                } else if (error.code === '23503') {
+                                    throw new Error('Cannot delete: This event is referenced by other items');
+                                } else {
+                                    throw error;
+                                }
                             }
                             
                             // Remove row from table

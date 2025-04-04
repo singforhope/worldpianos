@@ -76,6 +76,7 @@ BEGIN
             verified BOOLEAN DEFAULT FALSE,
             verification_count INTEGER DEFAULT 0,
             status TEXT DEFAULT 'active',
+            flagged BOOLEAN DEFAULT FALSE,
             created_by UUID REFERENCES auth.users(id),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -150,6 +151,9 @@ BEGIN
             WHERE last_maintained IS NOT NULL AND last_maintained != 'Unknown';
             ALTER TABLE pianos DROP COLUMN IF EXISTS last_maintained;
             ALTER TABLE pianos RENAME COLUMN temp_last_maintained TO last_maintained;
+            
+            -- Add flagged column if it doesn't exist
+            ALTER TABLE pianos ADD COLUMN IF NOT EXISTS flagged BOOLEAN DEFAULT FALSE;
         EXCEPTION
             WHEN others THEN
                 RAISE NOTICE 'Error altering pianos table: %', SQLERRM;
@@ -173,6 +177,7 @@ BEGIN
             type TEXT NOT NULL,
             piano_id UUID REFERENCES pianos(id) NOT NULL,
             status TEXT DEFAULT 'upcoming',
+            flagged BOOLEAN DEFAULT FALSE,
             created_by UUID REFERENCES auth.users(id),
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW(),
             updated_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
@@ -237,6 +242,9 @@ BEGIN
             ALTER TABLE events DROP COLUMN IF EXISTS date;
             ALTER TABLE events RENAME COLUMN temp_date TO date;
             ALTER TABLE events ALTER COLUMN date SET NOT NULL;
+            
+            -- Add flagged column if it doesn't exist
+            ALTER TABLE events ADD COLUMN IF NOT EXISTS flagged BOOLEAN DEFAULT FALSE;
         EXCEPTION
             WHEN others THEN
                 RAISE NOTICE 'Error altering events table: %', SQLERRM;
@@ -310,8 +318,12 @@ BEGIN
             media_type TEXT NOT NULL,
             url TEXT NOT NULL,
             description TEXT,
+            flagged BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
+    ELSE
+        -- Add flagged column if it doesn't exist
+        ALTER TABLE piano_media ADD COLUMN IF NOT EXISTS flagged BOOLEAN DEFAULT FALSE;
     END IF;
 END
 $$;
@@ -327,8 +339,12 @@ BEGIN
             media_type TEXT NOT NULL,
             url TEXT NOT NULL,
             description TEXT,
+            flagged BOOLEAN DEFAULT FALSE,
             created_at TIMESTAMP WITH TIME ZONE DEFAULT NOW()
         );
+    ELSE
+        -- Add flagged column if it doesn't exist
+        ALTER TABLE event_media ADD COLUMN IF NOT EXISTS flagged BOOLEAN DEFAULT FALSE;
     END IF;
 END
 $$;
